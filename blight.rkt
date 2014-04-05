@@ -6,9 +6,9 @@
 (require libtoxcore-racket)
 
 (define my-name "Blight Wizard")
-(define my-user-status "Toxing on Blight")
+(define my-status-message "Toxing on Blight")
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
 
-(tox_set_self_user_status my-user-status (string-length my-user-status))
+(tox_set_status_message my-tox my-status-message (string-length my-status-message))
 
 (tox_kill my-tox)
