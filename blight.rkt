@@ -1,31 +1,32 @@
 #!/usr/bin/env racket
-#lang racket
-; blight
-; charterm-based Tox client - for now
-; GUI is better, but I'm the derps with GUI
+#lang racket/gui
+; blight.rkt
+; GUI Tox client
 (require libtoxcore-racket ; wrapper
          db                 ; access db for stored info
-         file/sha1          ; hex-string procedures
-         (planet neil/charterm)) ; character-cell terminal interface
+         file/sha1)         ; hex-string procedures
 
-(let loop ()
-  (with-charterm
-   ;(charterm-clear-screen)
-   (charterm-cursor 10 5)
-   (charterm-display "Hello, ")
-   (charterm-bold)
-   (charterm-display "you")
-   (charterm-normal)
-   (charterm-display ".")
-   (charterm-cursor 1 1)
-   (charterm-display "Press a key...")
-   (let ((key (charterm-read-key)))
-     (charterm-cursor 1 1)
-     (charterm-clear-line)
-     (printf "You pressed: ~S\r\n" key)
-     (if (eq? key #\Q)
-         (displayln "Goodbye!")
-         (loop)))))
+; gui stuff
+; create a new top-level window
+; make a frame by instantiating the frame% class
+(define frame (new frame%
+                   [label "Clock"]
+                   [width 300]
+                   [height 600]))
+
+; make a static text message in the frame
+(define msg (new message% [parent frame]
+		          (label [number->string(current-seconds)])))
+
+; make button in the frame
+(new button% [parent frame]
+             [label "Quit"]
+	     ; callback procedure for a button click:
+	     [callback (λ (button event)
+			 (exit))])
+
+; show the frame by call its show method
+(send frame show #t)
 
 ; tox stuff
 #|(define my-name "Blight Wizard")
