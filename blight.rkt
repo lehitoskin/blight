@@ -10,20 +10,36 @@
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
 (define frame (new frame%
-                   [label "Clock"]
-                   [width 300]
+                   [label "Blight"]
+                   [width 400]
                    [height 600]))
 
 ; make a static text message in the frame
 (define msg (new message% [parent frame]
-		          (label [number->string(current-seconds)])))
+                 (label "Blight all the blights")))
+
+; derive a new canvas (a drawin window) class to handle events
+(new text-field%
+     [label "ENTER TEXT HERE"]
+     [parent frame]
+     [vert-margin 300]
+     [enabled #t])
+
+
+(define panel (new horizontal-pane%
+                   [parent frame]
+                   [border 2]))
+
+(new button% [parent panel]
+     [label "Send"])
 
 ; make button in the frame
-(new button% [parent frame]
-             [label "Quit"]
-	     ; callback procedure for a button click:
-	     [callback (λ (button event)
-			 (exit))])
+(new button% [parent panel]
+     [label "Quit"]
+     ; callback procedure for a button click:
+     [callback (λ (button event)
+                 (exit))])
+
 
 ; show the frame by call its show method
 (send frame show #t)
