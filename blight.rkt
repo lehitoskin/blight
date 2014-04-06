@@ -16,22 +16,41 @@
 
 ; make a static text message in the frame
 (define msg (new message% [parent frame]
-                 (label "Blight all the blights")))
+                 [label "Blight"]))
 
-; derive a new canvas (a drawin window) class to handle events
-(new text-field%
-     [label "ENTER TEXT HERE"]
-     [parent frame]
-     [vert-margin 300]
-     [enabled #t])
+(define editor-canvas (new editor-canvas%
+                           [parent frame]
+                           [style (list 'control-border 'no-hscroll
+                                        'auto-vscroll)]
+                           [line-count 5]
+                           [min-height 400]
+                           [vert-margin 10]
+                           [enabled #t]))
+
+(define enter (new key-event%
+                   [key-code #\return]))
+
+(define text (new text%
+                  [line-spacing 1.0]))
+
+; derive a new canvas (a drawing window) class to handle events
+(define tfield (new text-field%
+                    [label "Message:"]
+                    [parent frame]
+                    [vert-margin 50]
+                    [enabled #t]
+                    [callback (λ (on-char enter)
+                                (send text get-text))]))
 
 
 (define panel (new horizontal-pane%
                    [parent frame]
                    [border 2]))
 
-(new button% [parent panel]
-     [label "Send"])
+#|(new button% [parent panel]
+     [label "Send"]
+     [callback (λ (button event)
+                 (send msg set-label "Butts!"))])|#
 
 ; make button in the frame
 (new button% [parent panel]
@@ -45,7 +64,7 @@
 (send frame show #t)
 
 ; tox stuff
-#|(define my-name "Blight Wizard")
+#|(define my-name "Blight Tester")
 (define my-status-message "Toxing on Blight")
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
 
