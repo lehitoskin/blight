@@ -6,6 +6,23 @@
          db                 ; access db for stored info
          file/sha1)         ; hex-string procedures
 
+(define license-message
+  " Blight - a Tox client written in Racket.\n
+    Copyright (C) 2014 Lehi Toskin\n\n
+
+    This program is free software: you can redistribute it and/or modify\n
+    it under the terms of the GNU General Public License as published by\n
+    the Free Software Foundation, either version 3 of the License, or\n
+    (at your option) any later version.\n\n
+
+    This program is distributed in the hope that it will be useful,\n
+    but WITHOUT ANY WARRANTY; without even the implied warranty of\n
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n
+    GNU General Public License for more details.\n\n
+
+    You should have received a copy of the GNU General Public License\n
+    along with this program. If not, see <http://www.gnu.org/licenses/>.")
+
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
 (define frame (new frame%
@@ -18,22 +35,43 @@
                        [label "Blight"]))
 
 #| ########## CANVAS AND OTHER FIELD DEFINITIONS ########## |#
-; an editor canvas where messages will appear(?)
+; create a canvas object to draw stuff on
+(define canvas (new canvas% [parent frame]
+                    [min-height 400]
+                    [vert-margin 10]
+                    [style (list 'control-border 'no-autoclear)]
+                    [paint-callback
+                     (λ (canvas dc)
+                       (send dc set-scale 1 1)
+                       (send dc set-text-foreground "black")
+                       (send dc draw-text "Immutable as of yet" 0 0))]))
+#|(define-values (canvas-virtual-size-x canvas-virtual-size-y)
+  (send canvas get-virtual-size))
+(send canvas init-auto-scrollbars canvas-virtual-size-x
+      canvas-virtual-size-y 0.0 0.0)|#
+
+; not sure what good this is. text-field% sends to text% I guess?
+(define text (new text%
+                  [line-spacing 1.0]
+                  [auto-wrap #t]))
+
+; an editor canvas where text% messages will appear(?)
 (define editor-canvas (new editor-canvas%
                            [parent frame]
+                           [label "Your message goes here"]
+                           [editor text]
                            [style (list 'control-border 'no-hscroll
                                         'auto-vscroll)]
-                           [min-height 400]
+                           [wheel-step 3]
+                           [min-height 100]
                            [vert-margin 10]
                            [enabled #t]))
+;(send text add-canvas editor-canvas)
+;(send editor-canvas set-editor text)
 
 ; key event when the user presses Enter
 (define enter (new key-event%
                    [key-code #\return]))
-
-; not sure what good this is. text-field% sends to text% I guess?
-(define text (new text%
-                  [line-spacing 1.0]))
 
 ; create a text-field to enter a message
 (define tfield (new text-field%
@@ -41,17 +79,17 @@
                     [parent frame]
                     [vert-margin 50]
                     [enabled #t]
-                    [callback (λ (on-char enter)
-                                (send text get-text))]))
+                    [callback (λ (on-event enter)
+                                (send frame-msg set-label (send tfield get-value)))]))
+
+; panel for main frame
+(define panel (new horizontal-panel%
+                   [parent frame]))
 
 ; dialog box when exiting
 (define exit-dialog (new dialog%
                          [label "Exit Blight"]
                          [style (list 'close-button)]))
-
-; panel for main frame
-(define panel (new horizontal-panel%
-                   [parent frame]))
 
 ; panel for exit-dialog
 (define exit-panel (new horizontal-panel%
@@ -68,6 +106,30 @@
 #|(define exit-pane (new horizontal-pane%
                        [parent exit-panel]
                        [vert-margin 100]))|#
+
+; dialog box when looking at Help
+(define help-dialog (new dialog%
+                         [label "About Blight"]
+                         [style (list 'close-button)]))
+
+; panel for help-dialog
+(define help-panel (new horizontal-panel%
+                        [parent help-dialog]))
+
+
+; create a canvas object to draw stuff on - need a canvas
+; to print the license message
+(define help-canvas (new canvas% [parent help-panel]
+                         [min-height 400]
+                         [min-width 500]
+                         [vert-margin 10]
+                         [style (list 'control-border 'no-autoclear
+                                      'hscroll 'vscroll)]
+                         [paint-callback
+                          (λ (canvas dc)
+                            (send dc set-scale 1 1)
+                            (send dc set-text-foreground "black")
+                            (send dc draw-text "Blight - #\null a Tox client written in Racket." 0 0))]))
 
 #| ############ MENU BAR AND STUFF ############## |#
 ; menu bar for the frame
@@ -105,8 +167,8 @@
 
 ; menu Edit for menu bar
 (define menu-edit (new menu% [parent frame-menu-bar]
-                      [label "Edit"]
-                      [help-string "Modify Blight"]))
+                       [label "Edit"]
+                       [help-string "Modify Blight"]))
 
 ; Preferences menu item for Edit
 #|(new menu-item% [parent menu-edit]
@@ -122,11 +184,11 @@
                        [help-string "Get information about Blight"]))
 
 ; About Blight menu item for Help
-#|(new menu-item% [parent menu-help]
+(new menu-item% [parent menu-help]
      [label "About Blight"]
      [help-string "Show information about Blight"]
      [callback (λ (button event)
-                 (send help-blight-box show #t))])|#
+                 (send help-dialog show #t))])
 
 ; Get Help menu item for Help
 #|(new menu-item% [parent menu-help]
@@ -141,11 +203,10 @@
 (new button% [parent panel]
      [label "Send"]
      [callback (λ (button event)
-                 (and
-                  ; set new title to what's inside tfield
-                  (send frame-msg set-label (send tfield get-value))
-                  ; reset tfield to empty
-                  (send tfield set-value "")))])
+                 ; set new title to what's inside tfield
+                 (send frame-msg set-label (send tfield get-value))
+                 ; reset tfield to empty
+                 (send tfield set-value ""))])
 
 ; exit-dialog button - Yes, I am sure I want to close
 (new button% [parent exit-panel]
