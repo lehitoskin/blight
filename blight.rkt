@@ -60,7 +60,7 @@
                      (λ (canvas dc)
                        (send dc set-scale 1 1)
                        (send dc set-text-foreground "black")
-                       (send dc draw-text "Enter some text" 0 0))]))
+                       (send dc draw-text "" 0 0))]))
 #|(define-values (canvas-vsize-x canvas-vsize-y)
   (send canvas get-virtual-size))
 (send canvas init-auto-scrollbars canvas-vsize-x
@@ -105,16 +105,6 @@
                          [label "Exit Blight"]
                          [style (list 'close-button)]))
 
-; panel for exit-dialog
-(define exit-panel (new horizontal-panel%
-                        [parent exit-dialog]))
-
-; message for the exit-panel
-(define exit-panel-msg (new message%
-                            [parent exit-panel]
-                            [label "Are you sure you want to quit?"]
-                            [vert-margin 50]))
-
 ; pane for buttons for exit-dialog so we get the buttons
 ; underneath the message (?) doesn't seem to want to work
 #|(define exit-pane (new horizontal-pane%
@@ -143,7 +133,7 @@
                             (send dc set-scale 1 1)
                             (send dc set-text-foreground "black")
                             (send dc draw-text
-                                  "Blight - #\nul a Tox client written in Racket." 0 0))]))
+                                  "Blight - a Tox client written in Racket." 0 0))]))
 
 #| ############ MENU BAR AND STUFF ############## |#
 ; menu bar for the frame
@@ -172,12 +162,20 @@
                      (send open-file-box show #t))])|#
 
 ; Quit menu item for File
+; uses message-box with 'ok-cancel
 (new menu-item% [parent menu-file]
      [label "Quit"]
      [shortcut #\Q]
      [help-string "Quit Blight"]
      [callback (λ (button event)
-                 (send exit-dialog show #t))])
+                 ;(send exit-dialog show #t))])
+                 (let ((mbox (message-box "Quit Blight"
+                              "Are you sure you want to quit Blight?"
+                              exit-dialog
+                              (list 'ok-cancel))))
+                   (if (eq? mbox 'ok)
+                       (exit)
+                       null)))])
 
 ; menu Edit for menu bar
 (define menu-edit (new menu% [parent frame-menu-bar]
@@ -237,11 +235,11 @@
 #|(new button% [parent panel]
      [label "Send Message"]
      [callback (λ (button event)
-                 (send canvas refresh)
                  ; send canvas contents of editor-canvas
-                 (let ((dc (send canvas get-dc)))
-                   (send dc draw-text "" 0 0)
+                 #|(let ((dc (send canvas get-dc)))
+                   ;(send dc draw-text "" 0 0)
                    (send dc draw-text (send text get-text) 0 0)))])|#
+                 (send text get-text))])|#
 
 ; clears the canvas
 (new button% [parent panel]
@@ -249,22 +247,8 @@
      [callback (λ (button event)
                  ; send canvas contents of tfield
                  (let ((dc (send canvas get-dc)))
-                   ;(send dc draw-text "" 0 0) ; doesn't work?
-                   (send canvas on-paint)))])
-
-; exit-dialog button - No I am not sure I want to close
-(new button% [parent exit-panel]
-     [label "Cancel"]
-     ; close the dialog box
-     [callback (λ (button event)
-                 (send exit-dialog show #f))])
-
-; exit-dialog button - Yes, I am sure I want to close
-(new button% [parent exit-panel]
-     [label "Quit"]
-     ; confirm exit
-     [callback (λ (button event)
-                 (exit))])
+                   (send dc draw-text "" 0 0)
+                   (send canvas flush)))])
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
