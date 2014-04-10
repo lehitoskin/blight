@@ -84,6 +84,7 @@
                            [enabled #t]))
 ; make the window refresh more often
 (send editor-canvas lazy-refresh #t)
+(printf "Current editor for editor-canvas: ~a\n" (send editor-canvas get-editor))
 
 ; key event when the user presses Enter
 (define enter-press (new key-event%
@@ -222,24 +223,25 @@
 
 ; panel button for sending text to canvas
 ; uses tfield
-(new button% [parent panel]
+#|(new button% [parent panel]
      [label "Send Message"]
      [callback (λ (button event)
                  ; send canvas contents of tfield
                  (let ((dc (send canvas get-dc)))
                    ;(send dc draw-text "" 0 0) ; doesn't work?
                    (send dc draw-text (send tfield get-value) 0 0)
-                   (send tfield set-value "")))])
+                   (send tfield set-value "")))])|#
 
-; uses editor-canvas
-#|(new button% [parent panel]
+; uses editor-canvas to draw to canvas
+(new button% [parent panel]
      [label "Send Message"]
      [callback (λ (button event)
                  ; send canvas contents of editor-canvas
-                 #|(let ((dc (send canvas get-dc)))
+                 (let ((dc (send canvas get-dc)))
                    ;(send dc draw-text "" 0 0)
-                   (send dc draw-text (send text get-text) 0 0)))])|#
-                 (send text get-text))])|#
+                   (send dc draw-text
+                         (send text get-text 0 'eof #t #t)
+                         0 0)))])
 
 ; clears the canvas
 (new button% [parent panel]
