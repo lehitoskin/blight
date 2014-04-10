@@ -7,21 +7,35 @@
          file/sha1)         ; hex-string procedures
 
 (define license-message
-  " Blight - a Tox client written in Racket.\n
-    Copyright (C) 2014 Lehi Toskin\n\n
+  " Blight - a Tox client written in Racket.
+    Copyright (C) 2014 Lehi Toskin.
 
-    This program is free software: you can redistribute it and/or modify\n
-    it under the terms of the GNU General Public License as published by\n
-    the Free Software Foundation, either version 3 of the License, or\n
-    (at your option) any later version.\n\n
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,\n
-    but WITHOUT ANY WARRANTY; without even the implied warranty of\n
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n
-    GNU General Public License for more details.\n\n
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License\n
+    You should have received a copy of the GNU General Public License
     along with this program. If not, see <http://www.gnu.org/licenses/>.")
+
+#|
+ # two ways (so far) to go about sending a message, graphically:
+ # use editor-canvas%, which is pretty, but not as yet obviously
+ # function as text-field%, second is text-field%, which is
+ # functional, but not as pretty as editor-canvas%
+ #
+ # issues:
+ # - cannot figure out how to clear text from canvas
+ # - default text for canvas% is preserved on resizing the window,
+ #   which might be because of (send canvas on-draw).
+ # - sending a new draw-text to canvas doesn't replace the default
+ #   text, simply appears underneath the old.
+ |#
 
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
@@ -32,30 +46,32 @@
 
 ; make a static text message in the frame
 (define frame-msg (new message% [parent frame]
-                       [label "Blight"]))
+                       [label "Blight"]
+                       [min-width 40]))
 
 #| ########## CANVAS AND OTHER FIELD DEFINITIONS ########## |#
 ; create a canvas object to draw stuff on
 (define canvas (new canvas% [parent frame]
                     [min-height 400]
-                    [vert-margin 10]
-                    [style (list 'control-border 'no-autoclear)]
+                    [vert-margin 5]
+                    [style (list 'control-border 'no-autoclear
+                                 'no-focus 'vscroll)]
                     [paint-callback
                      (λ (canvas dc)
                        (send dc set-scale 1 1)
                        (send dc set-text-foreground "black")
-                       (send dc draw-text "Immutable as of yet" 0 0))]))
-#|(define-values (canvas-virtual-size-x canvas-virtual-size-y)
+                       (send dc draw-text "Enter some text" 0 0))]))
+#|(define-values (canvas-vsize-x canvas-vsize-y)
   (send canvas get-virtual-size))
-(send canvas init-auto-scrollbars canvas-virtual-size-x
-      canvas-virtual-size-y 0.0 0.0)|#
+(send canvas init-auto-scrollbars canvas-vsize-x
+      canvas-vsize-y 0.0 0.0)
+(send canvas show-scrollbars #f #f) ; hide scrollbars|#
 
-; not sure what good this is. text-field% sends to text% I guess?
 (define text (new text%
                   [line-spacing 1.0]
                   [auto-wrap #t]))
 
-; an editor canvas where text% messages will appear(?)
+; an editor canvas where text% messages will appear
 (define editor-canvas (new editor-canvas%
                            [parent frame]
                            [label "Your message goes here"]
@@ -64,23 +80,21 @@
                                         'auto-vscroll)]
                            [wheel-step 3]
                            [min-height 100]
-                           [vert-margin 10]
+                           [vert-margin 5]
                            [enabled #t]))
-;(send text add-canvas editor-canvas)
-;(send editor-canvas set-editor text)
+; make the window refresh more often
+(send editor-canvas lazy-refresh #t)
 
 ; key event when the user presses Enter
-(define enter (new key-event%
-                   [key-code #\return]))
+(define enter-press (new key-event%
+                         [key-code #\return]))
 
 ; create a text-field to enter a message
 (define tfield (new text-field%
                     [label "Change title:"]
                     [parent frame]
                     [vert-margin 50]
-                    [enabled #t]
-                    [callback (λ (on-event enter)
-                                (send frame-msg set-label (send tfield get-value)))]))
+                    [enabled #t]))
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -123,13 +137,13 @@
                          [min-height 400]
                          [min-width 500]
                          [vert-margin 10]
-                         [style (list 'control-border 'no-autoclear
-                                      'hscroll 'vscroll)]
+                         [style (list 'control-border 'no-autoclear)]
                          [paint-callback
                           (λ (canvas dc)
                             (send dc set-scale 1 1)
                             (send dc set-text-foreground "black")
-                            (send dc draw-text "Blight - #\null a Tox client written in Racket." 0 0))]))
+                            (send dc draw-text
+                                  "Blight - #\nul a Tox client written in Racket." 0 0))]))
 
 #| ############ MENU BAR AND STUFF ############## |#
 ; menu bar for the frame
@@ -201,26 +215,56 @@
 #| ########### BUTTONS AND STUFF ################# |#
 ; panel button for sending the message from tfield
 (new button% [parent panel]
-     [label "Send"]
+     [label "Send Title"]
      [callback (λ (button event)
                  ; set new title to what's inside tfield
                  (send frame-msg set-label (send tfield get-value))
                  ; reset tfield to empty
                  (send tfield set-value ""))])
 
-; exit-dialog button - Yes, I am sure I want to close
-(new button% [parent exit-panel]
-     [label "Yes"]
-     ; confirm exit
+; panel button for sending text to canvas
+; uses tfield
+(new button% [parent panel]
+     [label "Send Message"]
      [callback (λ (button event)
-                 (exit))])
+                 ; send canvas contents of tfield
+                 (let ((dc (send canvas get-dc)))
+                   ;(send dc draw-text "" 0 0) ; doesn't work?
+                   (send dc draw-text (send tfield get-value) 0 0)
+                   (send tfield set-value "")))])
+
+; uses editor-canvas
+#|(new button% [parent panel]
+     [label "Send Message"]
+     [callback (λ (button event)
+                 (send canvas refresh)
+                 ; send canvas contents of editor-canvas
+                 (let ((dc (send canvas get-dc)))
+                   (send dc draw-text "" 0 0)
+                   (send dc draw-text (send text get-text) 0 0)))])|#
+
+; clears the canvas
+(new button% [parent panel]
+     [label "Clear Canvas"]
+     [callback (λ (button event)
+                 ; send canvas contents of tfield
+                 (let ((dc (send canvas get-dc)))
+                   ;(send dc draw-text "" 0 0) ; doesn't work?
+                   (send canvas on-paint)))])
 
 ; exit-dialog button - No I am not sure I want to close
 (new button% [parent exit-panel]
-     [label "No"]
+     [label "Cancel"]
      ; close the dialog box
      [callback (λ (button event)
                  (send exit-dialog show #f))])
+
+; exit-dialog button - Yes, I am sure I want to close
+(new button% [parent exit-panel]
+     [label "Quit"]
+     ; confirm exit
+     [callback (λ (button event)
+                 (exit))])
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
