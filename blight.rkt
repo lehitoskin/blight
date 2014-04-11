@@ -3,6 +3,7 @@
 ; blight.rkt
 ; GUI Tox client
 (require libtoxcore-racket ; wrapper
+         "config.rkt"       ; default config file
          db                 ; access db for stored info
          file/sha1)         ; hex-string procedures
 
@@ -36,6 +37,18 @@
  # - sending a new draw-text to canvas doesn't replace the default
  #   text, simply appears underneath the old.
  |#
+
+
+#| ############ BEGIN TOX STUFF ############ |#
+#|
+; instantiate Tox session
+(define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
+; set status message
+(tox_set_status_message my-tox my-status-message (string-length
+                                                  my-status-message))
+; connect to DHT
+(tox_bootstrap_from_address my-tox dht-address TOX_ENABLE_IPV6_DEFAULT dht-port
+                            dht-public-key)|#
 
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
@@ -84,7 +97,6 @@
                            [enabled #t]))
 ; make the window refresh more often
 (send editor-canvas lazy-refresh #t)
-(printf "Current editor for editor-canvas: ~a\n" (send editor-canvas get-editor))
 
 ; key event when the user presses Enter
 (define enter-press (new key-event%
@@ -175,6 +187,7 @@
                               exit-dialog
                               (list 'ok-cancel))))
                    (if (eq? mbox 'ok)
+                       ;(tox_kill my-tox)
                        (exit)
                        null)))])
 
@@ -255,23 +268,3 @@
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
 (send frame show #t)
-
-#| ############ BEGIN TOX STUFF ############ |#
-#|(define my-name "Blight Tester")
-(define my-status-message "Toxing on Blight")
-(define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
-
-(tox_set_status_message my-tox my-status-message (string-length
-                                                  my-status-message))
-
-; connect to DHT
-(define dht-address "192.254.75.98")
-(define dht-port 33445)
-(define dht-public-key
-  (hex-string->bytes
-   "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074"))
-
-(tox_bootstrap_from_address my-tox dht-address TOX_ENABLE_IPV6_DEFAULT dht-port
-                            dht-public-key)
-
-(tox_kill my-tox)|#
