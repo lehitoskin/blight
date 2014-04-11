@@ -166,13 +166,13 @@
      [callback (λ (button event)
                  (send status-box show #t))])|#
 
-; Open menu item for File
+; Add New Friend menu item for File
 #|(new menu-item% [parent menu-file]
-     [label "Open"]
-     [shortcut #\O]
-     [help-string "Open log"]
+     [label "Add New Friend"]
+     [shortcut #\N]
+     [help-string "Add a new Tox friend"]
      [callback (λ (button event)
-                     (send open-file-box show #t))])|#
+                     (send add-friend-box show #t))])|#
 
 ; Quit menu item for File
 ; uses message-box with 'ok-cancel
@@ -187,8 +187,9 @@
                               exit-dialog
                               (list 'ok-cancel))))
                    (if (eq? mbox 'ok)
-                       ;(tox_kill my-tox)
-                       (exit)
+                       ;(and
+                        ;(tox_kill my-tox)
+                        (exit);)
                        null)))])
 
 ; menu Edit for menu bar
