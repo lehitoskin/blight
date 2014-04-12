@@ -1,7 +1,21 @@
 #lang racket/gui
 ; chat.rkt
 ; contains chat-window definitions
-(provide all-from-out)
+(provide (all-defined-out))
+
+#|
+ # two ways (so far) to go about sending a message, graphically:
+ # use editor-canvas%, which is pretty, but not as yet obviously
+ # function as text-field%, second is text-field%, which is
+ # functional, but not as pretty as editor-canvas%
+ #
+ # issues:
+ # - cannot figure out how to clear text from canvas
+ # - default text for canvas% is preserved on resizing the window,
+ #   which might be because of (send canvas on-draw).
+ # - sending a new draw-text to canvas doesn't replace the default
+ #   text, simply appears underneath the old.
+ |#
 
 ; create a new top-level window
 ; make a frame by instantiating the frame% class

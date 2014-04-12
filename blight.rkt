@@ -2,7 +2,9 @@
 #lang racket/gui
 ; blight.rkt
 ; GUI Tox client
+; most of these here are for the buddy-list
 (require libtoxcore-racket ; wrapper
+         "chat.rkt"         ; contains definitions for chat window
          "config.rkt"       ; default config file
          db                 ; access db for stored info
          file/sha1)         ; hex-string procedures
@@ -24,21 +26,6 @@
     You should have received a copy of the GNU General Public License
     along with this program. If not, see <http://www.gnu.org/licenses/>.")
 
-#|
- # two ways (so far) to go about sending a message, graphically:
- # use editor-canvas%, which is pretty, but not as yet obviously
- # function as text-field%, second is text-field%, which is
- # functional, but not as pretty as editor-canvas%
- #
- # issues:
- # - cannot figure out how to clear text from canvas
- # - default text for canvas% is preserved on resizing the window,
- #   which might be because of (send canvas on-draw).
- # - sending a new draw-text to canvas doesn't replace the default
- #   text, simply appears underneath the old.
- |#
-
-
 #| ############ BEGIN TOX STUFF ############ |#
 #|
 ; instantiate Tox session
@@ -55,59 +42,21 @@
 (define frame (new frame%
                    [label "Blight"]
                    [width 400]
-                   [height 600]))
+                   [height 300]))
 
 ; make a static text message in the frame
 (define frame-msg (new message% [parent frame]
-                       [label "Blight"]
+                       [label "Blight Buddy List"]
                        [min-width 40]))
 
-#| ########## CANVAS AND OTHER FIELD DEFINITIONS ########## |#
-; create a canvas object to draw stuff on
-(define canvas (new canvas% [parent frame]
-                    [min-height 400]
-                    [vert-margin 5]
-                    [style (list 'control-border 'no-autoclear
-                                 'no-focus 'vscroll)]
-                    [paint-callback
-                     (λ (canvas dc)
-                       (send dc set-scale 1 1)
-                       (send dc set-text-foreground "black")
-                       (send dc draw-text "" 0 0))]))
-#|(define-values (canvas-vsize-x canvas-vsize-y)
-  (send canvas get-virtual-size))
-(send canvas init-auto-scrollbars canvas-vsize-x
-      canvas-vsize-y 0.0 0.0)
-(send canvas show-scrollbars #f #f) ; hide scrollbars|#
-
-(define text (new text%
-                  [line-spacing 1.0]
-                  [auto-wrap #t]))
-
-; an editor canvas where text% messages will appear
-(define editor-canvas (new editor-canvas%
-                           [parent frame]
-                           [label "Your message goes here"]
-                           [editor text]
-                           [style (list 'control-border 'no-hscroll
-                                        'auto-vscroll)]
-                           [wheel-step 3]
-                           [min-height 100]
-                           [vert-margin 5]
-                           [enabled #t]))
-; make the window refresh more often
-(send editor-canvas lazy-refresh #t)
-
-; key event when the user presses Enter
-(define enter-press (new key-event%
-                         [key-code #\return]))
-
-; create a text-field to enter a message
-(define tfield (new text-field%
-                    [label "Change title:"]
-                    [parent frame]
-                    [vert-margin 50]
-                    [enabled #t]))
+; maybe make a loop to grab all the names in the friend list
+; make it look like (friend_num . friend_name)
+(define combo-field (new combo-field%
+                         [label "Select Buddy"]
+                         [choices (list "Me!"#|tox_get_friend_list|#)]
+                         [init-value "Choose a friend"]
+                         [parent frame]
+                         [style (list 'horizontal-label)]))
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -117,12 +66,6 @@
 (define exit-dialog (new dialog%
                          [label "Exit Blight"]
                          [style (list 'close-button)]))
-
-; pane for buttons for exit-dialog so we get the buttons
-; underneath the message (?) doesn't seem to want to work
-#|(define exit-pane (new horizontal-pane%
-                       [parent exit-panel]
-                       [vert-margin 100]))|#
 
 ; dialog box when looking at Help
 (define help-dialog (new dialog%
@@ -226,45 +169,14 @@
                  (send help-get-box show #t))])|#
 
 #| ########### BUTTONS AND STUFF ################# |#
-; panel button for sending the message from tfield
+; panel button for sending the message from combo-field
 (new button% [parent panel]
-     [label "Send Title"]
+     [label "Chat"]
      [callback (λ (button event)
-                 ; set new title to what's inside tfield
-                 (send frame-msg set-label (send tfield get-value))
-                 ; reset tfield to empty
-                 (send tfield set-value ""))])
-
-; panel button for sending text to canvas
-; uses tfield
-#|(new button% [parent panel]
-     [label "Send Message"]
-     [callback (λ (button event)
-                 ; send canvas contents of tfield
-                 (let ((dc (send canvas get-dc)))
-                   ;(send dc draw-text "" 0 0) ; doesn't work?
-                   (send dc draw-text (send tfield get-value) 0 0)
-                   (send tfield set-value "")))])|#
-
-; uses editor-canvas to draw to canvas
-(new button% [parent panel]
-     [label "Send Message"]
-     [callback (λ (button event)
-                 ; send canvas contents of editor-canvas
-                 (let ((dc (send canvas get-dc)))
-                   ;(send dc draw-text "" 0 0)
-                   (send dc draw-text
-                         (send text get-text 0 'eof #t #t)
-                         0 0)))])
-
-; clears the canvas
-(new button% [parent panel]
-     [label "Clear Canvas"]
-     [callback (λ (button event)
-                 ; send canvas contents of tfield
-                 (let ((dc (send canvas get-dc)))
-                   (send dc draw-text "" 0 0)
-                   (send canvas flush)))])
+                 ; set new title to what's inside combo-field
+                 (send chat-frame set-label (send combo-field get-value))
+                 (send chat-frame-msg set-label (send combo-field get-value))
+                 (send chat-frame show #t))])
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
