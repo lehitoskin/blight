@@ -51,6 +51,8 @@
 
 ; maybe make a loop to grab all the names in the friend list
 ; make it look like (friend_num . friend_name)
+;
+; make sure that you cannot open a window with init-value alone
 (define combo-field (new combo-field%
                          [label "Select Buddy"]
                          [choices (list "Me!"#|tox_get_friend_list|#)]

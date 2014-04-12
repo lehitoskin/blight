@@ -20,14 +20,14 @@
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
 (define chat-frame (new frame%
-                   [label "Blight"]
-                   [width 400]
-                   [height 600]))
+                        [label "Blight"]
+                        [width 400]
+                        [height 600]))
 
 ; make a static text message in the frame
 (define chat-frame-msg (new message% [parent chat-frame]
-                       [label "tox get friend name"]
-                       [min-width 40]))
+                            [label "tox get friend name"]
+                            [min-width 40]))
 
 ; key event when the user presses Enter
 (define enter-press (new key-event%
@@ -35,15 +35,15 @@
 
 ; create a canvas object to draw stuff on
 (define chat-canvas (new canvas% [parent chat-frame]
-                    [min-height 400]
-                    [vert-margin 5]
-                    [style (list 'control-border 'no-autoclear
-                                 'no-focus 'vscroll)]
-                    [paint-callback
-                     (λ (canvas dc)
-                       (send dc set-scale 1 1)
-                       (send dc set-text-foreground "black")
-                       (send dc draw-text "" 0 0))]))
+                         [min-height 400]
+                         [vert-margin 5]
+                         [style (list 'control-border 'no-autoclear
+                                      'no-focus 'vscroll)]
+                         [paint-callback
+                          (λ (canvas dc)
+                            (send dc set-scale 1 1)
+                            (send dc set-text-foreground "black")
+                            (send dc draw-text "" 0 0))]))
 #|(define-values (canvas-vsize-x canvas-vsize-y)
   (send canvas get-virtual-size))
 (send canvas init-auto-scrollbars canvas-vsize-x
@@ -51,19 +51,34 @@
 (send canvas show-scrollbars #f #f) ; hide scrollbars|#
 
 (define chat-text (new text%
-                  [line-spacing 1.0]
-                  [auto-wrap #t]))
+                       [line-spacing 1.0]
+                       [auto-wrap #t]))
 
 ; an editor canvas where text% messages will appear
 (define chat-editor-canvas (new editor-canvas%
-                           [parent chat-frame]
-                           [label "Your message goes here"]
-                           [editor chat-text]
-                           [style (list 'control-border 'no-hscroll
-                                        'auto-vscroll)]
-                           [wheel-step 3]
-                           [min-height 100]
-                           [vert-margin 5]
-                           [enabled #t]))
+                                [parent chat-frame]
+                                [label "Your message goes here"]
+                                [editor chat-text]
+                                [style (list 'control-border 'no-hscroll
+                                             'auto-vscroll)]
+                                [wheel-step 3]
+                                [min-height 100]
+                                [vert-margin 5]
+                                [enabled #t]))
 ; make the window refresh more often
 (send chat-editor-canvas lazy-refresh #t)
+
+; chat-panel for main chat-frame
+(define chat-panel (new horizontal-panel%
+                        [parent chat-frame]))
+
+; uses editor-canvas to draw to canvas
+(new button% [parent chat-panel]
+     [label "Send Message"]
+     [callback (λ (button event)
+                 ; send canvas contents of editor-canvas
+                 (let ((dc (send chat-canvas get-dc)))
+                   ;(send dc draw-text "" 0 0)
+                   (send dc draw-text
+                         (send chat-text get-text 0 'eof #t #t)
+                         0 0)))])
