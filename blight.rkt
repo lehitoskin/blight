@@ -49,16 +49,30 @@
                        [label "Blight Buddy List"]
                        [min-width 40]))
 
-; maybe make a loop to grab all the names in the friend list
-; make it look like (friend_num . friend_name)
-;
-; make sure that you cannot open a window with init-value alone
-(define combo-field (new combo-field%
-                         [label "Select Buddy"]
-                         [choices (list "Me!"#|tox_get_friend_list|#)]
-                         [init-value "Choose a friend"]
-                         [parent frame]
-                         [style (list 'horizontal-label)]))
+(define mouse-click (new mouse-event%
+                         [event-type 'list-box-dclick]))
+
+; list box for friend list
+(define list-box (new list-box%
+                      [label "Select Buddy"]
+                      [parent frame]
+                      [style (list 'single 'vertical-label)]
+                      [choices (list "Me"
+                                     #|tox_get_friend_list|#)]
+                      [callback (λ (l e)
+                                  (when (eq? (send e get-event-type)
+                                             'list-box-dclick)
+                                    (send chat-frame set-label
+                                          (send list-box get-data
+                                                (first (send list-box get-selections))))
+                                    (send chat-frame-msg set-label
+                                          (send list-box get-data
+                                                (first (send list-box get-selections))))
+                                    (send chat-frame show #t)))]))
+; set data for each item in list-box
+; data may be arbitrary, but a label will suffice
+(send list-box set-data 0 "Me")
+(send list-box append "You" "You")
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -169,16 +183,6 @@
      [help-string "Have questions? Get help!"]
      [callback (λ (button event)
                  (send help-get-box show #t))])|#
-
-#| ########### BUTTONS AND STUFF ################# |#
-; panel button for sending the message from combo-field
-(new button% [parent panel]
-     [label "Chat"]
-     [callback (λ (button event)
-                 ; set new title to what's inside combo-field
-                 (send chat-frame set-label (send combo-field get-value))
-                 (send chat-frame-msg set-label (send combo-field get-value))
-                 (send chat-frame show #t))])
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
