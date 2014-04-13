@@ -52,10 +52,13 @@
 (define mouse-click (new mouse-event%
                          [event-type 'list-box-dclick]))
 
+; combo-field to choose online vs. all friends in the friend list?
+
 ; list box for friend list
 (define list-box (new list-box%
                       [label "Select Buddy"]
                       [parent frame]
+                      [min-height 250]
                       [style (list 'single 'vertical-label)]
                       [choices (list "Me"
                                      #|tox_get_friend_list|#)]
@@ -72,7 +75,7 @@
 ; set data for each item in list-box
 ; data may be arbitrary, but a label will suffice
 (send list-box set-data 0 "Me")
-(send list-box append "You" "You")
+(send list-box append "al" "al")
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -142,13 +145,13 @@
      [callback (λ (button event)
                  ;(send exit-dialog show #t))])
                  (let ((mbox (message-box "Quit Blight"
-                              "Are you sure you want to quit Blight?"
-                              exit-dialog
-                              (list 'ok-cancel))))
+                                          "Are you sure you want to quit Blight?"
+                                          exit-dialog
+                                          (list 'ok-cancel))))
                    (if (eq? mbox 'ok)
                        ;(and
-                        ;(tox_kill my-tox)
-                        (exit);)
+                       ;(tox_kill my-tox)
+                       (exit);)
                        null)))])
 
 ; menu Edit for menu bar
@@ -183,6 +186,12 @@
      [help-string "Have questions? Get help!"]
      [callback (λ (button event)
                  (send help-get-box show #t))])|#
+
+(new button% [parent panel]
+     [label "Add friend"])
+
+(new button% [parent panel]
+     [label "Delete friend"])
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
