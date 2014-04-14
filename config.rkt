@@ -1,6 +1,6 @@
 #lang racket
 ; config.rkt
-(provide all-from-out)
+(provide (all-defined-out))
 (require file/sha1)
 
 ; default name and status message

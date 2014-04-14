@@ -27,15 +27,16 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.")
 
 #| ############ BEGIN TOX STUFF ############ |#
-#|
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
+
 ; set status message
 (tox_set_status_message my-tox my-status-message (string-length
                                                   my-status-message))
+
 ; connect to DHT
 (tox_bootstrap_from_address my-tox dht-address TOX_ENABLE_IPV6_DEFAULT dht-port
-                            dht-public-key)|#
+                            dht-public-key)
 
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
@@ -149,9 +150,9 @@
                                           exit-dialog
                                           (list 'ok-cancel))))
                    (if (eq? mbox 'ok)
-                       ;(and
-                       ;(tox_kill my-tox)
-                       (exit);)
+                       (and
+                        (tox_kill my-tox)
+                        (exit))
                        null)))])
 
 ; menu Edit for menu bar
