@@ -7,7 +7,8 @@
          "chat.rkt"         ; contains definitions for chat window
          "config.rkt"       ; default config file
          "callbacks.rkt"    ; inner procedure callback definitions
-         db)                ; access db for stored info
+         db/sqlite3
+         ffi/unsafe)        ; access db for stored info
 
 (define license-message
   " Blight - a Tox client written in Racket.
@@ -31,6 +32,9 @@
 #| ############ BEGIN TOX STUFF ############ |#
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
+; necessary for saving and loading the messenger
+(define len (tox_size my-tox))
+(define data-ptr (malloc len))
 
 ; set status message
 (tox_set_status_message my-tox my-status-message (string-length
@@ -39,6 +43,14 @@
 ; connect to DHT
 (tox_bootstrap_from_address my-tox dht-address TOX_ENABLE_IPV6_DEFAULT dht-port
                             dht-public-key)
+
+; save messenger
+;(displayln "Saving Tox.")
+;(tox_save my-tox data-ptr)
+
+; load messenger
+;(displayln "Loading Tox. 0 means success. -1 means failure")
+;(tox_load my-tox data-ptr len)
 
 ; create a new top-level window
 ; make a frame by instantiating the frame% class

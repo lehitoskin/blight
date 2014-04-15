@@ -1,8 +1,6 @@
 #lang racket
 ; callbacks.rkt
 (provide (all-defined-out))
-(require libtoxcore-racket)
-
 
 #| ###########START CALLBACK PROCEDURE DEFINITIONS########## |#
 ; inner procedure callback for tox_callback_connection_status

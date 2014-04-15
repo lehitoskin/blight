@@ -3,6 +3,10 @@
 (provide (all-defined-out))
 (require file/sha1)
 
+; location of the Tox database
+(define db-location "/tmp/")
+(define db-file (string->path (string-append db-location "blight-tox.db")))
+
 ; default name and status message
 (define my-name "Blight Tester")
 (define my-status-message "Toxing on Blight")
