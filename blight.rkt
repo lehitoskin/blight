@@ -3,7 +3,6 @@
 ; blight.rkt
 ; GUI Tox client
 ; most of these here are for the buddy-list
-(provide (all-defined-out))
 (require libtoxcore-racket ; wrapper
          "chat.rkt"         ; contains definitions for chat window
          "config.rkt"       ; default config file
