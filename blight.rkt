@@ -3,11 +3,12 @@
 ; blight.rkt
 ; GUI Tox client
 ; most of these here are for the buddy-list
+(provide (all-defined-out))
 (require libtoxcore-racket ; wrapper
          "chat.rkt"         ; contains definitions for chat window
          "config.rkt"       ; default config file
-         db                 ; access db for stored info
-         file/sha1)         ; hex-string procedures
+         "callbacks.rkt"    ; inner procedure callback definitions
+         db)                ; access db for stored info
 
 (define license-message
   " Blight - a Tox client written in Racket.
@@ -25,6 +26,8 @@
 
     You should have received a copy of the GNU General Public License
     along with this program. If not, see <http://www.gnu.org/licenses/>.")
+
+(define running #t)
 
 #| ############ BEGIN TOX STUFF ############ |#
 ; instantiate Tox session
