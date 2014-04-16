@@ -78,7 +78,9 @@
      [callback (λ (button event)
                  ; send canvas contents of editor-canvas
                  (let ((dc (send chat-canvas get-dc)))
-                   ;(send dc draw-text "" 0 0)
+                   ; draw to canvas
                    (send dc draw-text
                          (send chat-text get-text 0 'eof #t #t)
-                         0 0)))])
+                         0 0)
+                   ; clear chat-editor-canvas
+                   (send chat-text erase)))])
