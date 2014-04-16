@@ -113,7 +113,7 @@
 
 ; create a canvas object to draw stuff on - need a canvas
 ; to print the license message
-(define help-canvas (new canvas% [parent help-panel]
+#|(define help-canvas (new canvas% [parent help-panel]
                          [min-height 400]
                          [min-width 500]
                          [vert-margin 10]
@@ -123,7 +123,18 @@
                             (send dc set-scale 1 1)
                             (send dc set-text-foreground "black")
                             (send dc draw-text
-                                  "Blight - a Tox client written in Racket." 0 0))]))
+                                  "Blight - a Tox client written in Racket." 0 0))]))|#
+(define help-msg (new message%
+                      [parent help-panel]
+                      [label "Blight - a Tox client written in Racket."]
+                      [vert-margin 40]))
+
+; button to close the About Blight window
+(new button% [parent help-panel]
+     [label "&OK"]
+     [horiz-margin 10]
+     [callback (λ (button event)
+                 (send help-dialog show #f))])
 
 #| ############ MENU BAR AND STUFF ############## |#
 ; menu bar for the frame
@@ -132,7 +143,7 @@
 
 ; menu File for menu bar
 (define menu-file (new menu% [parent frame-menu-bar]
-                       [label "File"]
+                       [label "&File"]
                        [help-string "Open, Quit, etc."]))
 
 ; Status menu item for File
@@ -154,7 +165,7 @@
 ; Quit menu item for File
 ; uses message-box with 'ok-cancel
 (new menu-item% [parent menu-file]
-     [label "Quit"]
+     [label "&Quit"]
      [shortcut #\Q]
      [help-string "Quit Blight"]
      [callback (λ (button event)
@@ -171,7 +182,7 @@
 
 ; menu Edit for menu bar
 (define menu-edit (new menu% [parent frame-menu-bar]
-                       [label "Edit"]
+                       [label "&Edit"]
                        [help-string "Modify Blight"]))
 
 ; Preferences menu item for Edit
@@ -184,7 +195,7 @@
 
 ; menu Help for menu bar
 (define menu-help (new menu% [parent frame-menu-bar]
-                       [label "Help"]
+                       [label "&Help"]
                        [help-string "Get information about Blight"]))
 
 ; About Blight menu item for Help
