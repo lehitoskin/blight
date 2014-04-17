@@ -107,13 +107,12 @@
                          [style (list 'close-button)]))
 
 ; panel for help-dialog
-(define help-panel (new horizontal-panel%
-                        [parent help-dialog]))
-
+#|(define help-panel (new horizontal-panel%
+                        [parent help-dialog]))|#
 
 ; create a canvas object to draw stuff on - need a canvas
 ; to print the license message
-#|(define help-canvas (new canvas% [parent help-panel]
+#|(define help-canvas (new canvas% [parent help-dialog]
                          [min-height 400]
                          [min-width 500]
                          [vert-margin 10]
@@ -124,15 +123,17 @@
                             (send dc set-text-foreground "black")
                             (send dc draw-text
                                   "Blight - a Tox client written in Racket." 0 0))]))|#
+
+; temporary solution for tiling WM
+; - label has a max of 200 characters
 (define help-msg (new message%
-                      [parent help-panel]
+                      [parent help-dialog]
                       [label "Blight - a Tox client written in Racket."]
-                      [vert-margin 40]))
+                      [vert-margin 10]))
 
 ; button to close the About Blight window
-(new button% [parent help-panel]
+(new button% [parent help-dialog]
      [label "&OK"]
-     [horiz-margin 10]
      [callback (λ (button event)
                  (send help-dialog show #f))])
 

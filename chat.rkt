@@ -10,11 +10,8 @@
  # functional, but not as pretty as editor-canvas%
  #
  # issues:
- # - cannot figure out how to clear text from canvas
- # - default text for canvas% is preserved on resizing the window,
- #   which might be because of (send canvas on-draw).
- # - sending a new draw-text to canvas doesn't replace the default
- #   text, simply appears underneath the old.
+ # - still needs to send when user presses enter
+ #   as well as needs functionality for Shift-Enter
  |#
 
 ; create a new top-level window
@@ -25,48 +22,44 @@
                         [height 600]))
 
 ; make a static text message in the frame
+; replaced immediately by list-box from buddy list
 (define chat-frame-msg (new message% [parent chat-frame]
-                            [label "tox get friend name"]
+                            [label "Friend Name"]
                             [min-width 40]))
 
 ; key event when the user presses Enter
 (define enter-press (new key-event%
                          [key-code #\return]))
 
-; create a canvas object to draw stuff on
-(define chat-canvas (new canvas% [parent chat-frame]
-                         [min-height 400]
-                         [vert-margin 5]
-                         [style (list 'control-border 'no-autoclear
-                                      'no-focus 'vscroll)]
-                         [paint-callback
-                          (λ (canvas dc)
-                            (send dc set-scale 1 1)
-                            (send dc set-text-foreground "black")
-                            (send dc draw-text "" 0 0))]))
-#|(define-values (canvas-vsize-x canvas-vsize-y)
-  (send canvas get-virtual-size))
-(send canvas init-auto-scrollbars canvas-vsize-x
-      canvas-vsize-y 0.0 0.0)
-(send canvas show-scrollbars #f #f) ; hide scrollbars|#
+(define chat-text-receive (new text%
+                               [line-spacing 1.0]
+                               [auto-wrap #t]))
 
-(define chat-text (new text%
-                       [line-spacing 1.0]
-                       [auto-wrap #t]))
+(define chat-editor-canvas-receive (new editor-canvas%
+                                        [parent chat-frame]
+                                        [label "Messages received"]
+                                        [editor chat-text-receive]
+                                        [min-height 400]
+                                        [vert-margin 5]
+                                        [style (list 'control-border 'no-hscroll
+                                                     'auto-vscroll 'no-focus)]
+                                        [wheel-step 3]))
+
+(define chat-text-send (new text%
+                            [line-spacing 1.0]
+                            [auto-wrap #t]))
 
 ; an editor canvas where text% messages will appear
-(define chat-editor-canvas (new editor-canvas%
-                                [parent chat-frame]
-                                [label "Your message goes here"]
-                                [editor chat-text]
-                                [style (list 'control-border 'no-hscroll
-                                             'auto-vscroll)]
-                                [wheel-step 3]
-                                [min-height 100]
-                                [vert-margin 5]
-                                [enabled #t]))
-; make the window refresh more often
-(send chat-editor-canvas lazy-refresh #t)
+(define chat-editor-canvas-send (new editor-canvas%
+                                     [parent chat-frame]
+                                     [label "Your message goes here"]
+                                     [editor chat-text-send]
+                                     [style (list 'control-border 'no-hscroll
+                                                  'auto-vscroll)]
+                                     [wheel-step 3]
+                                     [min-height 100]
+                                     [vert-margin 5]
+                                     [enabled #t]))
 
 ; chat-panel for main chat-frame
 (define chat-panel (new horizontal-panel%
@@ -76,11 +69,11 @@
 (new button% [parent chat-panel]
      [label "Send Message"]
      [callback (λ (button event)
-                 ; send canvas contents of editor-canvas
-                 (let ((dc (send chat-canvas get-dc)))
-                   ; draw to canvas
-                   (send dc draw-text
-                         (send chat-text get-text 0 'eof #t #t)
-                         0 0)
-                   ; clear chat-editor-canvas
-                   (send chat-text erase)))])
+                 ; send to chat-editor-canvas-receive the
+                 ; contents of chat-editor-canvas-send
+                 (send chat-text-receive insert
+                       (string-append "Me: "
+                                      (send chat-text-send get-text 0 'eof #t #t)
+                                      "\n"))
+                 ; clear chat-editor-canvas-send
+                 (send chat-text-send erase))])
