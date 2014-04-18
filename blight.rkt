@@ -36,6 +36,10 @@
 (define len (tox_size my-tox))
 (define data-ptr (malloc len))
 
+; my Tox ID
+;(define my-id (malloc TOX_FRIEND_ADDRESS_SIZE))
+;(tox_get_address my-tox my-id)
+
 ; set status message
 (tox_set_status_message my-tox my-status-message (string-length
                                                   my-status-message))
@@ -68,6 +72,8 @@
                          [event-type 'list-box-dclick]))
 
 ; combo-field to choose online vs. all friends in the friend list?
+; (define list-size (tox_get_num_online_friends my-tox)
+; (tox_get_friendlist my-tox out-list list-size)
 
 ; list box for friend list
 (define list-box (new list-box%
@@ -75,8 +81,7 @@
                       [parent frame]
                       [min-height 250]
                       [style (list 'single 'vertical-label)]
-                      [choices (list "Me"
-                                     #|tox_get_friend_list|#)]
+                      [choices (list "Me")]
                       [callback (λ (l e)
                                   (when (eq? (send e get-event-type)
                                              'list-box-dclick)
@@ -91,6 +96,7 @@
 ; data may be arbitrary, but a label will suffice
 (send list-box set-data 0 "Me")
 (send list-box append "al" "al")
+(send list-box append "test" "test")
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -162,6 +168,15 @@
      [help-string "Add a new Tox friend"]
      [callback (λ (button event)
                      (send add-friend-box show #t))])|#
+
+; Copy ID to Clipboard item for File
+(new menu-item% [parent menu-file]
+     [label "Copy ID to Clipboard"]
+     [help-string "Copies your Tox ID to the clipboard"]
+     [callback (λ (button event)
+                 (send chat-clipboard set-clipboard-string
+                       "lol i trol u"
+                       (current-seconds)))])
 
 ; Quit menu item for File
 ; uses message-box with 'ok-cancel
