@@ -31,6 +31,21 @@
 (define enter-press (new key-event%
                          [key-code #\return]))
 
+; key event for ctrl+c
+(define copy-press (new key-event%
+                        [key-code #\c]
+                        [control-down #t]))
+
+; key event for ctrl+v
+(define paste-press (new key-event%
+                         [key-code #\v]
+                         [control-down #t]))
+
+; key event for ctrl+x
+(define cut-press (new key-event%
+                         [key-code #\x]
+                         [control-down #t]))
+
 (define chat-text-receive (new text%
                                [line-spacing 1.0]
                                [auto-wrap #t]))
