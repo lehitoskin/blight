@@ -27,6 +27,11 @@
                             [label "Friend Name"]
                             [min-width 40]))
 
+; clipboard control thingie
+(define chat-clipboard-client (new clipboard-client%))
+(define chat-clipboard the-clipboard)
+(send chat-clipboard-client add-type "TEXT")
+
 ; key event when the user presses Enter
 (define enter-press (new key-event%
                          [key-code #\return]))
