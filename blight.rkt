@@ -37,9 +37,17 @@
 (define len (tox_size my-tox))
 (define data-ptr (malloc len))
 
-; my Tox ID
-;(define my-id (malloc TOX_FRIEND_ADDRESS_SIZE))
-;(tox_get_address my-tox my-id)
+; my Tox ID shenanigans
+(define my-id-bytes (malloc (* TOX_FRIEND_ADDRESS_SIZE
+                               (ctype-sizeof _uint8_t))))
+(define my-id-hex "")
+(tox_get_address my-tox my-id-bytes)
+(do ((i 0 (+ i 1)))
+  ((= i TOX_FRIEND_ADDRESS_SIZE))
+  (set! my-id-hex
+        (string-upcase
+         (string-append my-id-hex
+                        (dec->hex (ptr-ref my-id-bytes _uint8_t i))))))
 
 ; set status message
 (tox_set_status_message my-tox my-status-message (string-length
@@ -176,7 +184,7 @@
      [help-string "Copies your Tox ID to the clipboard"]
      [callback (λ (button event)
                  (send chat-clipboard set-clipboard-string
-                       "lol i trol u"
+                       my-id-hex
                        (current-seconds)))])
 
 ; Quit menu item for File

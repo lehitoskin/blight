@@ -16,7 +16,9 @@
   (λ (x)
     (if (not (integer? x))
         (raise-argument-error 'dec->hex "integer?" x)
-        (number->string x 16))))
+        (if (< x 16)
+            (string-append "0" (number->string x 16))
+            (number->string x 16)))))
 
 ; takes a number, returns a number
 (define bin->dec
@@ -36,8 +38,8 @@
 (define hex->dec
   (λ (x)
     (if (string? x)
-         (string->number x 16)
-         (raise-argument-error 'hex->dec "string?" x))))
+        (string->number x 16)
+        (raise-argument-error 'hex->dec "string?" x))))
 
 ; takes a string, returns a number
 (define hex->bin
