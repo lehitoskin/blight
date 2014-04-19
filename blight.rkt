@@ -7,6 +7,7 @@
          "chat.rkt"         ; contains definitions for chat window
          "config.rkt"       ; default config file
          "callbacks.rkt"    ; inner procedure callback definitions
+         "number-conversions.rkt" ; bin, dec, and hex conversions
          db/sqlite3
          ffi/unsafe)        ; access db for stored info
 
