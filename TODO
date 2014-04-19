@@ -1,13 +1,16 @@
 TODO:
 
 - Obtain own Tox ID
+- Status message box on friend list
 - Message timestamps
+- Ctrl+{a,c,v,x} in text box
 - Text chat (tox_wait stuff?)
-- Ctrl+{c,v,x} in text box
-- Links blue and underlined
-- Embedding of video, images, audio, etc.
+- Spellcheck
+- Links blue, underlined, and clickable
+- Embedding of video, images, audio, etc. (both p2p and links posted)
 
 ...
 
+- File transfer
 - Audio chat
 - Video chat
