@@ -77,9 +77,6 @@
                        [label "Blight Buddy List"]
                        [min-width 40]))
 
-(define mouse-click (new mouse-event%
-                         [event-type 'list-box-dclick]))
-
 ; combo-field to choose online vs. all friends in the friend list?
 ; (define list-size (tox_get_num_online_friends my-tox)
 ; (tox_get_friendlist my-tox out-list list-size)
