@@ -3,8 +3,10 @@
 (provide (all-defined-out))
 
 ; location of the Tox database
-(define db-location "/tmp/")
-(define db-file (string->path (string-append db-location "blight-tox.db")))
+(define db-location (find-system-path 'home-dir))
+(define db-file (string->path (string-append
+                               (path->string db-location)
+                               ".config/tox/blight-tox.db")))
 
 ; default name and status message
 (define my-name "Blight Tester")
