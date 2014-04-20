@@ -2,11 +2,35 @@
 ; config.rkt
 (provide (all-defined-out))
 
-; location of the Tox database
-(define db-location (find-system-path 'home-dir))
-(define db-file (string->path (string-append
-                               (path->string db-location)
-                               ".config/tox/blight-tox.db")))
+(define system?
+  (cond [(string=? (path->string (find-system-path 'orig-dir))
+                   "C:\\Program Files\\Racket\\")
+         'windows]
+        [(equal? (find-system-path 'orig-dir)
+                 (find-system-path 'home-dir))
+         'unix]
+        [else 'other]))
+
+; check what system we're running on and look
+; for the db in the appropriate location
+(define db-path (cond [(equal? system? 'unix)
+                       (string->some-system-path
+                        (string-append (path->string
+                                        (find-system-path 'home-dir))
+                                       ".config/tox/blight-tox.db")
+                        'unix)]
+                      ; /AppData/Roaming/tox/blight-tox.db
+                      [(equal? system? 'windows)
+                       (normal-case-path
+                        (string->some-system-path
+                         (string-append
+                          (path->string
+                           (find-system-path 'home-dir))
+                          "/appdata/tox/blight-tox.db")
+                         'windows))]
+                      ; we're not running on windows or unix, use temp-dir
+                      [else (string-append (path->string (find-system-path 'temp-dir))
+                                           "/blight-tox.db")]))
 
 ; default name and status message
 (define my-name "Blight Tester")
