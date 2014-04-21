@@ -8,25 +8,25 @@
          "config.rkt"       ; default config file
          "callbacks.rkt"    ; inner procedure callback definitions
          "number-conversions.rkt" ; bin, dec, and hex conversions
-         db/sqlite3
-         ffi/unsafe)        ; access db for stored info
+         ffi/unsafe         ; needed for neat pointer shenanigans
+         db)                ; access db for stored info
 
 (define license-message
-  " Blight - a Tox client written in Racket.
-    Copyright (C) 2014 Lehi Toskin.
+  "Blight - a Tox client written in Racket.
+Copyright (C) 2014 Lehi Toskin.
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-    GNU General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program. If not, see <http://www.gnu.org/licenses/>.")
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.")
 
 (define running #t)
 
@@ -34,8 +34,12 @@
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
 ; necessary for saving and loading the messenger
-(define len (tox_size my-tox))
-(define data-ptr (malloc len))
+;(define len (tox_size my-tox))
+;(define data-ptr (malloc len))
+
+; LOAD SAVED INFORMATION FROM DB
+
+;(tox_load my-tox)
 
 ; my Tox ID shenanigans
 (define my-id-bytes (malloc (* TOX_FRIEND_ADDRESS_SIZE
@@ -65,6 +69,31 @@
 ;(displayln "Loading Tox. 0 means success. -1 means failure")
 ;(tox_load my-tox data-ptr len)
 
+#| ############ BEGIN DATABASE STUFF ################ |#
+; DATABASE DATABASE! JUST LIVING IN THE DATABASE!
+; WOWOW
+(define sqlc
+  (sqlite3-connect
+   #:database db-path
+   #:mode 'create))
+
+; database initialization
+(query-exec sqlc
+            "create table if not exists blightuser
+             (blightuserkey INTEGER PRIMARY KEY,
+                username TEXT,statusmessage TEXT);")
+
+; little procedure to wrap things up for us
+(define clean-up
+  (λ ()
+    ; save tox information
+    ; tox_save + save to database
+    ; this kills the tox
+    (tox_kill my-tox)
+    ; disconnect from the database
+    (disconnect sqlc)))
+
+#| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
 (define frame (new frame%
@@ -118,30 +147,20 @@
                          [label "About Blight"]
                          [style (list 'close-button)]))
 
-; panel for help-dialog
-#|(define help-panel (new horizontal-panel%
-                        [parent help-dialog]))|#
+(define help-text (new text%
+                       [line-spacing 1.0]
+                       [auto-wrap #t]))
+(send help-text insert license-message)
 
-; create a canvas object to draw stuff on - need a canvas
-; to print the license message
-#|(define help-canvas (new canvas% [parent help-dialog]
-                         [min-height 400]
-                         [min-width 500]
-                         [vert-margin 10]
-                         [style (list 'control-border 'no-autoclear)]
-                         [paint-callback
-                          (λ (canvas dc)
-                            (send dc set-scale 1 1)
-                            (send dc set-text-foreground "black")
-                            (send dc draw-text
-                                  "Blight - a Tox client written in Racket." 0 0))]))|#
-
-; temporary solution for tiling WM
-; - label has a max of 200 characters
-(define help-msg (new message%
-                      [parent help-dialog]
-                      [label "Blight - a Tox client written in Racket."]
-                      [vert-margin 10]))
+; canvas to print the license message
+(define help-editor-canvas (new editor-canvas%
+                                [parent help-dialog]
+                                [min-height 380]
+                                [min-width 600]
+                                [vert-margin 10]
+                                [editor help-text]
+                                [style (list 'control-border 'no-hscroll
+                                             'auto-vscroll 'no-focus)]))
 
 ; button to close the About Blight window
 (new button% [parent help-dialog]
@@ -198,7 +217,7 @@
                                           (list 'ok-cancel))))
                    (if (eq? mbox 'ok)
                        (and
-                        (tox_kill my-tox)
+                        (clean-up)
                         (exit))
                        null)))])
 

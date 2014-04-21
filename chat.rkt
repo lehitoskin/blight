@@ -48,8 +48,8 @@
 
 ; key event for ctrl+x
 (define cut-press (new key-event%
-                         [key-code #\x]
-                         [control-down #t]))
+                       [key-code #\x]
+                       [control-down #t]))
 
 (define chat-text-receive (new text%
                                [line-spacing 1.0]
