@@ -33,6 +33,20 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 #| ############ BEGIN TOX STUFF ############ |#
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
+
+; set username
+; TODO: load from DB
+(tox_set_name my-tox my-name (string-length my-name))
+
+; set status message
+; TODO: load from DB
+(tox_set_status_message my-tox my-status-message (string-length
+                                                  my-status-message))
+
+; connect to DHT
+(tox_bootstrap_from_address my-tox dht-address TOX_ENABLE_IPV6_DEFAULT dht-port
+                            dht-public-key)
+
 ; necessary for saving and loading the messenger
 ;(define len (tox_size my-tox))
 ;(define data-ptr (malloc len))
@@ -52,14 +66,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
         (string-upcase
          (string-append my-id-hex
                         (dec->hex (ptr-ref my-id-bytes _uint8_t i))))))
-
-; set status message
-(tox_set_status_message my-tox my-status-message (string-length
-                                                  my-status-message))
-
-; connect to DHT
-(tox_bootstrap_from_address my-tox dht-address TOX_ENABLE_IPV6_DEFAULT dht-port
-                            dht-public-key)
 
 ; save messenger
 ;(displayln "Saving Tox.")
@@ -105,6 +111,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 (define frame-msg (new message% [parent frame]
                        [label "Blight Buddy List"]
                        [min-width 40]))
+
+(define username-frame-message (new message% [parent frame]
+                                    [label my-name]
+                                    [min-width
+                                     (string-length my-name)]))
+
+(define status-frame-message (new message% [parent frame]
+                                  [label my-status-message]
+                                  [min-width
+                                   (string-length my-status-message)]))
 
 ; combo-field to choose online vs. all friends in the friend list?
 ; (define list-size (tox_get_num_online_friends my-tox)
@@ -178,14 +194,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                        [label "&File"]
                        [help-string "Open, Quit, etc."]))
 
-; Status menu item for File
-; changes both message and availability
-#|(new menu-item% [parent menu-file]
-     [label "Change Status"]
-     [help-string "Change status message/availability"]
-     [callback (λ (button event)
-                 (send status-box show #t))])|#
-
 ; Add New Friend menu item for File
 #|(new menu-item% [parent menu-file]
      [label "Add New Friend"]
@@ -226,13 +234,46 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                        [label "&Edit"]
                        [help-string "Modify Blight"]))
 
+(define preferences-box (new dialog%
+                             [label "Edit Preferences"]
+                             [style (list 'close-button)]))
+
+(define putfield (new text-field%
+                      [parent preferences-box]
+                      [label "New Username:"]
+                      [style (list 'vertical-label
+                                   'single)]))
+
+(define pstfield (new text-field%
+                      [parent preferences-box]
+                      [label "New Status:"]
+                      [style (list 'vertical-label
+                                   'single)]))
+
 ; Preferences menu item for Edit
-#|(new menu-item% [parent menu-edit]
+(new menu-item% [parent menu-edit]
      [label "Preferences"]
      [shortcut #\R]
      [help-string "Modify Blight preferences"]
      [callback (λ (button event)
-                 (send preferences-box show #t))])|#
+                 (send preferences-box show #t))])
+
+(new button% [parent preferences-box]
+     [label "OK"]
+     [callback (λ (button event)
+                 ; set the new username
+                 (send username-frame-message set-label
+                       (send putfield get-value))
+                 (tox_set_status_message my-tox (send putfield get-value)
+                                         (string-length (send putfield get-value)))
+                 ; set the new user status
+                 (send status-frame-message set-label
+                       (send pstfield get-value))
+                 (tox_set_status_message my-tox (send pstfield get-value)
+                                         (string-length (send pstfield get-value)))
+                 (send putfield set-value "")
+                 (send pstfield set-value "")
+                 (send preferences-box show #f))])
 
 ; menu Help for menu bar
 (define menu-help (new menu% [parent frame-menu-bar]
