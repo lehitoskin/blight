@@ -26,7 +26,7 @@
                          (string-append
                           (path->string
                            (find-system-path 'home-dir))
-                          "/appdata/tox/blight-tox.db")
+                          "/appdata/local/tox/blight-tox.db")
                          'windows))]
                       ; we're not running on windows or unix, use temp-dir
                       [else (string-append (path->string (find-system-path 'temp-dir))
