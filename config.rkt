@@ -13,8 +13,20 @@
                         (build-path (find-system-path 'home-dir)
                                     "appdata/local/tox/blight-tox.db"))]
                       ; we're not running on windows or unix, use temp-dir
-                      [else (string-append (path->string (find-system-path 'temp-dir))
-                                           "/blight-tox.db")]))
+                      [else (build-path (find-system-path 'temp-dir)
+                                           "blight-tox.db")]))
+
+(define data-path (cond [(eq? (system-type) 'unix)
+                         (build-path (find-system-path 'home-dir)
+                                     ".config/tox/data")]
+                        ; /AppData/Roaming/tox/blight-tox.db
+                        [(eq? (system-type) 'windows)
+                         (normal-case-path
+                          (build-path (find-system-path 'home-dir)
+                                      "appdata/local/tox/data"))]
+                        ; we're not running on windows or unix, use temp-dir
+                        [else (build-path (find-system-path 'temp-dir)
+                                             "data")]))
 
 ; default name and status message
 (define my-name "Blight Tester")
