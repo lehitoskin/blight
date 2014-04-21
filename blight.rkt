@@ -106,6 +106,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                    [label "Blight"]
                    [width 400]
                    [height 300]))
+(send frame move 0 0)
 
 ; make a static text message in the frame
 (define frame-msg (new message% [parent frame]
@@ -222,7 +223,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                  (let ((mbox (message-box "Quit Blight"
                                           "Are you sure you want to quit Blight?"
                                           exit-dialog
-                                          (list 'ok-cancel))))
+                                          (list 'ok-cancel 'caution))))
                    (if (eq? mbox 'ok)
                        (and
                         (clean-up)
@@ -242,13 +243,33 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                       [parent preferences-box]
                       [label "New Username:"]
                       [style (list 'vertical-label
-                                   'single)]))
+                                   'single)]
+                      [callback (λ (l e)
+                                  (when (eq? (send e get-event-type)
+                                             'text-field-enter)
+                                    ; set the new username
+                                    (send username-frame-message set-label
+                                          (send l get-value))
+                                    (tox_set_status_message my-tox (send l get-value)
+                                                            (string-length (send l get-value)))
+                                    ; TODO: save info to db
+                                    (send l set-value "")))]))
 
 (define pstfield (new text-field%
                       [parent preferences-box]
                       [label "New Status:"]
                       [style (list 'vertical-label
-                                   'single)]))
+                                   'single)]
+                      [callback (λ (l e)
+                                  (when (eq? (send e get-event-type)
+                                             'text-field-enter)
+                                    ; set the new status
+                                    (send status-frame-message set-label
+                                          (send l get-value))
+                                    (tox_set_status_message my-tox (send l get-value)
+                                                            (string-length (send l get-value)))
+                                    ; TODO: save info to db
+                                    (send l set-value "")))]))
 
 ; Preferences menu item for Edit
 (new menu-item% [parent menu-edit]
@@ -258,21 +279,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
      [callback (λ (button event)
                  (send preferences-box show #t))])
 
+; OK button for preferences dialog box
 (new button% [parent preferences-box]
      [label "OK"]
      [callback (λ (button event)
-                 ; set the new username
-                 (send username-frame-message set-label
-                       (send putfield get-value))
-                 (tox_set_status_message my-tox (send putfield get-value)
-                                         (string-length (send putfield get-value)))
-                 ; set the new user status
-                 (send status-frame-message set-label
-                       (send pstfield get-value))
-                 (tox_set_status_message my-tox (send pstfield get-value)
-                                         (string-length (send pstfield get-value)))
-                 (send putfield set-value "")
-                 (send pstfield set-value "")
                  (send preferences-box show #f))])
 
 ; menu Help for menu bar
@@ -295,9 +305,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
      [callback (λ (button event)
                  (send help-get-box show #t))])|#
 
+; TODO: Get new friend information
+; add to buddy list
+; add to db
+; send friend request
 (new button% [parent panel]
      [label "Add friend"])
 
+; TODO: Remove buddy from list
+; remove from db
 (new button% [parent panel]
      [label "Delete friend"])
 
