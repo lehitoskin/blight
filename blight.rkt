@@ -48,12 +48,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                             dht-public-key)
 
 ; necessary for saving and loading the messenger
-;(define len (tox_size my-tox))
-;(define data-ptr (malloc len))
+;(define size (tox_size my-tox))
+;(define data-ptr (malloc size))
 
-; LOAD SAVED INFORMATION FROM DB
+; place tox info into data-ptr
+;(tox_save my-tox data-ptr) ; like obtaining the Tox ID
+; write that info to file
+;fwrite(data-ptr, sizeof(uint8_t), size, data_file);
 
-;(tox_load my-tox)
+; LOAD INFORMATION FROM DATA
+;(tox_load my-tox data-ptr length)
 
 ; my Tox ID shenanigans
 (define my-id-bytes (malloc (* TOX_FRIEND_ADDRESS_SIZE
@@ -67,14 +71,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
          (string-append my-id-hex
                         (dec->hex (ptr-ref my-id-bytes _uint8_t i))))))
 
-; save messenger
-;(displayln "Saving Tox.")
-;(tox_save my-tox data-ptr)
-
-; load messenger
-;(displayln "Loading Tox. 0 means success. -1 means failure")
-;(tox_load my-tox data-ptr len)
-
 #| ############ BEGIN DATABASE STUFF ################ |#
 ; DATABASE DATABASE! JUST LIVING IN THE DATABASE!
 ; WOWOW
@@ -84,16 +80,17 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
    #:mode 'create))
 
 ; database initialization
+; Venom's tox.db only contains saved history
 (query-exec sqlc
-            "create table if not exists blightuser
-             (blightuserkey INTEGER PRIMARY KEY,
+            "create table if not exists History
+             (Historykey INTEGER PRIMARY KEY,
                 username TEXT,statusmessage TEXT);")
 
 ; little procedure to wrap things up for us
 (define clean-up
   (λ ()
     ; save tox information
-    ; tox_save + save to database
+    ; tox_save + save to data-file
     ; this kills the tox
     (tox_kill my-tox)
     ; disconnect from the database
@@ -147,7 +144,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 ; set data for each item in list-box
 ; data may be arbitrary, but a label will suffice
 (send list-box set-data 0 "Me")
-(send list-box append "al" "al")
 (send list-box append "test" "test")
 
 ; panel for main frame
