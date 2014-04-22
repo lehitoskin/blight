@@ -9,6 +9,7 @@
          "callbacks.rkt"    ; inner procedure callback definitions
          "number-conversions.rkt" ; bin, dec, and hex conversions
          ffi/unsafe         ; needed for neat pointer shenanigans
+         ;json              ; for reading and writing to config file
          db)                ; access db for stored info
 
 (define license-message
@@ -80,11 +81,31 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
    #:mode 'create))
 
 ; database initialization
-; Venom's tox.db only contains saved history
+; Follows Venom's database scheme
 (query-exec sqlc
-            "create table if not exists History
-             (Historykey INTEGER PRIMARY KEY,
-                username TEXT,statusmessage TEXT);")
+            "create table if not exists History(
+             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+             userHash TEXT NOT NULL,
+             contactHash TEXT NOT NULL,
+             message TEXT NOT NULL,
+             timestamp INTEGER NOT NULL,
+             issent INTEGER NOT NULL;")
+
+; index query
+(query-exec sqlc
+            "CREATE UNIQUE INDEX IF NOT EXISTS main_index
+             ON History (userHash, contactHash, timestamp);")
+
+; insert into history
+;"INSERT INTO History (userHash, contactHash, message, timestamp, issent)
+;VALUES ($USER, $CONTACT, $MESSAGE, $TIME, $SENDER);"
+
+; get history
+; maybe this will be useful for something like
+; File -> Chat history -> Select user
+; or even Right click user -> View Chat History
+;"SELECT * FROM History WHERE userHash = $USER AND contactHash = $CONTACT
+;AND timestamp > $OLDEST;"
 
 ; little procedure to wrap things up for us
 (define clean-up
