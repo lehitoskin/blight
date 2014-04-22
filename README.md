@@ -10,7 +10,7 @@ In very early pre-alpha stage. All help appreciated.
 
 - [Pre-compiled binaries](http://jenkins.tox.im/job/Blight-Debian/lastSuccessfulBuild/artifact/blight-latest-linux-amd64.tar) are automatically compiled after a Github commit. Navigate to the blight/bin directory and run blight.
 
-- [INSTALL.md](INSTALL.md) details compilation from source.
+- [INSTALL.md](INSTALL.md) details installation from source.
 
 ## Contributing
 
