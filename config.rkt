@@ -1,9 +1,11 @@
 #lang racket
 ; config.rkt
+;(require json)
 (provide (all-defined-out))
-
 ; check what system we're running on and look
 ; for the db in the appropriate location
+
+; history db file
 (define db-path (cond [(eq? (system-type) 'unix)
                        (build-path (find-system-path 'home-dir)
                                    ".config/tox/blight-tox.db")]
@@ -16,6 +18,7 @@
                       [else (build-path (find-system-path 'temp-dir)
                                            "blight-tox.db")]))
 
+; tox-specific information
 (define data-path (cond [(eq? (system-type) 'unix)
                          (build-path (find-system-path 'home-dir)
                                      ".config/tox/data")]
@@ -27,6 +30,19 @@
                         ; we're not running on windows or unix, use temp-dir
                         [else (build-path (find-system-path 'temp-dir)
                                              "data")]))
+
+; blight-specific information
+(define config-path (cond [(eq? (system-type) 'unix)
+                       (build-path (find-system-path 'home-dir)
+                                   ".config/tox/blight-config.json")]
+                      ; /AppData/Roaming/tox/blight-config.json
+                      [(eq? (system-type) 'windows)
+                       (normal-case-path
+                        (build-path (find-system-path 'home-dir)
+                                    "appdata/local/tox/blight-config.json"))]
+                      ; we're not running on windows or unix, use temp-dir
+                      [else (build-path (find-system-path 'temp-dir)
+                                           "blight-config.json")]))
 
 ; default name and status message
 (define my-name "Blight Tester")
