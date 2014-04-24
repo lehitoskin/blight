@@ -9,7 +9,7 @@
          "callbacks.rkt"    ; inner procedure callback definitions
          "number-conversions.rkt" ; bin, dec, and hex conversions
          ffi/unsafe         ; needed for neat pointer shenanigans
-         ;json              ; for reading and writing to config file
+         json              ; for reading and writing to config file
          db)                ; access db for stored info
 
 (define license-message
@@ -34,13 +34,31 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 #| ############ BEGIN TOX STUFF ############ |#
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
+(define dht-address "")
+(define dht-port 0)
+(define dht-public-key "")
 
+; does the tox directory exist?
+#|(if (not (directory-exists? tox-path))
+    (make-directory tox-path)
+    ; does blight-config.json exist?
+    (cond [(not (file-exists? config-file))
+           ; set DHT information to default
+           (set! dht-address dht-address-default)
+           (set! dht-port dht-port-default)
+           (set! dht-public-key dht-public-key-default)
+           ; save info to newly created blight-config.json
+           ]))|#
+
+(set! dht-address dht-address-default)
+(set! dht-port dht-port-default)
+(set! dht-public-key dht-public-key-default)
 ; set username
-; TODO: load from DB
+; TODO: load from blight-config.json
 (tox_set_name my-tox my-name (string-length my-name))
 
 ; set status message
-; TODO: load from DB
+; TODO: load from blight-config.json
 (tox_set_status_message my-tox my-status-message (string-length
                                                   my-status-message))
 
@@ -77,7 +95,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 ; WOWOW
 (define sqlc
   (sqlite3-connect
-   #:database db-path
+   #:database db-file
    #:mode 'create))
 
 ; database initialization
@@ -89,7 +107,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
              contactHash TEXT NOT NULL,
              message TEXT NOT NULL,
              timestamp INTEGER NOT NULL,
-             issent INTEGER NOT NULL;")
+             issent INTEGER NOT NULL);")
 
 ; index query
 (query-exec sqlc
@@ -269,7 +287,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                           (send l get-value))
                                     (tox_set_status_message my-tox (send l get-value)
                                                             (string-length (send l get-value)))
-                                    ; TODO: save info to db
                                     (send l set-value "")))]))
 
 (define pstfield (new text-field%
@@ -285,7 +302,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                           (send l get-value))
                                     (tox_set_status_message my-tox (send l get-value)
                                                             (string-length (send l get-value)))
-                                    ; TODO: save info to db
                                     (send l set-value "")))]))
 
 ; Preferences menu item for Edit
@@ -323,14 +339,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                  (send help-get-box show #t))])|#
 
 ; TODO: Get new friend information
-; add to buddy list
-; add to db
+; add to buddy list (with initial nick of Tox ID)
 ; send friend request
 (new button% [parent panel]
      [label "Add friend"])
 
 ; TODO: Remove buddy from list
-; remove from db
 (new button% [parent panel]
      [label "Delete friend"])
 

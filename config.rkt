@@ -20,12 +20,20 @@
 ; blight-specific configurations
 (define config-file (build-path tox-path "blight-config.json"))
 
+; read from and write to config-file
+(define config-port-out (open-output-file config-file
+                                          #:mode 'text
+                                          #:exists 'can-update))
+(define config-port-in (open-input-file config-file
+                                        #:mode 'text))
+
 ; default name and status message
 (define my-name "Blight Tester")
 (define my-status-message "Toxing on Blight")
 
 ; default DHT settings
 ; if blight-config.json exists, do not use these
-(define dht-address "192.254.75.98")
-(define dht-port 33445)
-(define dht-public-key "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074")
+(define dht-address-default "192.254.75.98")
+(define dht-port-default 33445)
+(define dht-public-key-default
+  "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074")
