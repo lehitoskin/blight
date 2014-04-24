@@ -1,54 +1,31 @@
 #lang racket
 ; config.rkt
-;(require json)
 (provide (all-defined-out))
 ; check what system we're running on and look
 ; for the db in the appropriate location
 
-; history db file
-(define db-path (cond [(eq? (system-type) 'unix)
-                       (build-path (find-system-path 'home-dir)
-                                   ".config/tox/blight-tox.db")]
-                      ; /AppData/Roaming/tox/blight-tox.db
-                      [(eq? (system-type) 'windows)
-                       (normal-case-path
+; base tox directory
+(define tox-path (cond [(eq? (system-type) 'unix)
                         (build-path (find-system-path 'home-dir)
-                                    "appdata/local/tox/blight-tox.db"))]
-                      ; we're not running on windows or unix, use temp-dir
-                      [else (build-path (find-system-path 'temp-dir)
-                                           "blight-tox.db")]))
-
-; tox-specific information
-(define data-path (cond [(eq? (system-type) 'unix)
+                                    ".config/tox")]
+                       [(eq? (system-type) 'windows)
+                        (normal-case-path
                          (build-path (find-system-path 'home-dir)
-                                     ".config/tox/data")]
-                        ; /AppData/Roaming/tox/blight-tox.db
-                        [(eq? (system-type) 'windows)
-                         (normal-case-path
-                          (build-path (find-system-path 'home-dir)
-                                      "appdata/local/tox/data"))]
-                        ; we're not running on windows or unix, use temp-dir
-                        [else (build-path (find-system-path 'temp-dir)
-                                             "data")]))
+                                     "appdata/local/tox"))]))
 
-; blight-specific information
-(define config-path (cond [(eq? (system-type) 'unix)
-                       (build-path (find-system-path 'home-dir)
-                                   ".config/tox/blight-config.json")]
-                      ; /AppData/Roaming/tox/blight-config.json
-                      [(eq? (system-type) 'windows)
-                       (normal-case-path
-                        (build-path (find-system-path 'home-dir)
-                                    "appdata/local/tox/blight-config.json"))]
-                      ; we're not running on windows or unix, use temp-dir
-                      [else (build-path (find-system-path 'temp-dir)
-                                           "blight-config.json")]))
+; history db file
+(define db-file (build-path tox-path "blight-tox.db"))
+; tox-specific information
+(define data-file (build-path tox-path "data"))
+; blight-specific configurations
+(define config-file (build-path tox-path "blight-config.json"))
 
 ; default name and status message
 (define my-name "Blight Tester")
 (define my-status-message "Toxing on Blight")
 
 ; default DHT settings
+; if blight-config.json exists, do not use these
 (define dht-address "192.254.75.98")
 (define dht-port 33445)
 (define dht-public-key "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074")
