@@ -1,6 +1,7 @@
 #lang racket/gui
 ; chat.rkt
 ; contains chat-window definitions
+(require "helpers.rkt")
 (provide (all-defined-out))
 
 #|
@@ -95,5 +96,13 @@
                        (string-append "Me: "
                                       (send chat-text-send get-text 0 'eof #t #t)
                                       "\n"))
+                 ; is it an http?/https?
+                 ; useful for link coloring etc.
+                 #|(send chat-text-receive insert
+                       (string-append "HTTP? "
+                                      (if (http? (send chat-text-send get-text 0 'eof #t #t))
+                                          "True"
+                                          "False")
+                                      "\n"))|#
                  ; clear chat-editor-canvas-send
                  (send chat-text-send erase))])
