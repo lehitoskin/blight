@@ -145,7 +145,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
     ; this kills the tox
     (tox_kill my-tox)
     ; disconnect from the database
-    (disconnect sqlc)))
+    (disconnect sqlc)
+    ; close input/output ports
+    (close-input-port config-port-in)
+    (close-output-port config-port-out)))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
