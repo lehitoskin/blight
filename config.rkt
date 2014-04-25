@@ -20,7 +20,12 @@
 ; blight-specific configurations
 (define config-file (build-path tox-path "blight-config.json"))
 
+; tox-path doesn't exist, create it
+(unless (directory-exists? tox-path)
+  (make-directory tox-path))
+
 ; read from and write to config-file
+; if config-file does not exist, create it
 (define config-port-out (open-output-file config-file
                                           #:mode 'text
                                           #:exists 'can-update))

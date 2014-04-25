@@ -38,21 +38,33 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 (define dht-port 0)
 (define dht-public-key "")
 
-; does the tox directory exist?
-#|(if (not (directory-exists? tox-path))
-    (make-directory tox-path)
-    ; does blight-config.json exist?
-    (cond [(not (file-exists? config-file))
-           ; set DHT information to default
-           (set! dht-address dht-address-default)
-           (set! dht-port dht-port-default)
-           (set! dht-public-key dht-public-key-default)
-           ; save info to newly created blight-config.json
-           ]))|#
+#| ############ BEGIN JSON STUFF ############ |#
+; if blight-config.json does not exist, initalize
+; it to default values, otherwise read from the
+; file and set necessary values to what's inside
 
-(set! dht-address dht-address-default)
-(set! dht-port dht-port-default)
-(set! dht-public-key dht-public-key-default)
+(define json-expression
+  (hasheq 'dht-address dht-address-default
+          'dht-port dht-port-default
+          'dht-public-key dht-public-key-default))
+
+; blight-config.json is empty
+(cond [(zero? (file-size config-file))
+       ; set DHT information to default
+       (set! dht-address dht-address-default)
+       (set! dht-port dht-port-default)
+       (set! dht-public-key dht-public-key-default)
+       ; save info to newly created blight-config.json
+       (json-null 'null)
+       (write-json json-expression config-port-out)
+       (write-json "" config-port-out)
+       (write-json (json-null) config-port-out)]
+      ; blight-config.json contains values, read from them
+      [(not (zero? (file-size config-file))) (let ((json-info (read-json config-port-in)))
+                                               (set! dht-address (hash-ref json-info 'dht-address))
+                                               (set! dht-port (hash-ref json-info 'dht-port))
+                                               (set! dht-public-key (hash-ref json-info 'dht-public-key)))])
+
 ; set username
 ; TODO: load from blight-config.json
 (tox_set_name my-tox my-name (string-length my-name))
