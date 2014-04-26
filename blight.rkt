@@ -148,7 +148,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
     (disconnect sqlc)
     ; close input/output ports
     (close-input-port config-port-in)
-    (close-output-port config-port-out)))
+    (close-output-port config-port-out)
+    (close-input-port data-port-in)
+    (close-output-port data-port-out)))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window

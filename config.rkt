@@ -16,7 +16,7 @@
 ; history db file
 (define db-file (build-path tox-path "blight-tox.db"))
 ; tox-specific information
-(define data-file (build-path tox-path "data"))
+(define data-file (build-path tox-path "blight-data")) #|DONT' FORGET TO CHANGE BACK THIS ONCE STABLE|#
 ; blight-specific configurations
 (define config-file (build-path tox-path "blight-config.json"))
 
@@ -32,7 +32,15 @@
 (define config-port-in (open-input-file config-file
                                         #:mode 'text))
 
+; same for data-file
+(define data-port-out (open-output-file data-file
+                                        #:mode 'binary
+                                        #:exists 'can-update))
+(define data-port-in (open-input-file data-file
+                                        #:mode 'binary))
+
 ; default name and status message
+; if data exists, do no use these
 (define my-name "Blight Tester")
 (define my-status-message "Toxing on Blight")
 
