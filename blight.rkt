@@ -10,6 +10,7 @@
          "number-conversions.rkt" ; bin, dec, and hex conversions
          ffi/unsafe         ; needed for neat pointer shenanigans
          json              ; for reading and writing to config file
+         unstable/debug
          db)                ; access db for stored info
 
 (define license-message
@@ -31,12 +32,14 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 
 (define running #t)
 
-#| ############ BEGIN TOX STUFF ############ |#
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
+; empty variables that get filled later
 (define dht-address "")
 (define dht-port 0)
 (define dht-public-key "")
+(define my-name "")
+(define my-status-message "")
 
 #| ############ BEGIN JSON STUFF ############ |#
 ; if blight-config.json does not exist, initalize
@@ -46,31 +49,43 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 (define json-expression
   (hasheq 'dht-address dht-address-default
           'dht-port dht-port-default
-          'dht-public-key dht-public-key-default))
+          'dht-public-key dht-public-key-default
+          'my-name-last my-name-default
+          'my-status-last my-status-message-default))
 
-; blight-config.json is empty
+; blight-config.json is empty, set variables to defaults
 (cond [(zero? (file-size config-file))
        ; set DHT information to default
        (set! dht-address dht-address-default)
        (set! dht-port dht-port-default)
        (set! dht-public-key dht-public-key-default)
+       ; set name and status to default
+       (set! my-name my-name-default)
+       (set! my-status-message my-status-message-default)
        ; save info to newly created blight-config.json
-       (json-null 'null)
-       (write-json json-expression config-port-out)
-       (write-json "" config-port-out)
-       (write-json (json-null) config-port-out)]
+       (let ((config-port-out (open-output-file config-file
+                                                #:mode 'text
+                                                #:exists 'truncate/replace)))
+         (json-null 'null)
+         (write-json json-expression config-port-out)
+         (write-json "" config-port-out)
+         (write-json (json-null) config-port-out)
+         (close-output-port config-port-out))]
       ; blight-config.json contains values, read from them
       [(not (zero? (file-size config-file))) (let ((json-info (read-json config-port-in)))
                                                (set! dht-address (hash-ref json-info 'dht-address))
                                                (set! dht-port (hash-ref json-info 'dht-port))
-                                               (set! dht-public-key (hash-ref json-info 'dht-public-key)))])
+                                               (set! dht-public-key (hash-ref json-info 'dht-public-key))
+                                               (set! my-name (hash-ref json-info 'my-name-last))
+                                               (set! my-status-message (hash-ref json-info 'my-status-last)))])
 
+#| ############ BEGIN TOX STUFF ############ |#
 ; set username
-; TODO: load from blight-config.json
+; do not do this if data-file exists
 (tox_set_name my-tox my-name (string-length my-name))
 
 ; set status message
-; TODO: load from blight-config.json
+; do not do this if data-file exists
 (tox_set_status_message my-tox my-status-message (string-length
                                                   my-status-message))
 
@@ -79,16 +94,24 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                             dht-public-key)
 
 ; necessary for saving and loading the messenger
-;(define size (tox_size my-tox))
-;(define data-ptr (malloc size))
+(define size (tox_size my-tox))
+(define data-ptr (malloc size))
 
-; place tox info into data-ptr
-;(tox_save my-tox data-ptr) ; like obtaining the Tox ID
-; write that info to file
-;fwrite(data-ptr, sizeof(uint8_t), size, data_file);
+; place all tox info into data-ptr
+;(tox_save my-tox data-ptr)
+; SAVE INFORMATION TO DATA
+; dec->hex->bytes
+#|(define my-data #"")
+(do ((i 0 (+ i 1)))
+  ((= i size))
+  (set! my-data
+        (bytes-append my-data
+                      (hex-string->bytes
+                       (dec->hex (ptr-ref data-ptr _uint8_t i))))))
+(write-bytes my-data data-port-out)|#
 
 ; LOAD INFORMATION FROM DATA
-;(tox_load my-tox data-ptr length)
+;(tox_load my-tox data-ptr size)
 
 ; my Tox ID shenanigans
 (define my-id-bytes (malloc (* TOX_FRIEND_ADDRESS_SIZE
@@ -142,15 +165,28 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
   (λ ()
     ; save tox information
     ; tox_save + save to data-file
+    ; update json-expression to current values
+    (set! json-expression
+          (hash-set* json-expression
+                     'my-name-last my-name
+                     'my-status-last my-status-message))
+    ; save information to blight-config.json
+    (let ((config-port-out (open-output-file config-file
+                                             #:mode 'text
+                                             #:exists 'truncate/replace)))
+      (json-null 'null)
+      (write-json json-expression config-port-out)
+      (write-json "" config-port-out)
+      (write-json (json-null) config-port-out)
+      (close-output-port config-port-out))
     ; this kills the tox
     (tox_kill my-tox)
     ; disconnect from the database
     (disconnect sqlc)
     ; close input/output ports
-    (close-input-port config-port-in)
-    (close-output-port config-port-out)
-    (close-input-port data-port-in)
-    (close-output-port data-port-out)))
+    (close-input-port config-port-in)))
+;(close-input-port data-port-in)
+;(close-output-port data-port-out)))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
@@ -300,6 +336,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                   (when (eq? (send e get-event-type)
                                              'text-field-enter)
                                     ; set the new username
+                                    (set! my-name (send l get-value))
                                     (send username-frame-message set-label
                                           (send l get-value))
                                     (tox_set_status_message my-tox (send l get-value)
@@ -315,6 +352,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                   (when (eq? (send e get-event-type)
                                              'text-field-enter)
                                     ; set the new status
+                                    (set! my-status-message (send l get-value))
                                     (send status-frame-message set-label
                                           (send l get-value))
                                     (tox_set_status_message my-tox (send l get-value)

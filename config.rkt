@@ -24,25 +24,29 @@
 (unless (directory-exists? tox-path)
   (make-directory tox-path))
 
-; read from and write to config-file
-; if config-file does not exist, create it
-(define config-port-out (open-output-file config-file
-                                          #:mode 'text
-                                          #:exists 'can-update))
+; if blight-config.json does not exist, create it
+(unless (file-exists? config-file)
+  (define config-port-out
+    (open-output-file config-file
+                      #:mode 'text
+                      #:exists 'can-update))
+  (printf "~a created...\n" config-file))
+
+; open blight-config.json
 (define config-port-in (open-input-file config-file
                                         #:mode 'text))
 
 ; same for data-file
-(define data-port-out (open-output-file data-file
+#|(define data-port-out (open-output-file data-file
                                         #:mode 'binary
                                         #:exists 'can-update))
 (define data-port-in (open-input-file data-file
-                                        #:mode 'binary))
+                                        #:mode 'binary))|#
 
 ; default name and status message
 ; if data exists, do no use these
-(define my-name "Blight Tester")
-(define my-status-message "Toxing on Blight")
+(define my-name-default "Blight Tester")
+(define my-status-message-default "Toxing on Blight")
 
 ; default DHT settings
 ; if blight-config.json exists, do not use these
