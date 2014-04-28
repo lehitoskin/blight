@@ -36,12 +36,17 @@
 (define config-port-in (open-input-file config-file
                                         #:mode 'text))
 
-; same for data-file
-#|(define data-port-out (open-output-file data-file
-                                        #:mode 'binary
-                                        #:exists 'can-update))
+; if data does not exist, create it
+(unless (file-exists? data-file)
+  (define data-port-out
+    (open-output-file data-file
+                      #:mode 'binary
+                      #:exists 'can-update))
+  (printf "~a created...\n" data-file))
+
+; open the data file
 (define data-port-in (open-input-file data-file
-                                        #:mode 'binary))|#
+                                        #:mode 'binary))
 
 ; default name and status message
 ; if data exists, do no use these

@@ -9,9 +9,9 @@
          "callbacks.rkt"    ; inner procedure callback definitions
          "number-conversions.rkt" ; bin, dec, and hex conversions
          ffi/unsafe         ; needed for neat pointer shenanigans
-         json              ; for reading and writing to config file
-         unstable/debug
-         db)                ; access db for stored info
+         json               ; for reading and writing to config file
+         file/sha1          ; for hex-string->bytes
+         db)                ; access sqlite db for stored history
 
 (define license-message
   "Blight - a Tox client written in Racket.
@@ -34,7 +34,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
-; empty variables that get filled later
+; empty variables that get set! later
 (define dht-address "")
 (define dht-port 0)
 (define dht-public-key "")
@@ -53,6 +53,22 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
           'my-name-last my-name-default
           'my-status-last my-status-message-default))
 
+; reusable procedure to save information to blight-config.json
+(define blight-save-config
+  (λ ()
+    (let ((json
+           (hash-set* json-expression
+                      'my-name-last my-name
+                      'my-status-last my-status-message))
+          (config-port-out (open-output-file config-file
+                                             #:mode 'text
+                                             #:exists 'truncate/replace)))
+      (json-null 'null)
+      (write-json json-expression config-port-out)
+      (write-json "" config-port-out)
+      (write-json (json-null) config-port-out)
+      (close-output-port config-port-out))))
+
 ; blight-config.json is empty, set variables to defaults
 (cond [(zero? (file-size config-file))
        ; set DHT information to default
@@ -63,14 +79,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
        (set! my-name my-name-default)
        (set! my-status-message my-status-message-default)
        ; save info to newly created blight-config.json
-       (let ((config-port-out (open-output-file config-file
-                                                #:mode 'text
-                                                #:exists 'truncate/replace)))
-         (json-null 'null)
-         (write-json json-expression config-port-out)
-         (write-json "" config-port-out)
-         (write-json (json-null) config-port-out)
-         (close-output-port config-port-out))]
+       (blight-save-config)]
       ; blight-config.json contains values, read from them
       [(not (zero? (file-size config-file))) (let ((json-info (read-json config-port-in)))
                                                (set! dht-address (hash-ref json-info 'dht-address))
@@ -97,18 +106,29 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 (define size (tox_size my-tox))
 (define data-ptr (malloc size))
 
-; place all tox info into data-ptr
-;(tox_save my-tox data-ptr)
-; SAVE INFORMATION TO DATA
-; dec->hex->bytes
-#|(define my-data #"")
-(do ((i 0 (+ i 1)))
-  ((= i size))
-  (set! my-data
-        (bytes-append my-data
-                      (hex-string->bytes
-                       (dec->hex (ptr-ref data-ptr _uint8_t i))))))
-(write-bytes my-data data-port-out)|#
+; reusable procedure to save tox information to data-file
+(define blight-save-data
+  (λ ()
+    ; place all tox info into data-ptr
+    (tox_save my-tox data-ptr)
+    ; SAVE INFORMATION TO DATA
+    ; dec->hex->bytes
+    (let ((my-data #"")
+          (data-port-out (open-output-file data-file
+                                           #:mode 'binary
+                                           #:exists 'truncate/replace)))
+      (do ((i 0 (+ i 1)))
+        ((= i size))
+        (set! my-data
+              (bytes-append my-data
+                            (hex-string->bytes
+                             (dec->hex (ptr-ref data-ptr _uint8_t i))))))
+      (write-bytes my-data data-port-out)
+      (close-output-port data-port-out))))
+
+; if data-file is empty, initialize it
+(unless (not (zero? (file-size data-file)))
+  (blight-save-data))
 
 ; LOAD INFORMATION FROM DATA
 ;(tox_load my-tox data-ptr size)
@@ -134,7 +154,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
    #:mode 'create))
 
 ; database initialization
-; Follows Venom's database scheme
+; follows Venom's database scheme
 (query-exec sqlc
             "create table if not exists History(
              id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -163,28 +183,17 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 ; little procedure to wrap things up for us
 (define clean-up
   (λ ()
-    ; save tox information
-    ; tox_save + save to data-file
-    ; update json-expression to current values
-    (set! json-expression
-          (hash-set* json-expression
-                     'my-name-last my-name
-                     'my-status-last my-status-message))
     ; save information to blight-config.json
-    (let ((config-port-out (open-output-file config-file
-                                             #:mode 'text
-                                             #:exists 'truncate/replace)))
-      (json-null 'null)
-      (write-json json-expression config-port-out)
-      (write-json "" config-port-out)
-      (write-json (json-null) config-port-out)
-      (close-output-port config-port-out))
+    (blight-save-config)
+    ; save tox info to data-file
+    (blight-save-data)
     ; this kills the tox
     (tox_kill my-tox)
     ; disconnect from the database
     (disconnect sqlc)
-    ; close input/output ports
-    (close-input-port config-port-in)))
+    ; close input ports
+    (close-input-port config-port-in)
+    (close-input-port data-port-in)))
 ;(close-input-port data-port-in)
 ;(close-output-port data-port-out)))
 
@@ -206,11 +215,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                     [label my-name]
                                     [min-width
                                      (string-length my-name)]))
+(send username-frame-message auto-resize #t)
 
 (define status-frame-message (new message% [parent frame]
                                   [label my-status-message]
                                   [min-width
                                    (string-length my-status-message)]))
+(send status-frame-message auto-resize #t)
 
 ; combo-field to choose online vs. all friends in the friend list?
 ; (define list-size (tox_get_num_online_friends my-tox)
