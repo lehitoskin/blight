@@ -30,7 +30,8 @@
     (open-output-file config-file
                       #:mode 'text
                       #:exists 'can-update))
-  (printf "~a created...\n" config-file))
+  (printf "~a created...\n" config-file)
+  (close-output-port config-port-out))
 
 ; open blight-config.json
 (define config-port-in (open-input-file config-file
@@ -42,7 +43,8 @@
     (open-output-file data-file
                       #:mode 'binary
                       #:exists 'can-update))
-  (printf "~a created...\n" data-file))
+  (printf "~a created...\n" data-file)
+  (close-output-port data-port-out))
 
 ; open the data file
 (define data-port-in (open-input-file data-file

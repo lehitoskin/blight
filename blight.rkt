@@ -64,7 +64,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                              #:mode 'text
                                              #:exists 'truncate/replace)))
       (json-null 'null)
-      (write-json json-expression config-port-out)
+      (write-json json config-port-out)
       (write-json "" config-port-out)
       (write-json (json-null) config-port-out)
       (close-output-port config-port-out))))
@@ -194,8 +194,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
     ; close input ports
     (close-input-port config-port-in)
     (close-input-port data-port-in)))
-;(close-input-port data-port-in)
-;(close-output-port data-port-out)))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
