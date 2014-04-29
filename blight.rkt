@@ -8,6 +8,7 @@
          "config.rkt"       ; default config file
          "callbacks.rkt"    ; inner procedure callback definitions
          "number-conversions.rkt" ; bin, dec, and hex conversions
+         "helpers.rkt"      ; various useful functions
          ffi/unsafe         ; needed for neat pointer shenanigans
          json               ; for reading and writing to config file
          file/sha1          ; for hex-string->bytes
@@ -368,6 +369,31 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                                             (string-length (send l get-value)))
                                     (send l set-value "")))]))
 
+; add a friend 'n' stuff
+(define add-friend-box (new dialog%
+                            [label "Add a new Tox friend"]
+                            [style (list 'close-button)]))
+
+; add friend with nickname
+; TODO:
+; check if friend nick is already in use
+(define add-friend-nick-tfield (new text-field%
+                                    [parent add-friend-box]
+                                    [label "Friend name:"]
+                                    [horiz-margin 38]))
+
+; add friend with Tox ID
+; TODO:
+; DNS shit
+(define add-friend-hex-tfield (new text-field%
+                                   [parent add-friend-box]
+                                   [label "Friend ID(X):"]
+                                   [min-width 38]
+                                   [callback (λ (l on-char)
+                                               (if (tox-id? (send l get-value))
+                                                 (send l set-label "Friend ID(✓):")
+                                                 (send l set-label "Friend ID(X):")))]))
+
 ; Preferences menu item for Edit
 (new menu-item% [parent menu-edit]
      [label "Preferences"]
@@ -402,11 +428,24 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
      [callback (λ (button event)
                  (send help-get-box show #t))])|#
 
-; TODO: Get new friend information
-; add to buddy list (with initial nick of Tox ID)
 ; send friend request
 (new button% [parent panel]
-     [label "Add friend"])
+     [label "Add friend"]
+     [callback (λ (button event)
+                 (send add-friend-box show #t))])
+
+; OK button for add-friend dialog box
+(new button% [parent add-friend-box]
+     [label "OK"]
+     [callback (λ (button event)
+                 ; add the friend to the friend list
+                 ; collisions and validity are checked at the tfield level
+                 (send list-box append (send add-friend-nick-tfield get-value)
+                       (send add-friend-nick-tfield get-value))
+                 ;(tox_add_friend)
+                 (send add-friend-nick-tfield set-value "")
+                 (send add-friend-hex-tfield set-value "")
+                 (send add-friend-box show #f))])
 
 ; TODO: Remove buddy from list
 (new button% [parent panel]
