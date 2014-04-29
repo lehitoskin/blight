@@ -2,19 +2,19 @@ Blight
 ======
 [![Build Status](http://jenkins.tox.im/job/Blight-Debian/badge/icon)](http://jenkins.tox.im/job/Blight-Debian/)
 
-Blight is a a cross-platform graphical user interface for [Tox](https://github.com/irungentoo/ProjectTox-Core) written in [Racket](http://racket-lang.org/) that utilizes [libtoxcore-racket](https://github.com/lehitoskin/libtoxcore-racket).
-In very early pre-alpha stage. All help appreciated.
+Blight is a cross-platform graphical user interface for [Tox](https://github.com/irungentoo/ProjectTox-Core) written in [Racket](http://racket-lang.org/) that utilizes [libtoxcore-racket](https://github.com/lehitoskin/libtoxcore-racket).
+In very early pre-alpha stage. All help and testing appreciated.
 
 
 ## Installation
 
-- [Pre-compiled binaries](http://jenkins.tox.im/job/Blight-Debian/lastSuccessfulBuild/artifact/blight-latest-linux-amd64.tar) are automatically compiled after a Github commit. Navigate to the blight/bin directory and run blight.
+- [Pre-compiled binaries](http://jenkins.tox.im/job/Blight-Debian/lastSuccessfulBuild/artifact/blight-latest-linux-amd64.tar) are automatically compiled after a Github commit. Navigate to the blight/bin directory and run blight. Please note that since these builds are taken from the latest git the program's behavior may have unintended side effects.
 
 - [INSTALL.md](INSTALL.md) details installation from source.
 
 ## Contributing
 
-- Check the [issue tracker](https://github.com/lehitoskin/Blight/issues?direction=desc&sort=created&state=open) for bugs to be fixed and features to be implemented
+- Check the [issue tracker](https://github.com/lehitoskin/Blight/issues?direction=desc&sort=created&state=open) for bugs to be fixed and features to be implemented.
 
 - Come up with your own idea, [create a discussion issue](https://github.com/lehitoskin/blight/issues/new) for it and get feedback.
 
@@ -22,7 +22,7 @@ In very early pre-alpha stage. All help appreciated.
 
 ## Contact
 
-- Visit our IRC channel `#tox-dev` on [freenode](http://freenode.net/).
+- Visit the Tox IRC channel `#tox-dev` on [freenode](http://freenode.net/).
 
 - Email me: [lehi@tosk.in](mailto:lehi@tosk.in)
 
