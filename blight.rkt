@@ -202,8 +202,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 (define frame (new frame%
                    [label "Blight"]
                    [width 400]
-                   [height 300]))
-(send frame move 0 0)
+                   [height 300]
+                   [x 0]
+                   [y 0]))
 
 ; make a static text message in the frame
 (define frame-msg (new message% [parent frame]
@@ -391,8 +392,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                    [min-width 38]
                                    [callback (λ (l on-char)
                                                (if (tox-id? (send l get-value))
-                                                 (send l set-label "Friend ID(✓):")
-                                                 (send l set-label "Friend ID(X):")))]))
+                                                   (send l set-label "Friend ID(✓):")
+                                                   (send l set-label "Friend ID(X):")))]))
+
+; panel for the buttons
+(define add-friend-panel (new horizontal-panel%
+                              [parent add-friend-box]))
+
+(define add-friend-error-dialog (new dialog%
+                                     [label "Invalid Tox ID"]
+                                     [style (list 'close-button)]))
 
 ; Preferences menu item for Edit
 (new menu-item% [parent menu-edit]
@@ -435,14 +444,28 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                  (send add-friend-box show #t))])
 
 ; OK button for add-friend dialog box
-(new button% [parent add-friend-box]
+(new button% [parent add-friend-panel]
      [label "OK"]
      [callback (λ (button event)
                  ; add the friend to the friend list
-                 ; collisions and validity are checked at the tfield level
-                 (send list-box append (send add-friend-nick-tfield get-value)
-                       (send add-friend-nick-tfield get-value))
-                 ;(tox_add_friend)
+                 (cond [(tox-id? (send add-friend-hex-tfield get-value))
+                        (send list-box append (send add-friend-nick-tfield get-value)
+                              (send add-friend-nick-tfield get-value))
+                        ;(tox_add_friend)
+                        (send add-friend-nick-tfield set-value "")
+                        (send add-friend-hex-tfield set-value "")
+                        (send add-friend-box show #f)]
+                       [else (let ((mbox (message-box "Invalid Tox ID"
+                                                      "Sorry, that is an invalid Tox ID."
+                                                      add-friend-error-dialog
+                                                      (list 'ok 'stop))))
+                               (when (eq? mbox 'ok)
+                                 (send add-friend-error-dialog show #f)))]))])
+
+; don't actually want to add a friend right now
+(new button% [parent add-friend-panel]
+     [label "Cancel"]
+     [callback (λ (button event)
                  (send add-friend-nick-tfield set-value "")
                  (send add-friend-hex-tfield set-value "")
                  (send add-friend-box show #f))])
