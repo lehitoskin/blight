@@ -2,7 +2,6 @@
 ; helpers.rkt
 ; contains miscellaneous procedures for things
 (provide (all-defined-out))
-(require racket/trace)
 
 (define http?
   (λ (str)
@@ -20,7 +19,12 @@
         (raise-argument-error 'http? "string?" str))))
 
 ; accepts a string and singles out the hyperlink
-(define grab-http 'str)
+(define grab-http
+  (λ (str)
+    (first
+     (or (regexp-match #rx"http://" str)
+         (regexp-match #rx"https://" str)
+         (regexp-match #rx"www." str)))))
 
 ; checks if a given string is in hexadecimal format
 (define hex?
