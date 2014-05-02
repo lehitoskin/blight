@@ -9,3 +9,5 @@ Next, install Racket through either the repositories or by source.
 Now, install the Racket wrapper to libtoxcore by following the [installation instructions ](https://github.com/lehitoskin/libtoxcore-racket/blob/master/README.md#installation) provided.
 
 Then download Blight itself with ```git clone https://github.com/lehitoskin/blight```.
+
+If everything went correctly, running blight.rkt through Racket will pull up the GUI.
