@@ -66,7 +66,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                              #:exists 'truncate/replace)))
       (json-null 'null)
       (write-json json config-port-out)
-      (write-json "" config-port-out)
       (write-json (json-null) config-port-out)
       (close-output-port config-port-out))))
 
@@ -90,22 +89,31 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                                (set! my-status-message (hash-ref json-info 'my-status-last)))])
 
 #| ############ BEGIN TOX STUFF ############ |#
-; set username
-; do not do this if data-file exists
-(tox_set_name my-tox my-name (string-length my-name))
+; necessary for saving and loading the messenger
+(define size (tox_size my-tox))
+(define data-ptr (malloc size))
 
+; data-file is empty, use default settings
+#|(cond [(zero? (file-size data-file))
+       ; set username
+       (tox_set_name my-tox my-name (string-length my-name))
+       ; set status message
+       (tox_set_status_message my-tox my-status-message (string-length
+                                                         my-status-message))]
+      ; data-file is not empty, load from data-file
+      [(not (zero? (file-size data-file)))
+       ; bytes->hex->dec
+       (tox_load my-tox data-ptr size)])|#
+
+; set username
+(tox_set_name my-tox my-name (string-length my-name))
 ; set status message
-; do not do this if data-file exists
 (tox_set_status_message my-tox my-status-message (string-length
                                                   my-status-message))
 
 ; connect to DHT
 (tox_bootstrap_from_address my-tox dht-address TOX_ENABLE_IPV6_DEFAULT dht-port
                             dht-public-key)
-
-; necessary for saving and loading the messenger
-(define size (tox_size my-tox))
-(define data-ptr (malloc size))
 
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
