@@ -31,8 +31,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.")
 
-(define running #t)
-
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
 ; empty variables that get set! later
@@ -57,10 +55,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 ; reusable procedure to save information to blight-config.json
 (define blight-save-config
   (λ ()
-    (let ((json
-           (hash-set* json-expression
-                      'my-name-last my-name
-                      'my-status-last my-status-message))
+    (let ((json (hash-set* json-expression
+                           'my-name-last my-name
+                           'my-status-last my-status-message))
           (config-port-out (open-output-file config-file
                                              #:mode 'text
                                              #:exists 'truncate/replace)))
@@ -139,10 +136,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 (unless (not (zero? (file-size data-file)))
   (blight-save-data))
 
-; LOAD INFORMATION FROM DATA
-;(tox_load my-tox data-ptr size)
-
-; my Tox ID shenanigans
+; obtain tox id
 (define my-id-bytes (malloc (* TOX_FRIEND_ADDRESS_SIZE
                                (ctype-sizeof _uint8_t))))
 (define my-id-hex "")
@@ -332,8 +326,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                           exit-dialog
                                           (list 'ok-cancel 'caution))))
                    (if (eq? mbox 'ok)
-                       (and
-                        (clean-up)
+                       ((clean-up)
                         (exit))
                        null)))])
 
@@ -436,14 +429,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
      [help-string "Show information about Blight"]
      [callback (λ (button event)
                  (send help-dialog show #t))])
-
-; Get Help menu item for Help
-#|(new menu-item% [parent menu-help]
-     [label "Get Help"]
-     [shortcut #\H]
-     [help-string "Have questions? Get help!"]
-     [callback (λ (button event)
-                 (send help-get-box show #t))])|#
 
 ; send friend request
 (new button% [parent panel]
