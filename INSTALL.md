@@ -10,4 +10,6 @@ Now, install the Racket wrapper to libtoxcore by following the [installation ins
 
 Then download Blight itself with ```git clone https://github.com/lehitoskin/blight```.
 
-If everything went correctly, running blight.rkt through Racket will pull up the GUI.
+Then run ```chmod 755 blight.rkt``` to allow the file to be run as an executable.
+
+If everything went correctly, running ```./blight.rkt``` will pull up the GUI.
