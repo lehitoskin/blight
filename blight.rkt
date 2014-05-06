@@ -296,14 +296,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                        [label "&File"]
                        [help-string "Open, Quit, etc."]))
 
-; Add New Friend menu item for File
-#|(new menu-item% [parent menu-file]
-     [label "Add New Friend"]
-     [shortcut #\N]
-     [help-string "Add a new Tox friend"]
-     [callback (λ (button event)
-                     (send add-friend-box show #t))])|#
-
 ; Copy ID to Clipboard item for File
 (new menu-item% [parent menu-file]
      [label "Copy ID to Clipboard"]
