@@ -132,10 +132,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
       (write-bytes my-data data-port-out)
       (close-output-port data-port-out))))
 
-; if data-file is empty, initialize it
-(unless (not (zero? (file-size data-file)))
-  (blight-save-data))
-
 ; obtain tox id
 (define my-id-bytes (malloc (* TOX_FRIEND_ADDRESS_SIZE
                                (ctype-sizeof _uint8_t))))
