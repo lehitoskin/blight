@@ -1,6 +1,6 @@
 Blight
 ======
-[![Build Status](http://jenkins.tox.im/job/Blight-Debian/badge/icon)](http://jenkins.tox.im/job/Blight-Debian/)
+[![Build Status](http://jenkins.libtoxcore.so/job/Blight-Debian/badge/icon)](http://jenkins.tox.im/job/Blight-Debian/)
 
 Blight is a cross-platform graphical user interface for [Tox](https://github.com/irungentoo/ProjectTox-Core) written in [Racket](http://racket-lang.org/) that utilizes [libtoxcore-racket](https://github.com/lehitoskin/libtoxcore-racket).
 In very early pre-alpha stage. All help and testing appreciated.
@@ -8,7 +8,7 @@ In very early pre-alpha stage. All help and testing appreciated.
 
 ## Installation
 
-- [Pre-compiled binaries](http://jenkins.tox.im/job/Blight-Debian/lastSuccessfulBuild/artifact/blight-latest-linux-amd64.tar) are automatically compiled after a Github commit. Navigate to the blight/bin directory and run blight. Please note that since these builds are taken from the latest git the program's behavior may have unintended side effects.
+- [Pre-compiled binaries](http://jenkins.libtoxcore.so/job/Blight-Debian/lastSuccessfulBuild/artifact/blight-latest-linux-amd64.tar) are automatically compiled after a Github commit. Navigate to the blight/bin directory and run blight. Please note that since these builds are taken from the latest git the program's behavior may have unintended side effects.
 
 - [INSTALL.md](INSTALL.md) details installation from source.
 
