@@ -6,7 +6,7 @@
 (require libtoxcore-racket ; wrapper
          "chat.rkt"         ; contains definitions for chat window
          "config.rkt"       ; default config file
-         "callbacks.rkt"    ; inner procedure callback definitions
+         ;"callbacks.rkt"    ; inner procedure callback definitions
          "number-conversions.rkt" ; bin, dec, and hex conversions
          "helpers.rkt"      ; various useful functions
          ffi/unsafe         ; needed for neat pointer shenanigans
