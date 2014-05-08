@@ -221,9 +221,17 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
                                    (string-length my-status-message)]))
 (send status-frame-message auto-resize #t)
 
-; combo-field to choose online vs. all friends in the friend list?
-; (define list-size (tox_get_num_online_friends my-tox)
-; (tox_get_friendlist my-tox out-list list-size)
+#|
+list-box [choices (list "Me")]
+(send list-box set-data 0 "Me")
+if talking to "Me" (list-box 0 maybe?), this is an echo window
+
+(define list-size (tox_get_num_online_friends my-tox)
+(tox_get_friendlist my-tox out-list list-size)
+loop through out-list, populate list-box
+  (send list-box append (ptr-ref out-list _uint8_t i)
+                        (ptr-ref out-list_uint8_t i))
+|#
 
 ; list box for friend list
 (define list-box (new list-box%
