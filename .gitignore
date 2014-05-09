@@ -1,0 +1,8 @@
+# Racket
+compiled
+*.bak
+
+# Editors
+*.swp
+*.swo
+*~
