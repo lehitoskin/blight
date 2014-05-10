@@ -2,48 +2,64 @@
 ; number-conversions.rkt
 ; provides several conversions from and to
 ; binary, decimal, and hexadecimal
-(provide (all-defined-out))
+(provide dec->bin
+         dec->hex
+         
+         bin->dec
+         bin->hex
+         
+         hex->dec
+         hex->bin)
+
+(define (binary? val)
+  (andmap (curryr member (list #\0 #\1))
+          (string->list (number->string val))))
+
+(define (whole-number? val)
+  (and (integer? val)
+       (or (zero? val) (positive? val))))
+            
+(define (hex-string? val)
+  (and (string? val)
+       (andmap (λ (a-char)
+                 (or (char-numeric? a-char)
+                     (member a-char (list #\a #\b #\c #\d #\e #\f))))
+               (string->list (string-downcase val)))))
 
 ; takes a number, returns a number
-(define dec->bin
+(define/contract dec->bin
+  (-> whole-number? binary?)
   (λ (x)
-    (if (not (integer? x))
-        (raise-argument-error 'dec->bin "integer?" x)
-        (string->number (number->string x 2)))))
+    (string->number (number->string x 2))))
 
 ; takes a number, returns a string
-(define dec->hex
+(define/contract dec->hex
+  (-> whole-number? hex-string?)
   (λ (x)
-    (if (not (integer? x))
-        (raise-argument-error 'dec->hex "integer?" x)
-        (if (< x 16)
-            (string-append "0" (number->string x 16))
-            (number->string x 16)))))
+    (if (< x 16)
+        (string-append "" (number->string x 16))
+        (number->string x 16))))
 
 ; takes a number, returns a number
-(define bin->dec
+(define/contract bin->dec
+  (-> binary? whole-number?)
   (λ (x)
-    (if (not (integer? x))
-        (raise-argument-error 'bin->dec "integer?" x)
-        (string->number (number->string x) 2))))
+    (string->number (number->string x) 2)))
 
 ; takes a number, returns a string
-(define bin->hex
+(define/contract bin->hex
+  (-> binary? hex-string?)
   (λ (x)
-    (if (integer? x)
-        (dec->hex (bin->dec x))
-        (raise-argument-error 'bin->hex "integer?" x))))
+    (dec->hex (bin->dec x))))
 
 ; takes a string, returns a number
-(define hex->dec
+(define/contract hex->dec
+  (-> hex-string? whole-number?)
   (λ (x)
-    (if (string? x)
-        (string->number x 16)
-        (raise-argument-error 'hex->dec "string?" x))))
+    (string->number x 16)))
 
 ; takes a string, returns a number
-(define hex->bin
+(define/contract hex->bin
+  (-> hex-string? binary?)
   (λ (x)
-    (if (string? x)
-        (dec->bin (hex->dec x))
-        (raise-argument-error 'hex->bin "string?" x))))
+    (dec->bin (hex->dec x))))
