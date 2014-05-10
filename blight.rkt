@@ -33,57 +33,40 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
-; empty variables that get set! later
-(define dht-address "")
-(define dht-port 0)
-(define dht-public-key "")
-(define my-name "")
-(define my-status-message "")
 
 #| ############ BEGIN JSON STUFF ############ |#
-; if blight-config.json does not exist, initalize
-; it to default values, otherwise read from the
-; file and set necessary values to what's inside
+; read from blight-config.json
+(define json-info (read-json config-port-in))
+; set variables to values those contained in blight-config.json
+(define dht-address (hash-ref json-info 'dht-address))
+(define dht-port (hash-ref json-info 'dht-port))
+(define dht-public-key (hash-ref json-info 'dht-public-key))
+(define my-name (hash-ref json-info 'my-name-last))
+(define my-status-message (hash-ref json-info 'my-status-last))
 
-(define json-expression
-  (hasheq 'dht-address dht-address-default
-          'dht-port dht-port-default
-          'dht-public-key dht-public-key-default
-          'my-name-last my-name-default
-          'my-status-last my-status-message-default))
+#|
+reusable procedure to save information to blight-config.json
+read from blight-config.json to get the most up-to-date info
+modify the hash
+save the modified hash to blight-config.json
 
-; reusable procedure to save information to blight-config.json
+key is a symbol corresponding to the key in the hash
+val is a value that corresponds to the value of the key
+|#
 (define blight-save-config
-  (λ ()
-    (let ((json (hash-set* json-expression
-                           'my-name-last my-name
-                           'my-status-last my-status-message))
-          (config-port-out (open-output-file config-file
-                                             #:mode 'text
-                                             #:exists 'truncate/replace)))
+  (λ (key val)
+    (let* ((new-input-port (open-input-file config-file
+                                            #:mode 'text))
+           (json (read-json new-input-port))
+           (modified-json (hash-set* json key val))
+           (config-port-out (open-output-file config-file
+                                              #:mode 'text
+                                              #:exists 'truncate/replace)))
       (json-null 'null)
-      (write-json json config-port-out)
+      (write-json modified-json config-port-out)
       (write-json (json-null) config-port-out)
+      (close-input-port new-input-port)
       (close-output-port config-port-out))))
-
-; blight-config.json is empty, set variables to defaults
-(cond [(zero? (file-size config-file))
-       ; set DHT information to default
-       (set! dht-address dht-address-default)
-       (set! dht-port dht-port-default)
-       (set! dht-public-key dht-public-key-default)
-       ; set name and status to default
-       (set! my-name my-name-default)
-       (set! my-status-message my-status-message-default)
-       ; save info to newly created blight-config.json
-       (blight-save-config)]
-      ; blight-config.json contains values, read from them
-      [(not (zero? (file-size config-file))) (let ((json-info (read-json config-port-in)))
-                                               (set! dht-address (hash-ref json-info 'dht-address))
-                                               (set! dht-port (hash-ref json-info 'dht-port))
-                                               (set! dht-public-key (hash-ref json-info 'dht-public-key))
-                                               (set! my-name (hash-ref json-info 'my-name-last))
-                                               (set! my-status-message (hash-ref json-info 'my-status-last)))])
 
 #| ############ BEGIN TOX STUFF ############ |#
 ; necessary for saving and loading the messenger
@@ -182,8 +165,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 ; little procedure to wrap things up for us
 (define clean-up
   (λ ()
-    ; save information to blight-config.json
-    (blight-save-config)
     ; save tox info to data-file
     (blight-save-data)
     ; this kills the tox
@@ -344,7 +325,7 @@ loop through out-list, populate list-box
                                   (when (eq? (send e get-event-type)
                                              'text-field-enter)
                                     ; set the new username
-                                    (set! my-name (send l get-value))
+                                    (blight-save-config 'my-name-last (send l get-value))
                                     (send username-frame-message set-label
                                           (send l get-value))
                                     (tox_set_status_message my-tox (send l get-value)
@@ -360,7 +341,7 @@ loop through out-list, populate list-box
                                   (when (eq? (send e get-event-type)
                                              'text-field-enter)
                                     ; set the new status
-                                    (set! my-status-message (send l get-value))
+                                    (blight-save-config 'my-status-last (send l get-value))
                                     (send status-frame-message set-label
                                           (send l get-value))
                                     (tox_set_status_message my-tox (send l get-value)

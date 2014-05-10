@@ -1,8 +1,8 @@
 #lang racket
 ; config.rkt
+; contains default values for variables
+(require json)
 (provide (all-defined-out))
-; check what system we're running on and look
-; for the db in the appropriate location
 
 ; base tox directory
 (define tox-path (cond [(eq? (system-type) 'unix)
@@ -61,3 +61,21 @@
 (define dht-port-default 33445)
 (define dht-public-key-default
   "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074")
+
+; if blight-config.json does not exist, initalize it to default values
+(define json-default
+  (hasheq 'dht-address dht-address-default
+          'dht-port dht-port-default
+          'dht-public-key dht-public-key-default
+          'my-name-last my-name-default
+          'my-status-last my-status-message-default))
+
+; blight-config.json is empty, initialize with default values for variables
+(unless (not (zero? (file-size config-file)))
+  (let ((config-port-out (open-output-file config-file
+                                           #:mode 'text
+                                           #:exists 'truncate/replace)))
+    (json-null 'null)
+    (write-json json-default config-port-out)
+    (write-json (json-null) config-port-out)
+    (close-output-port config-port-out)))
