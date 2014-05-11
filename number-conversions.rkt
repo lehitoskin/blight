@@ -37,7 +37,7 @@
   (-> whole-number? hex-string?)
   (λ (x)
     (if (< x 16)
-        (string-append "" (number->string x 16))
+        (string-append "0" (string-upcase (number->string x 16))) ; Leading zero so it can be used with Tox IDs.
         (number->string x 16))))
 
 ; takes a number, returns a number

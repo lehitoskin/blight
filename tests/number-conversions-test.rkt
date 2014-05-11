@@ -15,9 +15,9 @@
              (dec->bin -1)))
 
 ;; dec->hex
-(check-equal? (dec->hex 0) "0")
-(check-equal? (dec->hex 2) "2")
-(check-equal? (dec->hex 15) "f")
+(check-equal? (dec->hex 0) "00")
+(check-equal? (dec->hex 2) "02")
+(check-equal? (dec->hex 15) "0F")
 (check-equal? (dec->hex 16) "10")
 (check-equal? (dec->hex 17) "11")
 (check-equal? (dec->hex 32) "20")
@@ -43,8 +43,8 @@
              (bin->dec -1)))
 
 ;; bin->hex
-(check-equal? (bin->hex 0) "0")
-(check-equal? (bin->hex 10) "2")
+(check-equal? (bin->hex 0) "00")
+(check-equal? (bin->hex 10) "02")
 (check-equal? (bin->hex 10000) "10")
 (check-equal? (bin->hex 10001) "11")
 (check-equal? (bin->hex 100000) "20")
@@ -60,6 +60,7 @@
 
 ;; hex->dec
 (check-equal? (hex->dec "0") 0)
+(check-equal? (hex->dec "00") 0)
 (check-equal? (hex->dec "10") 16)
 (check-equal? (hex->dec "a") 10)
 (check-equal? (hex->dec "A") 10)
@@ -77,6 +78,7 @@
 
 ;; hex->bin
 (check-equal? (hex->bin "0") 0)
+(check-equal? (hex->bin "00") 0)
 (check-equal? (hex->bin "10") 10000)
 (check-equal? (hex->bin "11") 10001)
 (check-equal? (hex->bin "a") 1010)
