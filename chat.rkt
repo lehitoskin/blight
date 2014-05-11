@@ -52,6 +52,13 @@
                        [key-code #\x]
                        [control-down #t]))
 
+; key event for shift+enter
+; so the user can do a newline without sending
+; the message early
+(define shift-enter-press (new key-event%
+                               [key-code #\return]
+                               [shift-down #t]))
+
 (define chat-text-receive (new text%
                                [line-spacing 1.0]
                                [auto-wrap #t]))
