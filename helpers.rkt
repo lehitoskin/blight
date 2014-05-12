@@ -15,7 +15,7 @@
 (define https?
   (λ (str)
     (if (string? str)
-        (cond [(string=? (substring str 0 7) "https://") #t]
+        (cond [(string=? (substring str 0 8) "https://") #t]
               [else #f])
         (raise-argument-error 'http? "string?" str))))
 
