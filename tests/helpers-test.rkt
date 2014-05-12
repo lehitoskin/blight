@@ -11,11 +11,17 @@
 (check-true (http? http-url))
 (check-false (http? https-url))
 (check-false (http? ftp-url))
+(check-exn exn:fail:contract?
+           (λ ()
+             (http? 0)))
 
 ; https?
 (check-false (https? http-url))
 (check-true (https? https-url))
 (check-false (https? ftp-url))
+(check-exn exn:fail:contract?
+           (λ ()
+             (https? 0)))
 
 
 ; grab-http
@@ -33,3 +39,6 @@
               "https://www.wikipedia.org/")
 (check-equal? (grab-http "https://www.wikipedia.org/\n")
               "https://www.wikipedia.org/")
+(check-exn exn:fail:contract?
+           (λ ()
+             (grab-http 0)))
