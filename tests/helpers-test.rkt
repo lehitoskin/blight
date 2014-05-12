@@ -30,8 +30,6 @@
 ; grab-http
 (check-equal? (grab-http "My favorite part about using https://www.wikipedia.org/ is the part where I use it.")
               "https://www.wikipedia.org/")
-(check-equal? (grab-http "holla, www.google.com")
-              "www.google.com")
 (check-equal? (grab-http "https://www.wikipedia.org/ https://www.not-wikipedia.org/")
               "https://www.wikipedia.org/")
 (check-equal? (grab-http "Yo, check out\n this seet\r\n awesome\t\t\t\n\v\r link https://www.wikipedia.org/")
