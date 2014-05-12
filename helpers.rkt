@@ -1,7 +1,13 @@
 #lang racket/gui
 ; helpers.rkt
 ; contains miscellaneous procedures for things
-(provide (all-defined-out))
+(provide http?
+         https?
+         grab-http
+         any->bool
+         hex-string?
+         tox-id?)
+
 (require net/url)
 
 (define/contract http?
@@ -32,16 +38,19 @@
 ;"^((?P<scheme>tox)://)?((?P<tox_id>[[:xdigit:]]{%i})|(?P<authority_user
 ;[[:digit:][:alpha:]]+)(@(?P<authority_host>[[:digit:][:alpha:]]+(\\.[[:digit:][:alpha:]]+)+))?)"
 
+(define/contract any->bool
+  (-> any/c boolean?)
+  (λ (x)
+    (not (not x))))
+
 ; checks if a given string is in hexadecimal format
-(define hex?
-  (λ (str length)
-    (let ((hex-chars (string->list "0123456789ABCDEF"))
-          (str (string-upcase str)))
-      (if (zero? length)
-          #t
-          (cond [(list? (member (string-ref str (- length 1)) hex-chars))
-                 (hex? (substring str 0 (- length 1)) (- length 1))]
-                [else #f])))))
+(define (hex-string? val)
+  (and (string? val)
+       (not (zero? (string-length val))) ; number-conversions can't convert "" hex-strings so they aren't valid.
+       (any->bool (andmap (λ (a-char)
+                            (or (char-numeric? a-char)
+                                (member a-char (list #\a #\b #\c #\d #\e #\f))))
+                          (string->list (string-downcase val))))))
 
 ; checks if a given string is a valid 76-character Tox ID
 ; TODO: more checks to see if the characters in the string
@@ -50,7 +59,7 @@
   (-> string? boolean?)
   (λ (str)
     (and (= (string-length str) 76)
-         (hex? str (string-length str)))))
+         (hex-string? str))))
 
 ; takes a given string and makes it all blue 'n' shit
 ; uses racket/gui to make it blue (and underlined?)

@@ -2,6 +2,9 @@
 ; number-conversions.rkt
 ; provides several conversions from and to
 ; binary, decimal, and hexadecimal
+
+(require "helpers.rkt")
+
 (provide dec->bin
          dec->hex
          
@@ -18,13 +21,6 @@
 (define (whole-number? val)
   (and (integer? val)
        (or (zero? val) (positive? val))))
-            
-(define (hex-string? val)
-  (and (string? val)
-       (andmap (λ (a-char)
-                 (or (char-numeric? a-char)
-                     (member a-char (list #\a #\b #\c #\d #\e #\f))))
-               (string->list (string-downcase val)))))
 
 ; takes a number, returns a number
 (define/contract dec->bin
