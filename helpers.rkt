@@ -4,32 +4,29 @@
 (provide (all-defined-out))
 (require net/url)
 
-(define http?
+(define/contract http?
+  (-> string? boolean?)
   (λ (str)
-    (if (string? str)
-        (cond [(string=? (substring str 0 7) "http://") #t]
-              [(string=? (substring str 0 4) "www.") #t]
-              [else #f])
-        (raise-argument-error 'http? "string?" str))))
+    (or (string=? (substring str 0 7) "http://")
+        (string=? (substring str 0 4) "www."))))
 
-(define https?
+(define/contract https?
+  (-> string? boolean?)
   (λ (str)
-    (if (string? str)
-        (cond [(string=? (substring str 0 8) "https://") #t]
-              [else #f])
-        (raise-argument-error 'http? "string?" str))))
+    (string=? (substring str 0 8) "https://")))
 
 ; accepts a string and singles out the hyperlink
 ; "you're mom likes https://github.com/ and stuff"
 ; -> "https://github.com/"
-(define grab-http
+(define/contract grab-http
+  (-> string? (or/c null? string?))
   (λ (str)
     ; incomplete grab after ? (index.php?somethinghere)
     ; incomplete grab if the URL has - or _
-    (let ((url (regexp-match #px"https?://(\\w*\\.)*\\w*(/\\w*)*(\\?\\w*(#\\w*)?)?" str)))
-      (if (false? url)
-          null
-          (first url)))))
+    (define url (regexp-match #px"https?://(\\w*\\.)*\\w*(/\\w*)*(\\?\\w*(#\\w*)?)?" str))
+    (if (false? url)
+        null ; Can this return #f instead?
+        (first url))))
 
 ; regex for tox://
 ;"^((?P<scheme>tox)://)?((?P<tox_id>[[:xdigit:]]{%i})|(?P<authority_user
