@@ -46,12 +46,11 @@
 ; checks if a given string is a valid 76-character Tox ID
 ; TODO: more checks to see if the characters in the string
 ; are valid for an ID
-(define tox-id?
+(define/contract tox-id?
+  (-> string? boolean?)
   (λ (str)
-    (if (string? str)
-        (cond [(and (= (string-length str) 76) (hex? str (string-length str))) #t]
-              [else #f])
-        (raise-argument-error 'tox-id? "string?" str))))
+    (and (= (string-length str) 76)
+         (hex? str (string-length str)))))
 
 ; takes a given string and makes it all blue 'n' shit
 ; uses racket/gui to make it blue (and underlined?)

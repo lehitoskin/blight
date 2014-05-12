@@ -47,3 +47,17 @@
 (check-exn exn:fail:contract?
            (λ ()
              (grab-http 0)))
+
+; hex? - not added, it shouldn't require a length argument and there's already one inside numeric-conversions.rkt
+; needs to be abstracted out
+
+; tox-id?
+(check-true (tox-id? "802D30E27746AE299FC2796D014C24700140574BFBFBB9397114D7CB82DC25728BA74CC378EF"))
+(check-false (tox-id? "802D30E27746AE299FC2796D014C24700140574BFBFBB9397114D7CB82DC25728BA74CC378EFAAAAAAAAAA"))
+(check-false (tox-id? "80"))
+(check-exn exn:fail:contract?
+           (λ ()
+             (tox-id? 0)))
+
+; linky?
+; need to understand GUI better before implementing or testing this
