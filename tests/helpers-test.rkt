@@ -19,7 +19,7 @@
 
 ; https?
 (check-false (https? http-url))
-(check-false (http? www-url))
+(check-false (https? www-url))
 (check-true (https? https-url))
 (check-false (https? ftp-url))
 (check-exn exn:fail:contract?
