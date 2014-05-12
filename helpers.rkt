@@ -44,13 +44,15 @@
     (not (not x))))
 
 ; checks if a given string is in hexadecimal format
-(define (hex-string? val)
-  (and (string? val)
-       (not (zero? (string-length val))) ; number-conversions can't convert "" hex-strings so they aren't valid.
-       (any->bool (andmap (λ (a-char)
-                            (or (char-numeric? a-char)
-                                (member a-char (list #\a #\b #\c #\d #\e #\f))))
-                          (string->list (string-downcase val))))))
+(define/contract hex-string?
+  (-> any/c boolean?)
+  (λ (val)
+    (and (string? val)
+         (not (zero? (string-length val))) ; number-conversions can't convert "" hex-strings so they aren't valid.
+         (any->bool (andmap (λ (a-char)
+                              (or (char-numeric? a-char)
+                                  (member a-char (list #\a #\b #\c #\d #\e #\f))))
+                            (string->list (string-downcase val)))))))
 
 ; checks if a given string is a valid 76-character Tox ID
 ; TODO: more checks to see if the characters in the string
