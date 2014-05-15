@@ -54,6 +54,7 @@
 ; guess I need to override some shit to get the keys just right
 (define custom-editor-canvas%
   (class editor-canvas%
+    (inherit get-dc)
     (init-field this-parent
                 this-label
                 this-editor
@@ -79,6 +80,9 @@
     (define shift-enter-press (new key-event%
                                    [key-code #\return]
                                    [shift-down #t]))
+    (define all-press (new key-event%
+                           [key-code #\a]
+                           [control-down #t]))
     ; TODO:
     ; ^c
     ; ^p
@@ -90,26 +94,42 @@
     (define/override (on-char key-event)
       (let ((key (send key-event get-key-code)))
         (cond
-          ; ^c
+          ; keyboard shortcuts
+          ; ^c - copy selected text to clipboard
           ; doesn't work
           ; need to properly compare key-event with copy-press
-          [(equal? key-event copy-press) (send this-editor
+          #|[(equal? key-event copy-press) (send this-editor
                                                copy-self-to
                                                chat-clipboard)
                                          (displayln "Copy-press!")]
+          ; ^a - select all text in text area
+          [(equal? key-event all-press) (send this-editor move-position 'end)
+                                        (send this-editor extend-position 0)]|#
+          ; press enter - send the message/clear text area
           [(eqv? key #\return) (unless (string=? (send this-editor get-text) "")
                                  (send chat-text-receive insert
                                        (string-append "Me: "
                                                       (send this-editor get-text)
                                                       "\n"))
                                  (send this-editor erase))]
+          ; press backspace, delete previous character or selected text
           [(eqv? key #\backspace) (send this-editor delete)]
-          [(eqv? key #\rubout) (send this-editor delete 0 1)]
+          ; press delete, delete proceding character or selected text
+          [(eqv? key #\rubout) (send this-editor delete
+                                     (send this-editor get-start-position)
+                                     (+ (send this-editor get-end-position) 1))]
+          ; press enter key on numpad - newline is added to text area
           [(eqv? key 'numpad-enter) (send this-editor insert "\n")]
+          ; navigate through text area
           [(eqv? key 'left) (send this-editor move-position 'left)]
           [(eqv? key 'right) (send this-editor move-position 'right)]
           [(eqv? key 'up) (send this-editor move-position 'up)]
           [(eqv? key 'down) (send this-editor move-position 'down)]
+          [(eqv? key 'home) (send this-editor move-position 'home)]
+          [(eqv? key 'end) (send this-editor move-position 'end)]
+          [(eqv? key 'wheel-up) (send this-editor on-char key-event)]
+          [(eqv? key 'wheel-down) (send this-editor on-char key-event)]
+          ; regular key pressed, add to text area
           [(char? key) (send this-editor insert key)])))
     (super-new
      [parent this-parent]
