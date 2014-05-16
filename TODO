@@ -6,7 +6,6 @@ TODO:
 - Send message to friend
 - Status message box on friend list
 - Message timestamps
-- Ctrl+{a,c,v,x} in text box
 - Text chat (tox_wait stuff?)
 - Spellcheck
 - Links blue, underlined, and clickable
