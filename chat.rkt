@@ -92,6 +92,15 @@
           [(eqv? key #\rubout) (send this-editor delete
                                      (send this-editor get-start-position)
                                      (+ (send this-editor get-end-position) 1))]
+          ; other keyboard shortcuts
+          [(and (eqv? key #\\) (eq? control #t))
+           (send this-editor insert "\u03BB")] ; λ
+          [(and (eqv? key #\1) (eq? control #t))
+           (send this-editor insert "\u00A9")] ; copyright
+          [(and (eqv? key #\2) (eq? control #t))
+           (send this-editor insert "\u00AE")] ; registered-trademark
+          [(and (eqv? key #\3) (eq? control #t))
+           (send this-editor insert "\u2122")] ; trademark
           ; press enter key on numpad - newline is added to text area
           [(eqv? key 'numpad-enter) (send this-editor insert "\n")]
           ; navigate through text area

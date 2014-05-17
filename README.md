@@ -18,6 +18,18 @@ In very early pre-alpha stage. All help and testing appreciated.
 
 - [INSTALL.md](INSTALL.md) details installation from source.
 
+## Keyboard shortcuts
+
+- Blight implements several cutsom keyboard shortcuts for commonly used unicode characters.
+
+- λ (U+03BB) is mapped to ctrl+\
+
+- © (U+00A9) is mapped to ctrl+1
+
+- ® (U+00AE) is mapped to ctrl+2
+
+- ™ (U+2122) is mapped to ctrl+3
+
 ## Contributing
 
 - Check the [issue tracker](https://github.com/lehitoskin/Blight/issues?direction=desc&sort=created&state=open) for bugs to be fixed and features to be implemented.
