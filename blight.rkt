@@ -46,9 +46,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.")
 
 #|
 reusable procedure to save information to blight-config.json
-read from blight-config.json to get the most up-to-date info
-modify the hash
-save the modified hash to blight-config.json
+
+1. read from blight-config.json to get the most up-to-date info
+2. modify the hash
+3. save the modified hash to blight-config.json
 
 key is a symbol corresponding to the key in the hash
 val is a value that corresponds to the value of the key
@@ -69,12 +70,8 @@ val is a value that corresponds to the value of the key
       (close-output-port config-port-out))))
 
 #| ############ BEGIN TOX STUFF ############ |#
-; necessary for saving and loading the messenger
-(define size (tox_size my-tox))
-(define data-ptr (malloc size))
-
 ; data-file is empty, use default settings
-#|(cond [(zero? (file-size data-file))
+(cond [(zero? (file-size data-file))
        ; set username
        (tox_set_name my-tox my-name (string-length my-name))
        ; set status message
@@ -82,8 +79,16 @@ val is a value that corresponds to the value of the key
                                                          my-status-message))]
       ; data-file is not empty, load from data-file
       [(not (zero? (file-size data-file)))
-       ; bytes->hex->dec
-       (tox_load my-tox data-ptr size)])|#
+       ; load the messenger from data of size length
+       (define size (file-size data-file))
+       (define data-ptr (malloc size))
+       ; no conversions necessary because bytes-ref reports a decimal value
+       (let ((my-bytes (read-bytes size data-port-in)))
+         (do ((i 0 (+ i 1)))
+           ((= i size))
+           (ptr-set! data-ptr _uint8_t i (bytes-ref my-bytes i))))
+       (displayln "Loading from data-file")
+       (tox_load my-tox data-ptr size)])
 
 ; set username
 (tox_set_name my-tox my-name (string-length my-name))
@@ -98,6 +103,9 @@ val is a value that corresponds to the value of the key
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
   (λ ()
+    ; necessary for saving the messenger
+    (define size (tox_size my-tox))
+    (define data-ptr (malloc size))
     ; place all tox info into data-ptr
     (tox_save my-tox data-ptr)
     ; SAVE INFORMATION TO DATA
