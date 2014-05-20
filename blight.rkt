@@ -6,7 +6,7 @@
 (require libtoxcore-racket ; wrapper
          "chat.rkt"         ; contains definitions for chat window
          "config.rkt"       ; default config file
-         ;"callbacks.rkt"    ; inner procedure callback definitions
+         "callbacks.rkt"    ; inner procedure callback definitions
          "number-conversions.rkt" ; bin, dec, and hex conversions
          "helpers.rkt"      ; various useful functions
          ffi/unsafe         ; needed for neat pointer shenanigans
@@ -87,14 +87,7 @@ val is a value that corresponds to the value of the key
          (do ((i 0 (+ i 1)))
            ((= i size))
            (ptr-set! data-ptr _uint8_t i (bytes-ref my-bytes i))))
-       (displayln "Loading from data-file")
        (tox_load my-tox data-ptr size)])
-
-; set username
-(tox_set_name my-tox my-name (string-length my-name))
-; set status message
-(tox_set_status_message my-tox my-status-message (string-length
-                                                  my-status-message))
 
 ; connect to DHT
 (tox_bootstrap_from_address my-tox dht-address TOX_ENABLE_IPV6_DEFAULT dht-port
@@ -181,7 +174,8 @@ val is a value that corresponds to the value of the key
     (disconnect sqlc)
     ; close input ports
     (close-input-port config-port-in)
-    (close-input-port data-port-in)))
+    (close-input-port data-port-in)
+    (kill-thread tox-loop-thread)))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
@@ -228,7 +222,7 @@ loop through out-list, populate list-box
                       [parent frame]
                       [min-height 250]
                       [style (list 'single 'vertical-label)]
-                      [choices (list "Me")]
+                      [choices (list "Test")]
                       [callback (λ (l e)
                                   (when (eq? (send e get-event-type)
                                              'list-box-dclick)
@@ -241,8 +235,7 @@ loop through out-list, populate list-box
                                     (send chat-frame show #t)))]))
 ; set data for each item in list-box
 ; data may be arbitrary, but a label will suffice
-(send list-box set-data 0 "Me")
-(send list-box append "test" "test")
+(send list-box set-data 0 "Test")
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -455,3 +448,37 @@ loop through out-list, populate list-box
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
 (send frame show #t)
+
+; tox loop that uses tox_wait
+#|(define tox-wait-buffer (malloc (tox_wait_data_size)))
+(define tox-loop-thread
+  (thread
+   (λ ()
+     (let loop ()
+       (tox_wait_prepare my-tox tox-wait-buffer)
+       (define err (tox_wait_execute tox-wait-buffer 1 999999)) ; timeout at 1.001 seconds
+       (tox_wait_cleanup my-tox tox-wait-buffer)
+       (cond [(= err 2) (tox_do my-tox)]
+             [(= err 1) (tox_do my-tox)]
+             [(zero? err) null])
+       (loop)))))|#
+
+; set all the callback functions
+; procedure that returns my-tox because of ffi/unsafe shenanigans
+(define grab-tox
+  (λ ()
+    my-tox))
+; tox loop that only uses tox_do and sleeps for some amount of time
+(define tox-loop-thread
+  (thread
+   (λ ()
+     (let loop ()
+       #|(tox_callback_name_change my-tox
+                                 (on-friend-name-change (grab-tox)
+                                                        friend-number
+                                                        new-name
+                                                        length)
+                                 null)|#
+       (tox_do my-tox)
+       (sleep 1/2)
+       (loop)))))
