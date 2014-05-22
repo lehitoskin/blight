@@ -374,6 +374,13 @@ loop through out-list, populate list-box
                                                    (send l set-label "Friend ID(✓):")
                                                    (send l set-label "Friend ID(X):")))]))
 
+; message to send as a friend request
+(define add-friend-message-tfield (new text-field%
+                                       [parent add-friend-box]
+                                       [label "Message:"]
+                                       [min-width 38]
+                                       [init-value "Please let me add you to me contact list"]))
+
 ; panel for the buttons
 (define add-friend-panel (new horizontal-panel%
                               [parent add-friend-box]))
@@ -418,20 +425,35 @@ loop through out-list, populate list-box
 (new button% [parent add-friend-panel]
      [label "OK"]
      [callback (λ (button event)
-                 ; add the friend to the friend list
-                 (cond [(tox-id? (send add-friend-hex-tfield get-value))
-                        (send list-box append (send add-friend-nick-tfield get-value)
-                              (send add-friend-nick-tfield get-value))
-                        ;(tox_add_friend)
-                        (send add-friend-nick-tfield set-value "")
-                        (send add-friend-hex-tfield set-value "")
-                        (send add-friend-box show #f)]
-                       [else (let ((mbox (message-box "Invalid Tox ID"
-                                                      "Sorry, that is an invalid Tox ID."
-                                                      add-friend-error-dialog
-                                                      (list 'ok 'stop))))
-                               (when (eq? mbox 'ok)
-                                 (send add-friend-error-dialog show #f)))]))])
+                 (let ((hex-tfield (send add-friend-hex-tfield get-value))
+                       (nick-tfield (send add-friend-nick-tfield get-value))
+                       (message-tfield (send add-friend-message-tfield get-value)))
+                   ; add the friend to the friend list
+                   (cond [(tox-id? hex-tfield)
+                          (printf "Attempting to add friend: ~a\n"
+                                  (let ((err (tox_add_friend my-tox
+                                                             hex-tfield
+                                                             message-tfield
+                                                             (string-length message-tfield))))
+                                    (cond [(= err -1) "TOX_FAERR_TOOLONG"]
+                                          [(= err -2) "TOX_FAERR_NOMESSAGE"]
+                                          [(= err -3) "TOX_FAERR_OWNKEY"]
+                                          [(= err -4) "TOX_FAERR_ALREADYSENT"]
+                                          [(= err -5) "TOX_FAERR_UNKNOWN"]
+                                          [(= err -6) "TOX_FAERR_BADCHECKSUM"]
+                                          [(= err -7) "TOX_FAERR_SETNEWNOSPAM"]
+                                          [(= err -8) "TOX_FAERR_NOMEM"]
+                                          [else (printf "All okay! ~a\n" err)
+                                                (send list-box append nick-tfield hex-tfield)
+                                                (send add-friend-nick-tfield set-value "")
+                                                (send add-friend-hex-tfield set-value "")
+                                                (send add-friend-box show #f)])))]
+                         [else (let ((mbox (message-box "Invalid Tox ID"
+                                                        "Sorry, that is an invalid Tox ID."
+                                                        add-friend-error-dialog
+                                                        (list 'ok 'stop))))
+                                 (when (eq? mbox 'ok)
+                                   (send add-friend-error-dialog show #f)))])))])
 
 ; don't actually want to add a friend right now
 (new button% [parent add-friend-panel]
