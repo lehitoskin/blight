@@ -435,14 +435,22 @@ loop through out-list, populate list-box
                                                              hex-tfield
                                                              message-tfield
                                                              (string-length message-tfield))))
-                                    (cond [(= err -1) "TOX_FAERR_TOOLONG"]
-                                          [(= err -2) "TOX_FAERR_NOMESSAGE"]
-                                          [(= err -3) "TOX_FAERR_OWNKEY"]
-                                          [(= err -4) "TOX_FAERR_ALREADYSENT"]
-                                          [(= err -5) "TOX_FAERR_UNKNOWN"]
-                                          [(= err -6) "TOX_FAERR_BADCHECKSUM"]
-                                          [(= err -7) "TOX_FAERR_SETNEWNOSPAM"]
-                                          [(= err -8) "TOX_FAERR_NOMEM"]
+                                    (cond [(= err (_TOX_FAERR-index 'TOOLONG))
+                                           "TOX_FAERR_TOOLONG"]
+                                          [(= err (_TOX_FAERR-index 'NOMESSAGE))
+                                           "TOX_FAERR_NOMESSAGE"]
+                                          [(= err (_TOX_FAERR-index 'OWNKEY))
+                                           "TOX_FAERR_OWNKEY"]
+                                          [(= err (_TOX_FAERR-index 'ALREADYSENT))
+                                           "TOX_FAERR_ALREADYSENT"]
+                                          [(= err (_TOX_FAERR-index 'UNKNOWN))
+                                           "TOX_FAERR_UNKNOWN"]
+                                          [(= err (_TOX_FAERR-index 'BADCHECKSUM))
+                                           "TOX_FAERR_BADCHECKSUM"]
+                                          [(= err (_TOX_FAERR-index 'SETNEWNOSPAM))
+                                           "TOX_FAERR_SETNEWNOSPAM"]
+                                          [(= err (_TOX_FAERR-index 'NOMEM))
+                                           "TOX_FAERR_NOMEM"]
                                           [else (printf "All okay! ~a\n" err)
                                                 (send list-box append nick-tfield hex-tfield)
                                                 (send add-friend-nick-tfield set-value "")
