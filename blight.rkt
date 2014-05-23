@@ -81,7 +81,7 @@ val is a value that corresponds to the value of the key
       [(not (zero? (file-size data-file)))
        ; load the messenger from data of size length
        (define size (file-size data-file))
-       (define data-ptr (malloc size))
+       (define data-ptr (malloc 'atomic size))
        ; no conversions necessary because bytes-ref reports a decimal value
        (let ((my-bytes (read-bytes size data-port-in)))
          (do ((i 0 (+ i 1)))
@@ -98,7 +98,7 @@ val is a value that corresponds to the value of the key
   (λ ()
     ; necessary for saving the messenger
     (define size (tox_size my-tox))
-    (define data-ptr (malloc size))
+    (define data-ptr (malloc 'atomic size))
     ; place all tox info into data-ptr
     (tox_save my-tox data-ptr)
     ; SAVE INFORMATION TO DATA
@@ -117,7 +117,8 @@ val is a value that corresponds to the value of the key
       (close-output-port data-port-out))))
 
 ; obtain tox id
-(define my-id-bytes (malloc (* TOX_FRIEND_ADDRESS_SIZE
+(define my-id-bytes (malloc 'atomic
+                            (* TOX_FRIEND_ADDRESS_SIZE
                                (ctype-sizeof _uint8_t))))
 (define my-id-hex "")
 (tox_get_address my-tox my-id-bytes)
@@ -480,7 +481,7 @@ loop through out-list, populate list-box
 (send frame show #t)
 
 ; tox loop that uses tox_wait
-#|(define tox-wait-buffer (malloc (tox_wait_data_size)))
+#|(define tox-wait-buffer (malloc 'atomic (tox_wait_data_size)))
 (define tox-loop-thread
   (thread
    (λ ()
