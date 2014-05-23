@@ -46,10 +46,6 @@
   (printf "~a created...\n" data-file)
   (close-output-port data-port-out))
 
-; open the data file
-(define data-port-in (open-input-file data-file
-                                        #:mode 'binary))
-
 ; default name and status message
 ; if data exists, do no use these
 (define my-name-default "Blight Tester")

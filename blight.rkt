@@ -83,7 +83,7 @@ val is a value that corresponds to the value of the key
        (define size (file-size data-file))
        (define data-ptr (malloc 'atomic size))
        ; no conversions necessary because bytes-ref reports a decimal value
-       (let ((my-bytes (read-bytes size data-port-in)))
+       (let ((my-bytes (file->bytes data-file #:mode 'binary)))
          (do ((i 0 (+ i 1)))
            ((= i size))
            (ptr-set! data-ptr _uint8_t i (bytes-ref my-bytes i))))
@@ -169,14 +169,14 @@ val is a value that corresponds to the value of the key
   (λ ()
     ; save tox info to data-file
     (blight-save-data)
-    ; this kills the tox
-    (tox_kill my-tox)
     ; disconnect from the database
     (disconnect sqlc)
-    ; close input ports
+    ; close input port
     (close-input-port config-port-in)
-    (close-input-port data-port-in)
-    (kill-thread tox-loop-thread)))
+    ; kill tox thread
+    (kill-thread tox-loop-thread)
+    ; this kills the tox
+    (tox_kill my-tox)))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
@@ -234,6 +234,8 @@ loop through out-list, populate list-box
                                           (send list-box get-data
                                                 (first (send list-box get-selections))))
                                     (send chat-frame show #t)))]))
+
+;(send list-box set (list "one" "two" "Three"))
 ; set data for each item in list-box
 ; data may be arbitrary, but a label will suffice
 (send list-box set-data 0 "Test")
@@ -380,7 +382,7 @@ loop through out-list, populate list-box
                                        [parent add-friend-box]
                                        [label "Message:"]
                                        [min-width 38]
-                                       [init-value "Please let me add you to me contact list"]))
+                                       [init-value "Please let me add you to my contact list"]))
 
 ; panel for the buttons
 (define add-friend-panel (new horizontal-panel%
@@ -452,7 +454,7 @@ loop through out-list, populate list-box
                                            "TOX_FAERR_SETNEWNOSPAM"]
                                           [(= err (_TOX_FAERR-index 'NOMEM))
                                            "TOX_FAERR_NOMEM"]
-                                          [else (printf "All okay! ~a\n" err)
+                                          [else "All okay!"
                                                 (send list-box append nick-tfield hex-tfield)
                                                 (send add-friend-nick-tfield set-value "")
                                                 (send add-friend-hex-tfield set-value "")
