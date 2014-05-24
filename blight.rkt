@@ -12,7 +12,8 @@
          ffi/unsafe         ; needed for neat pointer shenanigans
          json               ; for reading and writing to config file
          file/sha1          ; for hex-string->bytes
-         db)                ; access sqlite db for stored history
+         db                 ; access sqlite db for stored history
+         data/gvector)      ; growable vectors for friend list
 
 (define license-message
   "Blight - a Tox client written in Racket.
@@ -205,6 +206,7 @@ val is a value that corresponds to the value of the key
                                    (string-length my-status-message)]))
 (send status-frame-message auto-resize #t)
 
+
 #|
 list-box [choices (list "Me")]
 (send list-box set-data 0 "Me")
@@ -217,7 +219,33 @@ loop through out-list, populate list-box
                         (ptr-ref out-list_uint8_t i))
 |#
 
+; obtain number of friends
+(define num-friends (tox_count_friendlist my-tox))
+; we want at least one chat window
+(define friend-list-gvec (gvector (new chat-window%
+                                       [this-label "a"]
+                                       [this-width 400]
+                                       [this-height 600]
+                                       [this-tox my-tox]
+                                       [friend-num 0])))
+
+; loop through and create as many chat-window%'s
+; as there are friends and add them to the gvector
+(unless (> num-friends 1)
+  (do ((i 0 (+ i 1)))
+    ((= i (- num-friends 1)))
+    (let ((new-window (new chat-window%
+                           [this-label "a"]
+                           [this-width 400]
+                           [this-height 600]
+                           [this-tox my-tox]
+                           [friend-num (+ i 1)])))
+      (gvector-add! friend-list-gvec new-window))))
+
 ; list box for friend list
+; format: (indexed by list-box starting from 0)
+;  choice -> string -> username
+;  data -> string -> user tox id
 (define list-box (new list-box%
                       [label "Select Buddy"]
                       [parent frame]
@@ -227,29 +255,39 @@ loop through out-list, populate list-box
                       [callback (λ (l e)
                                   (when (eq? (send e get-event-type)
                                              'list-box-dclick)
-                                    (send chat-frame set-label
-                                          (send list-box get-data
-                                                (first (send list-box get-selections))))
-                                    (send chat-frame-msg set-label
-                                          (send list-box get-data
-                                                (first (send list-box get-selections))))
-                                    (send chat-frame show #t)))]))
+                                    (let* ((friend-num (send list-box get-selection))
+                                           (friend-window
+                                            (gvector-ref friend-list-gvec friend-num))
+                                           (friend-name (send list-box get-string-selection)))
+                                      ; check if we're already chatting
+                                      (unless (send friend-window is-shown?)
+                                        (send friend-window set-new-label friend-name)
+                                        (send friend-window show #t)))))]))
 
-;(send list-box set (list "one" "two" "Three"))
 ; set data for each item in list-box
 ; data may be arbitrary, but a label will suffice
-(send list-box set-data 0 "Test")
-; obtain 0th friend's name, add it to list
-#|(define friend-name-bytes (malloc 'atomic TOX_MAX_NAME_LENGTH))
-(define friend-name-text "")
-(printf "Getting friend name: ~a\n" (tox_get_name my-tox 0 friend-name-bytes))
-(do ((i 0 (+ i 1)))
-  ((= i TOX_MAX_NAME_LENGTH))
-  (set! friend-name-text
-        (string-append friend-name-text
-                       (bytes->string/utf-8 
-                        (ptr-ref friend-name-bytes _uint8_t i)))))
-(send list-box append friend-name-text friend-name-text)|#
+(send list-box set-data 0 "0123456789ABCDEF")
+
+; add friends to the friend list
+(unless (> num-friends 1)
+  (send list-box clear)
+  (define friend-name-bytes (malloc 'atomic (* TOX_FRIEND_ADDRESS_SIZE
+                                               (ctype-sizeof _uint8_t))))
+  ; loop until we get all our friends
+  (do ((friendnum 0 (+ friendnum 1)))
+    ((= friendnum num-friends))
+    (let* ((friend-name-text "")
+           (friend-name-length (- (tox_get_name my-tox friendnum friend-name-bytes) 1)))
+      ; grab our friends' name into the pointer
+      ; loop through and add it to friend-name-text
+      (do ((ptrnum 0 (+ ptrnum 1)))
+        ((= ptrnum friend-name-length))
+        (set! friend-name-text
+              (string-append friend-name-text
+                             (string
+                              (integer->char
+                               (ptr-ref friend-name-bytes _uint8_t ptrnum))))))
+      (send list-box append friend-name-text friend-name-text))))
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -478,6 +516,7 @@ loop through out-list, populate list-box
                                    "ERROR: TOX_FAERR_NOMEM"]
                                   [else (displayln "All okay!")
                                         (send list-box append nick-tfield hex-tfield)
+                                        (gvector-add! friend-list-gvec)
                                         (send add-friend-nick-tfield set-value "")
                                         (send add-friend-hex-tfield set-value "")
                                         (send add-friend-box show #f)]))]
