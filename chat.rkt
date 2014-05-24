@@ -24,6 +24,7 @@
                 this-tox
                 friend-num)
     (define tox-id "")
+    (define friend-name "")
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
     (define chat-frame (new frame%
@@ -170,11 +171,23 @@
     (define/public (get-tox-id)
       tox-id)
     
+    (define/public (set-name name)
+      (set! friend-name name))
+    
+    (define/public (get-name)
+      friend-name)
+    
     (define/public (get-receive-editor)
       (send chat-editor-canvas-receive get-editor))
     
     (define/public (get-send-editor)
       (send chat-editor-canvas-send get-editor))
+    
+    (define/public (set-friend-num num)
+      (set! friend-num num))
+    
+    (define/public (get-friend-num)
+      friend-num)
     
     (super-new
      [label this-label]

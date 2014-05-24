@@ -206,21 +206,14 @@ val is a value that corresponds to the value of the key
                                    (string-length my-status-message)]))
 (send status-frame-message auto-resize #t)
 
-
-#|
-list-box [choices (list "Me")]
-(send list-box set-data 0 "Me")
-if talking to "Me" (list-box 0 maybe?), this is an echo window
-
-(define list-size (tox_get_num_online_friends my-tox)
-(tox_get_friendlist my-tox out-list list-size)
-loop through out-list, populate list-box
-  (send list-box append (ptr-ref out-list _uint8_t i)
-                        (ptr-ref out-list_uint8_t i))
-|#
-
 ; obtain number of friends
 (define num-friends (tox_count_friendlist my-tox))
+; renumber friends in the event of a deletion
+(define renum-friends!
+  (λ (gvec start end)
+    (unless (= start end)
+      (send (gvector-ref gvec start) set-friend-num start)
+      (renum-friends! gvec (+ start 1) end))))
 ; we want at least one chat window
 (define friend-list-gvec (gvector (new chat-window%
                                        [this-label "a"]
@@ -245,7 +238,7 @@ loop through out-list, populate list-box
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
 ;  choice -> string -> username
-;  data -> string -> user tox id
+;  data -> string -> user status message
 (define list-box (new list-box%
                       [label "Select Buddy"]
                       [parent frame]
@@ -287,7 +280,8 @@ loop through out-list, populate list-box
                              (string
                               (integer->char
                                (ptr-ref friend-name-bytes _uint8_t ptrnum))))))
-      (send list-box append friend-name-text friend-name-text))))
+      (send list-box append friend-name-text friend-name-text)
+      (send (gvector-ref friend-list-gvec friendnum) set-name friend-name-text))))
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -405,6 +399,11 @@ loop through out-list, populate list-box
 (define add-friend-box (new dialog%
                             [label "Add a new Tox friend"]
                             [style (list 'close-button)]))
+
+; remove a friend
+(define del-friend-dialog (new dialog%
+                               [label "Remove a Tox friend"]
+                               [style (list 'close-button)]))
 
 ; add friend with nickname
 ; TODO:
@@ -535,9 +534,22 @@ loop through out-list, populate list-box
                  (send add-friend-hex-tfield set-value "")
                  (send add-friend-box show #f))])
 
-; TODO: Remove buddy from list
+; Remove buddy from list
 (new button% [parent panel]
-     [label "Delete friend"])
+     [label "Delete friend"]
+     [callback (λ (button event)
+                 (let ((friend-num (send list-box get-selection))
+                       (mbox (message-box "Deleting Friend"
+                                          "Are you sure you want to delete?"
+                                          del-friend-dialog
+                                          (list 'ok-cancel))))
+                   (when (eq? mbox 'ok)
+                     (tox_del_friend my-tox friend-num)
+                     (send list-box delete friend-num)
+                     (gvector-remove! friend-list-gvec friend-num)
+                     (renum-friends! friend-list-gvec
+                                     0
+                                     (gvector-count friend-list-gvec)))))])
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
@@ -573,6 +585,22 @@ loop through out-list, populate list-box
                                                         new-name
                                                         length)
                                  null)|#
+       ; add a thingie that shows the friend is online
+       (do ((i 0 (+ i 1)))
+         ((= i num-friends))
+         (let ((connection-status (tox_get_friend_connection_status my-tox i)))
+           (cond [(zero? connection-status) (send list-box set-string i
+                                                  (string-append
+                                                   (send 
+                                                    (gvector-ref friend-list-gvec i)
+                                                    get-name)
+                                                   " (X)"))]
+                 [(= connection-status 1) (send list-box set-string i
+                                                (string-append
+                                                 (send 
+                                                  (gvector-ref friend-list-gvec i)
+                                                  get-name)
+                                                 " (✓)"))])))
        (tox_do my-tox)
-       (sleep 1/2)
+       (sleep 1/4)
        (loop)))))
