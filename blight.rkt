@@ -239,6 +239,17 @@ loop through out-list, populate list-box
 ; set data for each item in list-box
 ; data may be arbitrary, but a label will suffice
 (send list-box set-data 0 "Test")
+; obtain 0th friend's name, add it to list
+#|(define friend-name-bytes (malloc 'atomic TOX_MAX_NAME_LENGTH))
+(define friend-name-text "")
+(printf "Getting friend name: ~a\n" (tox_get_name my-tox 0 friend-name-bytes))
+(do ((i 0 (+ i 1)))
+  ((= i TOX_MAX_NAME_LENGTH))
+  (set! friend-name-text
+        (string-append friend-name-text
+                       (bytes->string/utf-8 
+                        (ptr-ref friend-name-bytes _uint8_t i)))))
+(send list-box append friend-name-text friend-name-text)|#
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -433,32 +444,43 @@ loop through out-list, populate list-box
                        (message-tfield (send add-friend-message-tfield get-value)))
                    ; add the friend to the friend list
                    (cond [(tox-id? hex-tfield)
-                          (printf "Attempting to add friend: ~a\n"
-                                  (let ((err (tox_add_friend my-tox
-                                                             hex-tfield
-                                                             message-tfield
-                                                             (string-length message-tfield))))
-                                    (cond [(= err (_TOX_FAERR-index 'TOOLONG))
-                                           "TOX_FAERR_TOOLONG"]
-                                          [(= err (_TOX_FAERR-index 'NOMESSAGE))
-                                           "TOX_FAERR_NOMESSAGE"]
-                                          [(= err (_TOX_FAERR-index 'OWNKEY))
-                                           "TOX_FAERR_OWNKEY"]
-                                          [(= err (_TOX_FAERR-index 'ALREADYSENT))
-                                           "TOX_FAERR_ALREADYSENT"]
-                                          [(= err (_TOX_FAERR-index 'UNKNOWN))
-                                           "TOX_FAERR_UNKNOWN"]
-                                          [(= err (_TOX_FAERR-index 'BADCHECKSUM))
-                                           "TOX_FAERR_BADCHECKSUM"]
-                                          [(= err (_TOX_FAERR-index 'SETNEWNOSPAM))
-                                           "TOX_FAERR_SETNEWNOSPAM"]
-                                          [(= err (_TOX_FAERR-index 'NOMEM))
-                                           "TOX_FAERR_NOMEM"]
-                                          [else "All okay!"
-                                                (send list-box append nick-tfield hex-tfield)
-                                                (send add-friend-nick-tfield set-value "")
-                                                (send add-friend-hex-tfield set-value "")
-                                                (send add-friend-box show #f)])))]
+                          ; convert hex to bytes
+                          (define nick-bytes (malloc 'atomic
+                                                     (* TOX_FRIEND_ADDRESS_SIZE
+                                                        (ctype-sizeof _uint8_t))))
+                          (do ((i 0 (+ i 1))
+                               (j 0 (+ j 2)))
+                            ((= i TOX_FRIEND_ADDRESS_SIZE))
+                            (ptr-set! nick-bytes _uint8_t i
+                                      (hex->dec
+                                       (string-append
+                                        (string (string-ref hex-tfield j))
+                                        (string (string-ref hex-tfield (+ j 1)))))))
+                          (let ((err (tox_add_friend my-tox
+                                                     nick-bytes
+                                                     message-tfield
+                                                     (string-length message-tfield))))
+                            (cond [(= err (_TOX_FAERR-index 'TOOLONG))
+                                   "ERROR: TOX_FAERR_TOOLONG"]
+                                  [(= err (_TOX_FAERR-index 'NOMESSAGE))
+                                   "ERROR: TOX_FAERR_NOMESSAGE"]
+                                  [(= err (_TOX_FAERR-index 'OWNKEY))
+                                   "ERROR: TOX_FAERR_OWNKEY"]
+                                  [(= err (_TOX_FAERR-index 'ALREADYSENT))
+                                   "ERROR: TOX_FAERR_ALREADYSENT"]
+                                  [(= err (_TOX_FAERR-index 'UNKNOWN))
+                                   "ERROR: TOX_FAERR_UNKNOWN"]
+                                  [(= err (_TOX_FAERR-index 'BADCHECKSUM))
+                                   "ERROR: TOX_FAERR_BADCHECKSUM"]
+                                  [(= err (_TOX_FAERR-index 'SETNEWNOSPAM))
+                                   "ERROR: TOX_FAERR_SETNEWNOSPAM"]
+                                  [(= err (_TOX_FAERR-index 'NOMEM))
+                                   "ERROR: TOX_FAERR_NOMEM"]
+                                  [else (displayln "All okay!")
+                                        (send list-box append nick-tfield hex-tfield)
+                                        (send add-friend-nick-tfield set-value "")
+                                        (send add-friend-hex-tfield set-value "")
+                                        (send add-friend-box show #f)]))]
                          [else (let ((mbox (message-box "Invalid Tox ID"
                                                         "Sorry, that is an invalid Tox ID."
                                                         add-friend-error-dialog
