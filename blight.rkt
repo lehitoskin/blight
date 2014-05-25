@@ -206,21 +206,27 @@ val is a value that corresponds to the value of the key
                                    (string-length my-status-message)]))
 (send status-frame-message auto-resize #t)
 
+#| ################## FRIEND LIST STUFF #################### |#
 ; obtain number of friends
 (define num-friends (tox_count_friendlist my-tox))
-; renumber friends in the event of a deletion
+
+; renumber friends in the event of an addition or deletion
 (define renum-friends!
   (λ (gvec start end)
     (unless (= start end)
       (send (gvector-ref gvec start) set-friend-num start)
       (renum-friends! gvec (+ start 1) end))))
+
+; base friend window initialization
+(define initial-window (new chat-window%
+                            [this-label "a"]
+                            [this-width 400]
+                            [this-height 600]
+                            [this-tox my-tox]
+                            [friend-num 0]))
+
 ; we want at least one chat window
-(define friend-list-gvec (gvector (new chat-window%
-                                       [this-label "a"]
-                                       [this-width 400]
-                                       [this-height 600]
-                                       [this-tox my-tox]
-                                       [friend-num 0])))
+(define friend-list-gvec (gvector initial-window))
 
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the gvector
@@ -238,7 +244,7 @@ val is a value that corresponds to the value of the key
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
 ;  choice -> string -> username
-;  data -> string -> user status message
+;  data -> string -> tox id
 (define list-box (new list-box%
                       [label "Select Buddy"]
                       [parent frame]
@@ -262,26 +268,29 @@ val is a value that corresponds to the value of the key
 (send list-box set-data 0 "0123456789ABCDEF")
 
 ; add friends to the friend list
-(unless (> num-friends 1)
-  (send list-box clear)
-  (define friend-name-bytes (malloc 'atomic (* TOX_FRIEND_ADDRESS_SIZE
-                                               (ctype-sizeof _uint8_t))))
-  ; loop until we get all our friends
-  (do ((friendnum 0 (+ friendnum 1)))
-    ((= friendnum num-friends))
-    (let* ((friend-name-text "")
-           (friend-name-length (- (tox_get_name my-tox friendnum friend-name-bytes) 1)))
-      ; grab our friends' name into the pointer
-      ; loop through and add it to friend-name-text
-      (do ((ptrnum 0 (+ ptrnum 1)))
-        ((= ptrnum friend-name-length))
-        (set! friend-name-text
-              (string-append friend-name-text
-                             (string
-                              (integer->char
-                               (ptr-ref friend-name-bytes _uint8_t ptrnum))))))
-      (send list-box append friend-name-text friend-name-text)
-      (send (gvector-ref friend-list-gvec friendnum) set-name friend-name-text))))
+(define update-friend-list
+  (λ ()
+    (unless (> num-friends 1)
+      (send list-box clear)
+      (define friend-name-bytes (malloc 'atomic (* TOX_FRIEND_ADDRESS_SIZE
+                                                   (ctype-sizeof _uint8_t))))
+      ; loop until we get all our friends
+      (do ((friendnum 0 (+ friendnum 1)))
+        ((= friendnum num-friends))
+        (let* ((friend-name-text "")
+               (friend-name-length (- (tox_get_name my-tox friendnum friend-name-bytes) 1)))
+          ; grab our friends' name into the pointer
+          ; loop through and add it to friend-name-text
+          (do ((ptrnum 0 (+ ptrnum 1)))
+            ((= ptrnum friend-name-length))
+            (set! friend-name-text
+                  (string-append friend-name-text
+                                 (string
+                                  (integer->char
+                                   (ptr-ref friend-name-bytes _uint8_t ptrnum))))))
+          (send list-box append friend-name-text friend-name-text)
+          (send (gvector-ref friend-list-gvec friendnum) set-name friend-name-text))))))
+(update-friend-list)
 
 ; panel for main frame
 (define panel (new horizontal-panel%
@@ -400,10 +409,16 @@ val is a value that corresponds to the value of the key
                             [label "Add a new Tox friend"]
                             [style (list 'close-button)]))
 
+; friend request dialog
+(define friend-request-dialog (new dialog%
+                                   [label "Friend request"]
+                                   [style (list 'close-button)]))
+
 ; remove a friend
 (define del-friend-dialog (new dialog%
                                [label "Remove a Tox friend"]
                                [style (list 'close-button)]))
+
 
 ; add friend with nickname
 ; TODO:
@@ -515,7 +530,10 @@ val is a value that corresponds to the value of the key
                                    "ERROR: TOX_FAERR_NOMEM"]
                                   [else (displayln "All okay!")
                                         (send list-box append nick-tfield hex-tfield)
-                                        (gvector-add! friend-list-gvec)
+                                        (gvector-add! friend-list-gvec initial-window)
+                                        (renum-friends! friend-list-gvec
+                                                        0
+                                                        (gvector-count friend-list-gvec))
                                         (send add-friend-nick-tfield set-value "")
                                         (send add-friend-hex-tfield set-value "")
                                         (send add-friend-box show #f)]))]
@@ -569,22 +587,45 @@ val is a value that corresponds to the value of the key
              [(zero? err) null])
        (loop)))))|#
 
+#| ########### START CALLBACK PROCEDURE DEFINITIONS ########## |#
 ; set all the callback functions
-; procedure that returns my-tox because of ffi/unsafe shenanigans
-(define grab-tox
-  (λ ()
-    my-tox))
+(define on-friend-request
+  (λ (mtox public_key data length userdata)
+    (let ((mbox (message-box "Friend Request"
+                             "A user would like to add you as a friend!"
+                             friend-request-dialog
+                             (list 'ok-cancel))))
+      (if (eq? mbox 'ok)
+          'herp
+          ; add friend to friend list
+          ; update friend list
+          'derp))))
+
+(define on-friend-message
+  (λ (mtox friendnumber message length userdata)
+    (let ((editor (send
+                   (gvector-ref friend-list-gvec friendnumber)
+                   get-receive-editor))
+          (name (send
+                 (gvector-ref friend-list-gvec friendnumber)
+                 get-name)))
+      (send editor insert
+            (string-append name ": " message "\n")))))
+
+(define on-status-type-change
+  (λ (mtox friendnumber status userdata)
+    (displayln "Status type change has been detected!")))
+
+(define trash-ptr (malloc 'atomic 1))
+(tox_callback_friend_request my-tox on-friend-request trash-ptr)
+(tox_callback_friend_message my-tox on-friend-message trash-ptr)
+(tox_callback_user_status my-tox on-status-type-change trash-ptr)
+
 ; tox loop that only uses tox_do and sleeps for some amount of time
 (define tox-loop-thread
   (thread
    (λ ()
      (let loop ()
-       #|(tox_callback_name_change my-tox
-                                 (on-friend-name-change (grab-tox)
-                                                        friend-number
-                                                        new-name
-                                                        length)
-                                 null)|#
        ; add a thingie that shows the friend is online
        (do ((i 0 (+ i 1)))
          ((= i num-friends))
