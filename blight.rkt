@@ -381,7 +381,7 @@ val is a value that corresponds to the value of the key
                                     (blight-save-config 'my-name-last (send l get-value))
                                     (send username-frame-message set-label
                                           (send l get-value))
-                                    (tox_set_status_message my-tox (send l get-value)
+                                    (tox_set_name my-tox (send l get-value)
                                                             (string-length (send l get-value)))
                                     (send l set-value "")))]))
 
