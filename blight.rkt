@@ -86,11 +86,15 @@ val is a value that corresponds to the value of the key
          (do ((i 0 (+ i 1)))
            ((= i size))
            (ptr-set! data-ptr _uint8_t i (bytes-ref my-bytes i))))
-       (tox_load my-tox data-ptr size)])
+       (printf "Loading from data file... ~a\n" (tox_load my-tox data-ptr size))])
 
 ; connect to DHT
-(tox_bootstrap_from_address my-tox dht-address TOX_ENABLE_IPV6_DEFAULT dht-port
-                            dht-public-key)
+(printf "Connecting to network... ~a\n"
+        (tox_bootstrap_from_address my-tox
+                                    dht-address
+                                    TOX_ENABLE_IPV6_DEFAULT
+                                    dht-port
+                                    dht-public-key))
 
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
@@ -382,7 +386,7 @@ val is a value that corresponds to the value of the key
                                     (send username-frame-message set-label
                                           (send l get-value))
                                     (tox_set_name my-tox (send l get-value)
-                                                            (string-length (send l get-value)))
+                                                  (string-length (send l get-value)))
                                     (send l set-value "")))]))
 
 (define pstfield (new text-field%
@@ -564,7 +568,7 @@ val is a value that corresponds to the value of the key
                                           "Are you sure you want to delete?"
                                           del-friend-dialog
                                           (list 'ok-cancel)))
-                       (gvec-length (gvector-count friend-list-gvec)))
+                       (gvec-length (- (gvector-count friend-list-gvec) 1)))
                    (when (eq? mbox 'ok)
                      (tox_del_friend my-tox friend-num)
                      (send list-box delete friend-num)
@@ -621,8 +625,10 @@ val is a value that corresponds to the value of the key
                             (do ((i 0 (+ i 1)))
                               ((= i (tox_count_friendlist my-tox)))
                               (on-connection-status-change mtox i
-                                 (tox_get_friend_connection_status mtox i)
-                                 userdata))]))))
+                                                           (tox_get_friend_connection_status
+                                                            mtox
+                                                            i)
+                                                           userdata))]))))
 
 (define on-friend-message
   (λ (mtox friendnumber message length userdata)
@@ -647,27 +653,52 @@ val is a value that corresponds to the value of the key
 
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)
-    (displayln "Status type change has been detected!")))
+    (cond [(= status (_TOX_USERSTATUS-index 'NONE))
+           ; if there is no special status, add a checkmark
+           (send list-box set-string friendnumber
+                 (string-append
+                  (send
+                   (gvector-ref friend-list-gvec friendnumber)
+                   get-name)
+                  " (✓)"))]
+          ; if user is away, add a dash inside a circle
+          [(= status (_TOX_USERSTATUS-index 'AWAY))
+           (send list-box set-string friendnumber (string-append
+                                                   (send
+                                                    (gvector-ref friend-list-gvec friendnumber)
+                                                    get-name)
+                                                   " (⊖)"))]
+          ; if user is busy, add an X inside a circle
+          [(= status (_TOX_USERSTATUS-index 'BUSY))
+           (send list-box set-string friendnumber (string-append
+                                                   (send
+                                                    (gvector-ref friend-list-gvec friendnumber)
+                                                    get-name)
+                                                   " (⊗)"))])))
 
 (define on-connection-status-change
   (λ (mtox friendnumber status userdata)
     ; add a thingie that shows the friend is online
     (if (zero? status)
-        (send list-box set-string friendnumber (string-append
-                                                (send
-                                                 (gvector-ref friend-list-gvec friendnumber)
-                                                 get-name)
-                                                " (X)"))
-        (send list-box set-string friendnumber (string-append
-                                                (send
-                                                 (gvector-ref friend-list-gvec friendnumber)
-                                                 get-name)
-                                                " (✓)")))))
+        ; if the user is offline, append his name with (X)
+        (send list-box set-string friendnumber
+              (string-append
+               (send
+                (gvector-ref friend-list-gvec friendnumber)
+                get-name)
+               " (X)"))
+        ; user is online, add a checkmark
+        (send list-box set-string friendnumber
+              (string-append
+               (send
+                (gvector-ref friend-list-gvec friendnumber)
+                get-name)
+               " (✓)")))))
 
 (tox_callback_friend_request my-tox on-friend-request #f)
 (tox_callback_friend_message my-tox on-friend-message #f)
 (tox_callback_name_change my-tox on-friend-name-change #f)
-;(tox_callback_user_status my-tox on-status-type-change #f)
+(tox_callback_user_status my-tox on-status-type-change #f)
 (tox_callback_connection_status my-tox on-connection-status-change #f)
 
 ; tox loop that only uses tox_do and sleeps for some amount of time
