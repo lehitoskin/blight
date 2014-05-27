@@ -267,11 +267,9 @@ val is a value that corresponds to the value of the key
                                              'list-box-dclick)
                                     (let* ((friend-num (send list-box get-selection))
                                            (friend-window
-                                            (gvector-ref friend-list-gvec friend-num))
-                                           (friend-name (send list-box get-string-selection)))
+                                            (gvector-ref friend-list-gvec friend-num)))
                                       ; check if we're already chatting
                                       (unless (send friend-window is-shown?)
-                                        (send friend-window set-new-label friend-name)
                                         (send friend-window show #t)))))]))
 
 ; set data for each item in list-box
