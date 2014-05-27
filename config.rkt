@@ -20,6 +20,27 @@
 ; blight-specific configurations
 (define config-file (build-path tox-path "blight-config.json"))
 
+; location of sound directory (currently depends on running from same dir
+; change to /usr/share/blight/sounds (or something) once a proper
+; installer is to be had
+(define sound-dir (build-path "sounds"))
+; list of sound files
+(define sounds (list
+                (build-path sound-dir "New Message.wav")
+                (build-path sound-dir "Contact Logs In.wav")
+                (build-path sound-dir "Contact Logs Out.wav")
+                (build-path sound-dir "Log In.wav")
+                (build-path sound-dir "Log Out.wav")
+                (build-path sound-dir "Contact Request Accepted.wav")
+                (build-path sound-dir "Transfer Pending.wav")
+                (build-path sound-dir "Transfer Complete.wav")
+                (build-path sound-dir "Incoming Call.wav")
+                (build-path sound-dir "Outgoing Call.wav")
+                (build-path sound-dir "Incoming Video Call.wav")
+                (build-path sound-dir "Outgoing Video Call.wav")
+                ; error sound will be the last element
+                (build-path sound-dir "Error.wav")))
+
 ; tox-path doesn't exist, create it
 (unless (directory-exists? tox-path)
   (make-directory tox-path))

@@ -28,7 +28,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.")
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+Tox's sounds are licensed under the \"Creative Commons Attribution 3.0
+Unported\", all credit attributed to Adam Reid.")
 
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
@@ -89,12 +92,17 @@ val is a value that corresponds to the value of the key
        (printf "Loading from data file... ~a\n" (tox_load my-tox data-ptr size))])
 
 ; connect to DHT
-(printf "Connecting to network... ~a\n"
-        (tox_bootstrap_from_address my-tox
-                                    dht-address
-                                    TOX_ENABLE_IPV6_DEFAULT
-                                    dht-port
-                                    dht-public-key))
+(display "Connecting to network... ")
+(cond [(= (tox_bootstrap_from_address my-tox
+                                          dht-address
+                                          TOX_ENABLE_IPV6_DEFAULT
+                                          dht-port
+                                          dht-public-key)
+          1)
+       (play-sound (fourth sounds) #t)
+       (displayln "Connected!")]
+      [else (play-sound (last sounds) #t)
+            (displayln "Did not connect!")])
 
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
@@ -178,7 +186,9 @@ val is a value that corresponds to the value of the key
     ; kill tox thread
     (kill-thread tox-loop-thread)
     ; this kills the tox
-    (tox_kill my-tox)))
+    (tox_kill my-tox)
+    ; log out sound
+    (play-sound (fifth sounds) #f)))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
@@ -515,21 +525,29 @@ val is a value that corresponds to the value of the key
                                                      message-tfield
                                                      (string-length message-tfield))))
                             (cond [(= err (_TOX_FAERR-index 'TOOLONG))
-                                   "ERROR: TOX_FAERR_TOOLONG"]
+                                   (displayln "ERROR: TOX_FAERR_TOOLONG")
+                                   (play-sound (last sounds) #t)]
                                   [(= err (_TOX_FAERR-index 'NOMESSAGE))
-                                   "ERROR: TOX_FAERR_NOMESSAGE"]
+                                   (displayln "ERROR: TOX_FAERR_NOMESSAGE")
+                                   (play-sound (last sounds) #t)]
                                   [(= err (_TOX_FAERR-index 'OWNKEY))
-                                   "ERROR: TOX_FAERR_OWNKEY"]
+                                   (displayln "ERROR: TOX_FAERR_OWNKEY")
+                                   (play-sound (last sounds) #t)]
                                   [(= err (_TOX_FAERR-index 'ALREADYSENT))
-                                   "ERROR: TOX_FAERR_ALREADYSENT"]
+                                   (displayln "ERROR: TOX_FAERR_ALREADYSENT")
+                                   (play-sound (last sounds) #t)]
                                   [(= err (_TOX_FAERR-index 'UNKNOWN))
-                                   "ERROR: TOX_FAERR_UNKNOWN"]
+                                   (displayln "ERROR: TOX_FAERR_UNKNOWN")
+                                   (play-sound (last sounds) #t)]
                                   [(= err (_TOX_FAERR-index 'BADCHECKSUM))
-                                   "ERROR: TOX_FAERR_BADCHECKSUM"]
+                                   (displayln "ERROR: TOX_FAERR_BADCHECKSUM")
+                                   (play-sound (last sounds) #t)]
                                   [(= err (_TOX_FAERR-index 'SETNEWNOSPAM))
-                                   "ERROR: TOX_FAERR_SETNEWNOSPAM"]
+                                   (displayln "ERROR: TOX_FAERR_SETNEWNOSPAM")
+                                   (play-sound (last sounds) #t)]
                                   [(= err (_TOX_FAERR-index 'NOMEM))
-                                   "ERROR: TOX_FAERR_NOMEM"]
+                                   (displayln "ERROR: TOX_FAERR_NOMEM")
+                                   (play-sound (last sounds) #t)]
                                   [else (displayln "All okay!")
                                         ; append new friend to the gvector
                                         (gvector-add! friend-list-gvec initial-window)
@@ -544,7 +562,8 @@ val is a value that corresponds to the value of the key
                                         (send add-friend-hex-tfield set-value "")
                                         ; close the window
                                         (send add-friend-box show #f)]))]
-                         [else (let ((mbox (message-box "Invalid Tox ID"
+                         [else (play-sound (last sounds) #t)
+                               (let ((mbox (message-box "Invalid Tox ID"
                                                         "Sorry, that is an invalid Tox ID."
                                                         add-friend-error-dialog
                                                         (list 'ok 'stop))))
@@ -567,13 +586,17 @@ val is a value that corresponds to the value of the key
                        (mbox (message-box "Deleting Friend"
                                           "Are you sure you want to delete?"
                                           del-friend-dialog
-                                          (list 'ok-cancel)))
-                       (gvec-length (- (gvector-count friend-list-gvec) 1)))
+                                          (list 'ok-cancel))))
                    (when (eq? mbox 'ok)
+                     ; delete from tox friend list
                      (tox_del_friend my-tox friend-num)
+                     ; remove from list-box
                      (send list-box delete friend-num)
+                     ; remove from gvector
                      (gvector-remove! friend-list-gvec friend-num)
-                     (renum-friends! friend-list-gvec 0 gvec-length))))])
+                     ; renumber our gvector friends
+                     (renum-friends! friend-list-gvec 0
+                                     (gvector-count friend-list-gvec)))))])
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
@@ -613,14 +636,16 @@ val is a value that corresponds to the value of the key
                              friend-request-dialog
                              (list 'ok-cancel))))
       (cond [(eq? mbox 'ok) (tox_add_friend_norequest mtox public-key)
+                            ; play a sound because we accepted
+                            (play-sound (sixth sounds) #t)
                             ; append new friend to the gvector
                             (gvector-add! friend-list-gvec initial-window)
                             ; make sure friend numbering is correct
                             (renum-friends! friend-list-gvec
                                             0
                                             (gvector-count friend-list-gvec))
-                            ; update friend list
-                            (update-friend-list)
+                            ; add to friend list
+                            (send list-box append id-hex id-hex)
                             ; add connection status icons to each friend
                             (do ((i 0 (+ i 1)))
                               ((= i (tox_count_friendlist my-tox)))
@@ -637,6 +662,7 @@ val is a value that corresponds to the value of the key
            (name (send window get-name)))
       (send editor insert
             (string-append name ": " message "\n"))
+      (play-sound (first sounds) #t)
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)]))))
 
@@ -679,21 +705,23 @@ val is a value that corresponds to the value of the key
 (define on-connection-status-change
   (λ (mtox friendnumber status userdata)
     ; add a thingie that shows the friend is online
-    (if (zero? status)
-        ; if the user is offline, append his name with (X)
-        (send list-box set-string friendnumber
-              (string-append
-               (send
-                (gvector-ref friend-list-gvec friendnumber)
-                get-name)
-               " (X)"))
-        ; user is online, add a checkmark
-        (send list-box set-string friendnumber
-              (string-append
-               (send
-                (gvector-ref friend-list-gvec friendnumber)
-                get-name)
-               " (✓)")))))
+    (cond [(zero? status)
+           ; if the user is offline, append his name with (X)
+           (send list-box set-string friendnumber
+                 (string-append
+                  (send
+                   (gvector-ref friend-list-gvec friendnumber)
+                   get-name)
+                  " (X)"))
+           (play-sound (third sounds) #t)]
+          ; user is online, add a checkmark
+          [else (send list-box set-string friendnumber
+                      (string-append
+                       (send
+                        (gvector-ref friend-list-gvec friendnumber)
+                        get-name)
+                       " (✓)"))
+                (play-sound (second sounds) #t)])))
 
 (tox_callback_friend_request my-tox on-friend-request #f)
 (tox_callback_friend_message my-tox on-friend-message #f)
@@ -707,5 +735,5 @@ val is a value that corresponds to the value of the key
    (λ ()
      (let loop ()
        (tox_do my-tox)
-       (sleep 1/4)
+       (sleep 1)
        (loop)))))
