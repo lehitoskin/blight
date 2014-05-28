@@ -94,10 +94,10 @@ val is a value that corresponds to the value of the key
 ; connect to DHT
 (display "Connecting to network... ")
 (cond [(= (tox_bootstrap_from_address my-tox
-                                          dht-address
-                                          TOX_ENABLE_IPV6_DEFAULT
-                                          dht-port
-                                          dht-public-key)
+                                      dht-address
+                                      TOX_ENABLE_IPV6_DEFAULT
+                                      dht-port
+                                      dht-public-key)
           1)
        (play-sound (fourth sounds) #t)
        (displayln "Connected!")]
@@ -113,7 +113,6 @@ val is a value that corresponds to the value of the key
     ; place all tox info into data-ptr
     (tox_save my-tox data-ptr)
     ; SAVE INFORMATION TO DATA
-    ; dec->hex->bytes
     (let ((my-data #"")
           (data-port-out (open-output-file data-file
                                            #:mode 'binary
@@ -126,18 +125,24 @@ val is a value that corresponds to the value of the key
       (write-bytes my-data data-port-out)
       (close-output-port data-port-out))))
 
-; obtain tox id
+; reusable procedure to obtain any Tox ID from a pointer
+(define ptrtox->hextox
+  (λ (public-key)
+    (define id-hex "")
+    (do ((i 0 (+ i 1)))
+      ((= i TOX_FRIEND_ADDRESS_SIZE))
+      (set! id-hex
+            (string-upcase
+             (string-append id-hex
+                            (dec->hex (ptr-ref public-key _uint8_t i))))))
+    id-hex))
+
+; obtain our tox id
 (define my-id-bytes (malloc 'atomic
                             (* TOX_FRIEND_ADDRESS_SIZE
                                (ctype-sizeof _uint8_t))))
-(define my-id-hex "")
 (tox_get_address my-tox my-id-bytes)
-(do ((i 0 (+ i 1)))
-  ((= i TOX_FRIEND_ADDRESS_SIZE))
-  (set! my-id-hex
-        (string-upcase
-         (string-append my-id-hex
-                        (dec->hex (ptr-ref my-id-bytes _uint8_t i))))))
+(define my-id-hex (ptrtox->hextox my-id-bytes))
 
 #| ############ BEGIN DATABASE STUFF ################ |#
 ; DATABASE DATABASE! JUST LIVING IN THE DATABASE!
@@ -615,17 +620,30 @@ val is a value that corresponds to the value of the key
        (loop)))))|#
 
 #| ########### START CALLBACK PROCEDURE DEFINITIONS ########## |#
+; helper to avoid spamming notification sounds
+(define status-checker
+  (λ (friendnumber status)
+    (cond [(zero? status)
+           ; if the user is offline, append his name with (X)
+           (send list-box set-string friendnumber
+                 (string-append
+                  (send
+                   (gvector-ref friend-list-gvec friendnumber)
+                   get-name)
+                  " (X)"))]
+          ; user is online, add a checkmark
+          [else (send list-box set-string friendnumber
+                      (string-append
+                       (send
+                        (gvector-ref friend-list-gvec friendnumber)
+                        get-name)
+                       " (✓)"))])))
+
 ; set all the callback functions
 (define on-friend-request
   (λ (mtox public-key data length userdata)
     ; convert public-key from bytes to string so we can display it
-    (define id-hex "")
-    (do ((i 0 (+ i 1)))
-      ((= i TOX_FRIEND_ADDRESS_SIZE))
-      (set! id-hex
-            (string-upcase
-             (string-append id-hex
-                            (dec->hex (ptr-ref public-key _uint8_t i))))))
+    (define id-hex (ptrtox->hextox public-key))
     (let ((mbox (message-box "Friend Request"
                              (string-append
                               id-hex
@@ -647,11 +665,7 @@ val is a value that corresponds to the value of the key
                             ; add connection status icons to each friend
                             (do ((i 0 (+ i 1)))
                               ((= i (tox_count_friendlist my-tox)))
-                              (on-connection-status-change mtox i
-                                                           (tox_get_friend_connection_status
-                                                            mtox
-                                                            i)
-                                                           userdata))]))))
+                              (status-checker i (tox_get_friend_connection_status mtox i)))]))))
 
 (define on-friend-message
   (λ (mtox friendnumber message length userdata)
@@ -671,9 +685,7 @@ val is a value that corresponds to the value of the key
     ; update the name in the gvector
     (send (gvector-ref friend-list-gvec friendnumber) set-name newname)
     ; add connection status icon
-    (on-connection-status-change mtox friendnumber
-                                 (tox_get_friend_connection_status mtox friendnumber)
-                                 userdata)))
+    (status-checker friendnumber (tox_get_friend_connection_status mtox friendnumber))))
 
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)

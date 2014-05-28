@@ -23,7 +23,6 @@
                 this-height
                 this-tox
                 friend-num)
-    (define tox-id "")
     (define friend-name "")
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
@@ -164,12 +163,6 @@
     
     (define/override (is-enabled?)
       (send chat-frame is-enabled?))
-    
-    (define/public (set-tox-id x)
-      (set! tox-id x))
-    
-    (define/public (get-tox-id)
-      tox-id)
     
     (define/public (set-name name)
       (set! friend-name name)
