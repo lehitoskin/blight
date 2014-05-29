@@ -276,7 +276,7 @@ val is a value that corresponds to the value of the key
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
 ;  choice -> string -> username
-;  data -> string -> tox id
+;  data -> string -> user status message
 (define list-box (new list-box%
                       [label "Select Buddy"]
                       [parent frame]
@@ -318,7 +318,7 @@ val is a value that corresponds to the value of the key
                                  (string
                                   (integer->char
                                    (ptr-ref friend-name-bytes _uint8_t ptrnum))))))
-          (send list-box append friend-name-text friend-name-text)
+          (send list-box append (string-append "(X) " friend-name-text) friend-name-text)
           (send (gvector-ref friend-list-gvec friendnum) set-name friend-name-text))))))
 (update-friend-list)
 
