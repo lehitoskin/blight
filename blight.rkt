@@ -222,6 +222,22 @@ val is a value that corresponds to the value of the key
                                    (string-length my-status-message)]))
 (send status-frame-message auto-resize #t)
 
+; choices for status type changes
+(new choice%
+     [parent frame]
+     [label ""]
+     [min-width 400]
+     [choices '("Available"
+                "Away"
+                "Busy")]
+     [callback (λ (l e)
+                 (cond [(= (send l get-selection) (_TOX_USERSTATUS-index 'NONE))
+                        (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'NONE))]
+                       [(= (send l get-selection) (_TOX_USERSTATUS-index 'AWAY))
+                        (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'AWAY))]
+                       [(= (send l get-selection) (_TOX_USERSTATUS-index 'BUSY))
+                        (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'BUSY))]))])
+
 #| ################## FRIEND LIST STUFF #################### |#
 ; obtain number of friends
 (define num-friends (tox_count_friendlist my-tox))
@@ -306,9 +322,10 @@ val is a value that corresponds to the value of the key
           (send (gvector-ref friend-list-gvec friendnum) set-name friend-name-text))))))
 (update-friend-list)
 
-; panel for main frame
+; panel for choice and buttons
 (define panel (new horizontal-panel%
-                   [parent frame]))
+                   [parent frame]
+                   [alignment (list 'right 'center)]))
 
 ; dialog box when exiting
 (define exit-dialog (new dialog%
@@ -605,39 +622,25 @@ val is a value that corresponds to the value of the key
 ; show the frame by calling its show method
 (send frame show #t)
 
-; tox loop that uses tox_wait
-#|(define tox-wait-buffer (malloc 'atomic (tox_wait_data_size)))
-(define tox-loop-thread
-  (thread
-   (λ ()
-     (let loop ()
-       (tox_wait_prepare my-tox tox-wait-buffer)
-       (define err (tox_wait_execute tox-wait-buffer 1 999999)) ; timeout at 1.001 seconds
-       (tox_wait_cleanup my-tox tox-wait-buffer)
-       (cond [(= err 2) (tox_do my-tox)]
-             [(= err 1) (tox_do my-tox)]
-             [(zero? err) null])
-       (loop)))))|#
-
 #| ########### START CALLBACK PROCEDURE DEFINITIONS ########## |#
 ; helper to avoid spamming notification sounds
 (define status-checker
   (λ (friendnumber status)
     (cond [(zero? status)
-           ; if the user is offline, append his name with (X)
+           ; if the user is offline, prepend his name with (X)
            (send list-box set-string friendnumber
                  (string-append
+                  "(X) "
                   (send
                    (gvector-ref friend-list-gvec friendnumber)
-                   get-name)
-                  " (X)"))]
+                   get-name)))]
           ; user is online, add a checkmark
           [else (send list-box set-string friendnumber
                       (string-append
+                       "(✓) "
                        (send
                         (gvector-ref friend-list-gvec friendnumber)
-                        get-name)
-                       " (✓)"))])))
+                        get-name)))])))
 
 ; set all the callback functions
 (define on-friend-request
@@ -693,24 +696,24 @@ val is a value that corresponds to the value of the key
            ; if there is no special status, add a checkmark
            (send list-box set-string friendnumber
                  (string-append
+                  "(✓) "
                   (send
                    (gvector-ref friend-list-gvec friendnumber)
-                   get-name)
-                  " (✓)"))]
+                   get-name)))]
           ; if user is away, add a dash inside a circle
           [(= status (_TOX_USERSTATUS-index 'AWAY))
            (send list-box set-string friendnumber (string-append
+                                                   "(⊖) "
                                                    (send
                                                     (gvector-ref friend-list-gvec friendnumber)
-                                                    get-name)
-                                                   " (⊖)"))]
+                                                    get-name)))]
           ; if user is busy, add an X inside a circle
           [(= status (_TOX_USERSTATUS-index 'BUSY))
            (send list-box set-string friendnumber (string-append
+                                                   "(⊗) "
                                                    (send
                                                     (gvector-ref friend-list-gvec friendnumber)
-                                                    get-name)
-                                                   " (⊗)"))])))
+                                                    get-name)))])))
 
 (define on-connection-status-change
   (λ (mtox friendnumber status userdata)
@@ -719,18 +722,18 @@ val is a value that corresponds to the value of the key
            ; if the user is offline, append his name with (X)
            (send list-box set-string friendnumber
                  (string-append
+                  "(X) "
                   (send
                    (gvector-ref friend-list-gvec friendnumber)
-                   get-name)
-                  " (X)"))
+                   get-name)))
            (play-sound (third sounds) #t)]
           ; user is online, add a checkmark
           [else (send list-box set-string friendnumber
                       (string-append
+                       "(✓) "
                        (send
                         (gvector-ref friend-list-gvec friendnumber)
-                        get-name)
-                       " (✓)"))
+                        get-name)))
                 (play-sound (second sounds) #t)])))
 
 (tox_callback_friend_request my-tox on-friend-request #f)
