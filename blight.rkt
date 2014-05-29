@@ -127,10 +127,10 @@ val is a value that corresponds to the value of the key
 
 ; reusable procedure to obtain any Tox ID from a pointer
 (define ptrtox->hextox
-  (λ (public-key)
+  (λ (public-key size)
     (define id-hex "")
     (do ((i 0 (+ i 1)))
-      ((= i TOX_FRIEND_ADDRESS_SIZE))
+      ((= i size))
       (set! id-hex
             (string-upcase
              (string-append id-hex
@@ -142,7 +142,7 @@ val is a value that corresponds to the value of the key
                             (* TOX_FRIEND_ADDRESS_SIZE
                                (ctype-sizeof _uint8_t))))
 (tox_get_address my-tox my-id-bytes)
-(define my-id-hex (ptrtox->hextox my-id-bytes))
+(define my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
 
 #| ############ BEGIN DATABASE STUFF ################ |#
 ; DATABASE DATABASE! JUST LIVING IN THE DATABASE!
@@ -646,7 +646,7 @@ val is a value that corresponds to the value of the key
 (define on-friend-request
   (λ (mtox public-key data length userdata)
     ; convert public-key from bytes to string so we can display it
-    (define id-hex (ptrtox->hextox public-key))
+    (define id-hex (ptrtox->hextox public-key TOX_CLIENT_ID_SIZE))
     (let ((mbox (message-box "Friend Request"
                              (string-append
                               id-hex
