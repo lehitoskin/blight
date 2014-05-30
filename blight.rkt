@@ -240,7 +240,7 @@ val is a value that corresponds to the value of the key
 
 #| ################## FRIEND LIST STUFF #################### |#
 ; obtain number of friends
-(define num-friends (tox_count_friendlist my-tox))
+(define initial-num-friends (tox_count_friendlist my-tox))
 
 ; renumber friends in the event of an addition or deletion
 (define renum-friends!
@@ -262,9 +262,9 @@ val is a value that corresponds to the value of the key
 
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the gvector
-(unless (zero? num-friends)
+(unless (zero? initial-num-friends)
   (do ((i 0 (+ i 1)))
-    ((= i (- num-friends 1)))
+    ((= i (- initial-num-friends 1)))
     (let ((new-window (new chat-window%
                            [this-label "a"]
                            [this-width 400]
@@ -297,10 +297,30 @@ val is a value that corresponds to the value of the key
 ; data may be arbitrary, but a label will suffice
 (send list-box set-data 0 "0123456789ABCDEF")
 
+
+; helper to avoid spamming notification sounds
+(define status-checker
+  (λ (friendnumber status)
+    (let ((type (tox_get_user_status my-tox friendnumber)))
+      (cond [(zero? status)
+             ; if the user is offline, prepend his name with (X)
+             (send list-box set-string friendnumber
+                   (string-append
+                    "(X) "
+                    (send
+                     (gvector-ref friend-list-gvec friendnumber)
+                     get-name)))]
+            ; user is online, check his status type
+            [else (on-status-type-change my-tox friendnumber type #f)]))))
+
 ; nuke list-box and repopulate it
 (define update-friend-list
   (λ ()
+    ; get current number of friends
+    (define num-friends (tox_count_friendlist my-tox))
     (unless (zero? num-friends)
+      ; make sure friend numbering is correct
+      (renum-friends! friend-list-gvec 0 (gvector-count friend-list-gvec))
       (send list-box clear)
       (define friend-name-bytes (malloc 'atomic (* TOX_FRIEND_ADDRESS_SIZE
                                                    (ctype-sizeof _uint8_t))))
@@ -319,7 +339,8 @@ val is a value that corresponds to the value of the key
                                   (integer->char
                                    (ptr-ref friend-name-bytes _uint8_t ptrnum))))))
           (send list-box append (string-append "(X) " friend-name-text) friend-name-text)
-          (send (gvector-ref friend-list-gvec friendnum) set-name friend-name-text))))))
+          (send (gvector-ref friend-list-gvec friendnum) set-name friend-name-text)
+          (status-checker friendnum (tox_get_friend_connection_status my-tox friendnum)))))))
 (update-friend-list)
 
 ; panel for choice and buttons
@@ -571,12 +592,8 @@ val is a value that corresponds to the value of the key
                                   [else (displayln "All okay!")
                                         ; append new friend to the gvector
                                         (gvector-add! friend-list-gvec initial-window)
-                                        ; make sure friend numbering is correct
-                                        (renum-friends! friend-list-gvec
-                                                        0
-                                                        (gvector-count friend-list-gvec))
                                         ; update friend list
-                                        (send list-box append nick-tfield nick-tfield)
+                                        (update-friend-list)
                                         ; zero-out some fields
                                         (send add-friend-nick-tfield set-value "")
                                         (send add-friend-hex-tfield set-value "")
@@ -623,25 +640,6 @@ val is a value that corresponds to the value of the key
 (send frame show #t)
 
 #| ########### START CALLBACK PROCEDURE DEFINITIONS ########## |#
-; helper to avoid spamming notification sounds
-(define status-checker
-  (λ (friendnumber status)
-    (cond [(zero? status)
-           ; if the user is offline, prepend his name with (X)
-           (send list-box set-string friendnumber
-                 (string-append
-                  "(X) "
-                  (send
-                   (gvector-ref friend-list-gvec friendnumber)
-                   get-name)))]
-          ; user is online, add a checkmark
-          [else (send list-box set-string friendnumber
-                      (string-append
-                       "(✓) "
-                       (send
-                        (gvector-ref friend-list-gvec friendnumber)
-                        get-name)))])))
-
 ; set all the callback functions
 (define on-friend-request
   (λ (mtox public-key data length userdata)
@@ -659,12 +657,8 @@ val is a value that corresponds to the value of the key
                             (play-sound (sixth sounds) #t)
                             ; append new friend to the gvector
                             (gvector-add! friend-list-gvec initial-window)
-                            ; make sure friend numbering is correct
-                            (renum-friends! friend-list-gvec
-                                            0
-                                            (gvector-count friend-list-gvec))
-                            ; add to friend list
-                            (send list-box append id-hex id-hex)
+                            ; update friend list
+                            (update-friend-list)
                             ; add connection status icons to each friend
                             (do ((i 0 (+ i 1)))
                               ((= i (tox_count_friendlist my-tox)))
