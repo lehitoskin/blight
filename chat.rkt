@@ -15,6 +15,9 @@
 (define chat-clipboard the-clipboard)
 (send chat-clipboard-client add-type "TEXT")
 
+(define font-size-delta
+  (make-object style-delta% 'change-size 10))
+
 (define chat-window%
   (class frame%
     (inherit set-label)
@@ -42,6 +45,7 @@
     (define chat-text-receive (new text%
                                    [line-spacing 1.0]
                                    [auto-wrap #t]))
+    (send chat-text-receive change-style font-size-delta)
     
     (define chat-editor-canvas-receive (new editor-canvas%
                                             [parent chat-frame]
@@ -56,6 +60,7 @@
     (define chat-text-send (new text%
                                 [line-spacing 1.0]
                                 [auto-wrap #t]))
+    (send chat-text-send change-style font-size-delta)
     
     ; guess I need to override some shit to get the keys just right
     (define custom-editor-canvas%
@@ -99,7 +104,8 @@
                                    friend-num
                                    (send this-editor get-text)
                                    (string-length (send this-editor get-text)))
-                 (send this-editor erase))]
+                 (send this-editor erase)
+                 (send chat-text-send change-style font-size-delta))]
               ; shift-enter adds a newline to the text area
               [(and (eqv? key #\return) (eq? shift #t)) (send this-editor insert "\n")]
               ; press backspace, delete previous character or selected text

@@ -30,6 +30,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+
 Tox's sounds are licensed under the \"Creative Commons Attribution 3.0
 Unported\", all credit attributed to Adam Reid.")
 
@@ -297,7 +298,6 @@ val is a value that corresponds to the value of the key
 ; data may be arbitrary, but a label will suffice
 (send list-box set-data 0 "0123456789ABCDEF")
 
-
 ; helper to avoid spamming notification sounds
 (define status-checker
   (λ (friendnumber status)
@@ -361,6 +361,7 @@ val is a value that corresponds to the value of the key
 (define help-text (new text%
                        [line-spacing 1.0]
                        [auto-wrap #t]))
+(send help-text change-style font-size-delta)
 (send help-text insert license-message)
 
 ; canvas to print the license message
