@@ -246,9 +246,12 @@ val is a value that corresponds to the value of the key
 ; renumber friends in the event of an addition or deletion
 (define renum-friends!
   (λ (gvec start end)
-    (unless (= start end)
-      (send (gvector-ref gvec start) set-friend-num start)
-      (renum-friends! gvec (+ start 1) end))))
+    (do ((i start (+ i 1)))
+    (= i end)
+      (send (gvector-ref gvec i) set-friend-num i)
+     )
+  )
+  )
 
 ; base friend window initialization
 (define initial-window (new chat-window%
@@ -265,7 +268,7 @@ val is a value that corresponds to the value of the key
 ; as there are friends and add them to the gvector
 (unless (zero? initial-num-friends)
   (do ((i 0 (+ i 1)))
-    ((= i (- initial-num-friends 1)))
+    ((= i  initial-num-friends ))
     (let ((new-window (new chat-window%
                            [this-label "a"]
                            [this-width 400]
@@ -521,7 +524,25 @@ val is a value that corresponds to the value of the key
 (new button% [parent preferences-box]
      [label "OK"]
      [callback (λ (button event)
-                 (send preferences-box show #f))])
+                 
+                 (let 
+                     ([username (send putfield get-value)]
+                      [status (send pstfield get-value)])
+                   
+                    ;username                                                                          
+                    (blight-save-config 'my-name-last username)
+                    (send username-frame-message set-label username)
+                    (tox_set_name my-tox username (string-length username))
+                    ;status
+                    (blight-save-config 'my-status-last status)
+                    (send status-frame-message set-label status)
+                    (tox_set_status_message my-tox status (string-length status))
+                    ;hide preferences
+                    (send preferences-box show #f)
+                   )
+                 )
+               ]
+     )
 
 ; menu Help for menu bar
 (define menu-help (new menu% [parent frame-menu-bar]
@@ -669,12 +690,14 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber message length userdata)
     (let* ((window (gvector-ref friend-list-gvec friendnumber))
            (editor (send window get-receive-editor))
-           (name (send window get-name)))
+           (name (send (gvector-ref friend-list-gvec friendnumber) get-name)))
+      
+      (cond [(not (send window is-shown?)) (send window show #t)]) ; if the window isn't open, force it open
       (send editor insert
             (string-append name ": " message "\n"))
       (play-sound (first sounds) #t)
-      ; if the window isn't open, force it open
-      (cond [(not (send window is-shown?)) (send window show #t)]))))
+
+      )))
 
 (define on-friend-name-change
   (λ (mtox friendnumber newname length userdata)
