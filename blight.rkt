@@ -521,7 +521,25 @@ val is a value that corresponds to the value of the key
 (new button% [parent preferences-box]
      [label "OK"]
      [callback (λ (button event)
-                 (send preferences-box show #f))])
+                 
+                 (let 
+                     ([username (send putfield get-value)]
+                      [status (send pstfield get-value)])
+                   
+                    ;username                                                                          
+                    (blight-save-config 'my-name-last username)
+                    (send username-frame-message set-label username)
+                    (tox_set_name my-tox username (string-length username))
+                    ;status
+                    (blight-save-config 'my-status-last status)
+                    (send status-frame-message set-label status)
+                    (tox_set_status_message my-tox status (string-length status))
+                    ;hide preferences
+                    (send preferences-box show #f)
+                   )
+                 )
+               ]
+     )
 
 ; menu Help for menu bar
 (define menu-help (new menu% [parent frame-menu-bar]
