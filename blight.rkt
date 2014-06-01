@@ -426,39 +426,74 @@ val is a value that corresponds to the value of the key
 
 (define preferences-box (new dialog%
                              [label "Edit Preferences"]
-                             [style (list 'close-button)]))
+                             [style (list 'close-button)]
+                             )
+  )
+#| ################## Preferences menu #################### |#
+;;Username
 
-(define putfield (new text-field%
-                      [parent preferences-box]
-                      [label "New Username:"]
-                      [style (list 'vertical-label
-                                   'single)]
+(define Username_msg(new message% [parent preferences-box] [label "New Username:"]))
+;Define a panel so stuff is aligned
+(define User_panel(new horizontal-panel% [parent preferences-box] [alignment '(center center)]))
+(define putfield (new text-field% [parent User_panel]
+                      [label ""]
+                      [style (list  'single)]
                       [callback (λ (l e)
                                   (when (eq? (send e get-event-type)
                                              'text-field-enter)
                                     ; set the new username
                                     (blight-save-config 'my-name-last (send l get-value))
-                                    (send username-frame-message set-label
-                                          (send l get-value))
-                                    (tox_set_name my-tox (send l get-value)
-                                                  (string-length (send l get-value)))
-                                    (send l set-value "")))]))
+                                    (send username-frame-message set-label (send l get-value))
+                                    (tox_set_name my-tox (send l get-value) (string-length (send l get-value)))
+                                    (send l set-value "")))]
+                      )
+  )
+(new button% [parent User_panel]
+     [label "Set"]
+     [callback (λ (button event) (let ((username (send putfield get-value)))
+                                  
+                                   (blight-save-config 'my-name-last username)
+                                   (send username-frame-message set-label username)
+                                   (tox_set_name my-tox username (string-length username))
+                                   (send putfield set-value "")
+                                  ))]
+     )
 
-(define pstfield (new text-field%
-                      [parent preferences-box]
-                      [label "New Status:"]
-                      [style (list 'vertical-label
-                                   'single)]
+;;Status
+(define Status_msg(new message% [parent preferences-box] [label "New Status:"]))
+;Same
+(define Status_panel(new horizontal-panel% [parent preferences-box] [alignment '(center center)]))
+(define pstfield (new text-field% [parent Status_panel] 
+                      [label ""] 
+                      [style (list  'single)]
                       [callback (λ (l e)
                                   (when (eq? (send e get-event-type)
                                              'text-field-enter)
                                     ; set the new status
                                     (blight-save-config 'my-status-last (send l get-value))
-                                    (send status-frame-message set-label
-                                          (send l get-value))
-                                    (tox_set_status_message my-tox (send l get-value)
-                                                            (string-length (send l get-value)))
-                                    (send l set-value "")))]))
+                                    (send status-frame-message set-label (send l get-value))
+                                    (tox_set_status_message my-tox (send l get-value) (string-length (send l get-value)))
+                                    (send l set-value "")))]
+                      )
+  )
+(new button% [parent Status_panel]
+     [label "Set"]
+     [callback (λ (button event) (let ((status (send pstfield get-value)))
+                                  
+                                   (blight-save-config 'my-status-last status)
+                                   (send status-frame-message set-label status)
+                                   (tox_set_status_message my-tox status (string-length status))
+                                   (send pstfield set-value "")
+                                  ))]
+     )
+
+;Cancel button
+(new button% [parent preferences-box]
+     [label "Cancel"]
+     [callback (λ (button event) (send preferences-box show #f) )]
+     )
+
+
 
 ; add a friend 'n' stuff
 (define add-friend-box (new dialog%
@@ -520,29 +555,8 @@ val is a value that corresponds to the value of the key
      [callback (λ (button event)
                  (send preferences-box show #t))])
 
-; OK button for preferences dialog box
-(new button% [parent preferences-box]
-     [label "OK"]
-     [callback (λ (button event)
-                 
-                 (let 
-                     ([username (send putfield get-value)]
-                      [status (send pstfield get-value)])
-                   
-                    ;username                                                                          
-                    (blight-save-config 'my-name-last username)
-                    (send username-frame-message set-label username)
-                    (tox_set_name my-tox username (string-length username))
-                    ;status
-                    (blight-save-config 'my-status-last status)
-                    (send status-frame-message set-label status)
-                    (tox_set_status_message my-tox status (string-length status))
-                    ;hide preferences
-                    (send preferences-box show #f)
-                   )
-                 )
-               ]
-     )
+
+
 
 ; menu Help for menu bar
 (define menu-help (new menu% [parent frame-menu-bar]
