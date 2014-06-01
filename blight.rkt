@@ -496,11 +496,6 @@ val is a value that corresponds to the value of the key
                             [label "Add a new Tox friend"]
                             [style (list 'close-button)]))
 
-; friend request dialog
-(define friend-request-dialog (new dialog%
-                                   [label "Friend request"]
-                                   [style (list 'close-button)]))
-
 ; remove a friend
 (define del-friend-dialog (new dialog%
                                [label "Remove a Tox friend"]
@@ -679,24 +674,62 @@ val is a value that corresponds to the value of the key
   (λ (mtox public-key data length userdata)
     ; convert public-key from bytes to string so we can display it
     (define id-hex (ptrtox->hextox public-key TOX_CLIENT_ID_SIZE))
-    (let ((mbox (message-box "Friend Request"
-                             (string-append
-                              id-hex
-                              "\nwould like to add you as a friend!\n"
-                              "Message: " data)
-                             friend-request-dialog
-                             (list 'ok-cancel))))
-      (cond [(eq? mbox 'ok) (tox_add_friend_norequest mtox public-key)
-                            ; play a sound because we accepted
-                            (play-sound (sixth sounds) #t)
-                            ; append new friend to the gvector
-                            (gvector-add! friend-list-gvec initial-window)
-                            ; update friend list
-                            (update-friend-list)
-                            ; add connection status icons to each friend
-                            (do ((i 0 (+ i 1)))
-                              ((= i (tox_count_friendlist my-tox)))
-                              (status-checker i (tox_get_friend_connection_status mtox i)))]))))
+    ; friend request dialog
+    (define friend-request-dialog (new dialog%
+                                       [label "Blight - Friend Request"]
+                                       [style (list 'close-button)]))
+    
+    ; friend request text with modified text size
+    (define friend-request-text (new text%
+                                     [line-spacing 1.0]
+                                     [auto-wrap #t]))
+    (send friend-request-text change-style font-size-delta)
+    
+    ; canvas to print the friend request message
+    (define friend-request-editor-canvas (new editor-canvas%
+                                              [parent friend-request-dialog]
+                                              [min-height 150]
+                                              [min-width 600]
+                                              [vert-margin 10]
+                                              [editor friend-request-text]
+                                              [style (list 'control-border 'no-hscroll
+                                                           'auto-vscroll 'no-focus)]))
+    
+    ; panel to right-align our buttons
+    (define friend-request-panel (new horizontal-panel%
+                                      [parent friend-request-dialog]
+                                      [alignment (list 'right 'center)]))
+    
+    (define ok (new button% [parent friend-request-panel]
+                    [label "OK"]
+                    [callback (λ (button event)
+                                (send friend-request-dialog show #f)
+                                (tox_add_friend_norequest mtox public-key)
+                                ; play a sound because we accepted
+                                (play-sound (sixth sounds) #f)
+                                ; append new friend to the gvector
+                                (gvector-add! friend-list-gvec initial-window)
+                                ; update friend list
+                                (update-friend-list)
+                                ; add connection status icons to each friend
+                                (do ((i 0 (+ i 1)))
+                                  ((= i (tox_count_friendlist mtox)))
+                                  (status-checker
+                                   i
+                                   (tox_get_friend_connection_status mtox i))))]))
+    
+    (define cancel (new button% [parent friend-request-panel]
+                        [label "Cancel"]
+                        [callback (λ (button event)
+                                    ; close and reset the friend request dialog
+                                    (send friend-request-dialog show #f)
+                                    (send friend-request-text clear)
+                                    (send friend-request-text change-style font-size-delta))]))
+    (send friend-request-text insert (string-append
+                                      id-hex
+                                      "\nwould like to add you as a friend!\n"
+                                      "Message: " data))
+    (send friend-request-dialog show #t)))
 
 (define on-friend-message
   (λ (mtox friendnumber message length userdata)
