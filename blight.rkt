@@ -246,12 +246,9 @@ val is a value that corresponds to the value of the key
 ; renumber friends in the event of an addition or deletion
 (define renum-friends!
   (λ (gvec start end)
-    (do ((i start (+ i 1)))
-    (= i end)
-      (send (gvector-ref gvec i) set-friend-num i)
-     )
-  )
-  )
+    (unless (= start end)
+      (send (gvector-ref gvec start) set-friend-num start)
+      (renum-friends! gvec (+ start 1) end))))
 
 ; base friend window initialization
 (define initial-window (new chat-window%
@@ -266,9 +263,11 @@ val is a value that corresponds to the value of the key
 
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the gvector
+; 1 less than initial-num-friends because we already
+; created out first one above
 (unless (zero? initial-num-friends)
   (do ((i 0 (+ i 1)))
-    ((= i  initial-num-friends ))
+    ((= i (- initial-num-friends 1)))
     (let ((new-window (new chat-window%
                            [this-label "a"]
                            [this-width 400]
@@ -343,6 +342,8 @@ val is a value that corresponds to the value of the key
                                    (ptr-ref friend-name-bytes _uint8_t ptrnum))))))
           (send list-box append (string-append "(X) " friend-name-text) friend-name-text)
           (send (gvector-ref friend-list-gvec friendnum) set-name friend-name-text)
+          (send (gvector-ref friend-list-gvec friendnum) set-new-label
+                (string-append "Blight - " friend-name-text))
           (status-checker friendnum (tox_get_friend_connection_status my-tox friendnum)))))))
 (update-friend-list)
 
@@ -426,7 +427,9 @@ val is a value that corresponds to the value of the key
 
 (define preferences-box (new dialog%
                              [label "Edit Preferences"]
-                             [style (list 'close-button)]))
+                             [style (list 'close-button)]
+                             [height 200]
+                             [width 400]))
 
 (define putfield (new text-field%
                       [parent preferences-box]
@@ -444,6 +447,20 @@ val is a value that corresponds to the value of the key
                                                   (string-length (send l get-value)))
                                     (send l set-value "")))]))
 
+(define preferences-panel-username (new panel%
+                                        [parent preferences-box]
+                                        [alignment  '(right center)]))
+
+(new button% [parent preferences-panel-username]
+     [label "Set"]
+     [callback (λ (button event)
+                 ; set the new username
+                 (let ((username (send putfield get-value)))
+                   (blight-save-config 'my-name-last username)
+                   (send username-frame-message set-label username)
+                   (tox_set_name my-tox username (string-length username))
+                   (send putfield set-value "")))])
+
 (define pstfield (new text-field%
                       [parent preferences-box]
                       [label "New Status:"]
@@ -460,6 +477,20 @@ val is a value that corresponds to the value of the key
                                                             (string-length (send l get-value)))
                                     (send l set-value "")))]))
 
+(define preferences-panel-status (new panel%
+                                      [parent preferences-box]
+                                      [alignment '(right center)]))
+
+(new button% [parent preferences-panel-status]
+     [label "Set"]
+     [callback (λ (button event)
+                 ; set the new status
+                 (let ((status (send pstfield get-value)))
+                   (blight-save-config 'my-status-last status)
+                   (send status-frame-message set-label status)
+                   (tox_set_status_message my-tox status (string-length status))
+                   (send pstfield set-value "")))])
+
 ; add a friend 'n' stuff
 (define add-friend-box (new dialog%
                             [label "Add a new Tox friend"]
@@ -474,16 +505,6 @@ val is a value that corresponds to the value of the key
 (define del-friend-dialog (new dialog%
                                [label "Remove a Tox friend"]
                                [style (list 'close-button)]))
-
-
-; add friend with nickname
-; TODO:
-; check if friend nick is already in use
-; gets nuked anyway...
-(define add-friend-nick-tfield (new text-field%
-                                    [parent add-friend-box]
-                                    [label "Friend name:"]
-                                    [horiz-margin 38]))
 
 ; add friend with Tox ID
 ; TODO:
@@ -522,27 +543,21 @@ val is a value that corresponds to the value of the key
 
 ; OK button for preferences dialog box
 (new button% [parent preferences-box]
-     [label "OK"]
+     [label "Close"]
      [callback (λ (button event)
-                 
-                 (let 
-                     ([username (send putfield get-value)]
-                      [status (send pstfield get-value)])
-                   
-                    ;username                                                                          
-                    (blight-save-config 'my-name-last username)
-                    (send username-frame-message set-label username)
-                    (tox_set_name my-tox username (string-length username))
-                    ;status
-                    (blight-save-config 'my-status-last status)
-                    (send status-frame-message set-label status)
-                    (tox_set_status_message my-tox status (string-length status))
-                    ;hide preferences
-                    (send preferences-box show #f)
-                   )
-                 )
-               ]
-     )
+                 #|(let ([username (send putfield get-value)]
+                       [status (send pstfield get-value)])
+                   ;username
+                   (blight-save-config 'my-name-last username)
+                   (send username-frame-message set-label username)
+                   (tox_set_name my-tox username (string-length username))
+                   ;status
+                   (blight-save-config 'my-status-last status)
+                   (send status-frame-message set-label status)
+                   (tox_set_status_message my-tox status (string-length status))
+                   ;hide preferences
+                   (send preferences-box show #f))|#
+                 (send preferences-box show #f))])
 
 ; menu Help for menu bar
 (define menu-help (new menu% [parent frame-menu-bar]
@@ -567,7 +582,6 @@ val is a value that corresponds to the value of the key
      [label "OK"]
      [callback (λ (button event)
                  (let ((hex-tfield (send add-friend-hex-tfield get-value))
-                       (nick-tfield (send add-friend-nick-tfield get-value))
                        (message-tfield (send add-friend-message-tfield get-value)))
                    ; add the friend to the friend list
                    (cond [(tox-id? hex-tfield)
@@ -617,7 +631,6 @@ val is a value that corresponds to the value of the key
                                         ; update friend list
                                         (update-friend-list)
                                         ; zero-out some fields
-                                        (send add-friend-nick-tfield set-value "")
                                         (send add-friend-hex-tfield set-value "")
                                         ; close the window
                                         (send add-friend-box show #f)]))]
@@ -633,7 +646,6 @@ val is a value that corresponds to the value of the key
 (new button% [parent add-friend-panel]
      [label "Cancel"]
      [callback (λ (button event)
-                 (send add-friend-nick-tfield set-value "")
                  (send add-friend-hex-tfield set-value "")
                  (send add-friend-box show #f))])
 
@@ -690,23 +702,24 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber message length userdata)
     (let* ((window (gvector-ref friend-list-gvec friendnumber))
            (editor (send window get-receive-editor))
-           (name (send (gvector-ref friend-list-gvec friendnumber) get-name)))
-      
-      (cond [(not (send window is-shown?)) (send window show #t)]) ; if the window isn't open, force it open
+           (name (send window get-name)))
+      ; if the window isn't open, force it open
+      (cond [(not (send window is-shown?)) (send window show #t)])
       (send editor insert
             (string-append name ": " message "\n"))
-      (play-sound (first sounds) #t)
-
-      )))
+      (play-sound (first sounds) #t))))
 
 (define on-friend-name-change
   (λ (mtox friendnumber newname length userdata)
-    ; update the name in the list-box
-    (send list-box set-string friendnumber newname)
-    ; update the name in the gvector
-    (send (gvector-ref friend-list-gvec friendnumber) set-name newname)
-    ; add connection status icon
-    (status-checker friendnumber (tox_get_friend_connection_status mtox friendnumber))))
+    (let ((window (gvector-ref friend-list-gvec friendnumber)))
+      ; update the name in the list-box
+      (send list-box set-string friendnumber newname)
+      ; update the name in the gvector
+      (send window set-name newname)
+      ; update the name in the window
+      (send window set-new-label (string-append "Blight - " newname))
+      ; add connection status icon
+      (status-checker friendnumber (tox_get_friend_connection_status mtox friendnumber)))))
 
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)

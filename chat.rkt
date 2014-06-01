@@ -157,7 +157,7 @@
                                          [this-min-height 100]
                                          [this-vert-margin 5]))
     
-    (define (set-new-label x)
+    (define/public (set-new-label x)
       (send chat-frame set-label x)
       (send chat-frame-msg set-label x))
     
@@ -171,8 +171,7 @@
       (send chat-frame is-enabled?))
     
     (define/public (set-name name)
-      (set! friend-name name)
-      (set-new-label name))
+      (set! friend-name name))
     
     (define/public (get-name)
       friend-name)
