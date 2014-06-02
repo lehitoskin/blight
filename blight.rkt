@@ -431,65 +431,86 @@ val is a value that corresponds to the value of the key
                              [height 200]
                              [width 400]))
 
+#| #################### PREFERENCES STUFF ################### |#
+(define Username_msg (new message%
+                          [parent preferences-box]
+                          [label "New Username:"]))
+
+;;Define a panel so stuff is aligned
+(define User_panel (new horizontal-panel%
+                       [parent preferences-box]
+                       [alignment '(center center)]))
+
 (define putfield (new text-field%
-                      [parent preferences-box]
-                      [label "New Username:"]
-                      [style (list 'vertical-label
-                                   'single)]
+                      [parent User_panel]
+                      [label ""]
+                      [style (list  'single)]
                       [callback (λ (l e)
-                                  (when (eq? (send e get-event-type)
-                                             'text-field-enter)
-                                    ; set the new username
-                                    (blight-save-config 'my-name-last (send l get-value))
-                                    (send username-frame-message set-label
-                                          (send l get-value))
-                                    (tox_set_name my-tox (send l get-value)
-                                                  (string-length (send l get-value)))
-                                    (send l set-value "")))]))
+                                  (let ((username (send l get-value)))
+                                    (when (eq? (send e get-event-type)
+                                               'text-field-enter)
+                                      ; refuse to set the status if it's empty
+                                      (unless (string=? username "")
+                                        ; set the new username
+                                        (blight-save-config 'my-name-last username)
+                                        (send username-frame-message set-label username)
+                                        (tox_set_name my-tox username (string-length username))
+                                        (send l set-value "")))))]))
 
-(define preferences-panel-username (new panel%
-                                        [parent preferences-box]
-                                        [alignment  '(right center)]))
-
-(new button% [parent preferences-panel-username]
+(new button% [parent User_panel]
      [label "Set"]
      [callback (λ (button event)
-                 ; set the new username
                  (let ((username (send putfield get-value)))
-                   (blight-save-config 'my-name-last username)
-                   (send username-frame-message set-label username)
-                   (tox_set_name my-tox username (string-length username))
-                   (send putfield set-value "")))])
+                   ; refuse to set the username if it's empty
+                   (unless (string=? username "")
+                     (blight-save-config 'my-name-last username)
+                     (send username-frame-message set-label username)
+                     (tox_set_name my-tox username (string-length username))
+                     (send putfield set-value ""))))])
 
-(define pstfield (new text-field%
-                      [parent preferences-box]
-                      [label "New Status:"]
-                      [style (list 'vertical-label
-                                   'single)]
+;;Status
+(define Status_msg (new message%
+                        [parent preferences-box]
+                        [label "New Status:"]))
+
+;;Same
+(define Status_panel(new horizontal-panel%
+                         [parent preferences-box]
+                         [alignment '(center center)]))
+
+(define pstfield (new text-field% [parent Status_panel] 
+                      [label ""] 
+                      [style (list  'single)]
                       [callback (λ (l e)
-                                  (when (eq? (send e get-event-type)
-                                             'text-field-enter)
-                                    ; set the new status
-                                    (blight-save-config 'my-status-last (send l get-value))
-                                    (send status-frame-message set-label
-                                          (send l get-value))
-                                    (tox_set_status_message my-tox (send l get-value)
-                                                            (string-length (send l get-value)))
-                                    (send l set-value "")))]))
+                                  (let ((status (send l get-value)))
+                                    (when (eq? (send e get-event-type)
+                                               'text-field-enter)
+                                      ; refuse to set the status if it's empty
+                                      (unless (string=? status "")
+                                        ; set the new status
+                                        (blight-save-config 'my-status-last status)
+                                        (send status-frame-message set-label status)
+                                        (tox_set_status_message my-tox status
+                                                                (string-length status))
+                                        (send l set-value "")))))]))
 
-(define preferences-panel-status (new panel%
-                                      [parent preferences-box]
-                                      [alignment '(right center)]))
-
-(new button% [parent preferences-panel-status]
+(new button% [parent Status_panel]
      [label "Set"]
      [callback (λ (button event)
-                 ; set the new status
                  (let ((status (send pstfield get-value)))
-                   (blight-save-config 'my-status-last status)
-                   (send status-frame-message set-label status)
-                   (tox_set_status_message my-tox status (string-length status))
-                   (send pstfield set-value "")))])
+                   ; refuse to set status if it's empty
+                   (unless (string=? status "")
+                     (blight-save-config 'my-status-last status)
+                     (send status-frame-message set-label status)
+                     (tox_set_status_message my-tox status (string-length status))
+                     (send pstfield set-value ""))))])
+
+; Close button for preferences dialog box
+(new button% [parent preferences-box]
+     [label "Close"]
+     [callback (λ (button event)
+                 (send preferences-box show #f))])
+#| #################### END PREFERENCES STUFF ################### |#
 
 ; add a friend 'n' stuff
 (define add-friend-box (new dialog%
@@ -535,24 +556,6 @@ val is a value that corresponds to the value of the key
      [help-string "Modify Blight preferences"]
      [callback (λ (button event)
                  (send preferences-box show #t))])
-
-; OK button for preferences dialog box
-(new button% [parent preferences-box]
-     [label "Close"]
-     [callback (λ (button event)
-                 #|(let ([username (send putfield get-value)]
-                       [status (send pstfield get-value)])
-                   ;username
-                   (blight-save-config 'my-name-last username)
-                   (send username-frame-message set-label username)
-                   (tox_set_name my-tox username (string-length username))
-                   ;status
-                   (blight-save-config 'my-status-last status)
-                   (send status-frame-message set-label status)
-                   (tox_set_status_message my-tox status (string-length status))
-                   ;hide preferences
-                   (send preferences-box show #f))|#
-                 (send preferences-box show #f))])
 
 ; menu Help for menu bar
 (define menu-help (new menu% [parent frame-menu-bar]
