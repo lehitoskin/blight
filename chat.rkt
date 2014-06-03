@@ -24,9 +24,12 @@
     (init-field this-label
                 this-width
                 this-height
-                this-tox
-                friend-num)
+                this-tox)
+    
     (define friend-name "")
+    (define friend-key "")
+    (define friend-num -1)
+    
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
     (define chat-frame (new frame%
@@ -187,6 +190,12 @@
     
     (define/public (get-friend-num)
       friend-num)
+    
+    (define/public (set-key key)
+      (set! friend-key key))
+    
+    (define/public (get-key)
+      friend-key)
     
     (super-new
      [label this-label]

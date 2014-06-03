@@ -128,14 +128,14 @@ val is a value that corresponds to the value of the key
 
 ; reusable procedure to obtain any Tox ID from a pointer
 (define ptrtox->hextox
-  (λ (public-key size)
+  (λ (key size)
     (define id-hex "")
     (do ((i 0 (+ i 1)))
       ((= i size))
       (set! id-hex
             (string-upcase
              (string-append id-hex
-                            (dec->hex (ptr-ref public-key _uint8_t i))))))
+                            (dec->hex (ptr-ref key _uint8_t i))))))
     id-hex))
 
 ; obtain our tox id
@@ -243,43 +243,32 @@ val is a value that corresponds to the value of the key
 ; obtain number of friends
 (define initial-num-friends (tox_count_friendlist my-tox))
 
-; renumber friends in the event of an addition or deletion
-(define renum-friends!
-  (λ (gvec start end)
-    (unless (= start end)
-      (send (gvector-ref gvec start) set-friend-num start)
-      (renum-friends! gvec (+ start 1) end))))
-
 ; base friend window initialization
 (define initial-window (new chat-window%
                             [this-label "a"]
                             [this-width 400]
                             [this-height 600]
-                            [this-tox my-tox]
-                            [friend-num 0]))
+                            [this-tox my-tox]))
 
 ; we want at least one chat window
 (define friend-list-gvec (gvector initial-window))
 
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the gvector
-; 1 less than initial-num-friends because we already
-; created out first one above
 (unless (zero? initial-num-friends)
-  (do ((i 0 (+ i 1)))
-    ((= i (- initial-num-friends 1)))
+  (do ((i 1 (+ i 1)))
+    ((= i initial-num-friends))
     (let ((new-window (new chat-window%
                            [this-label "a"]
                            [this-width 400]
                            [this-height 600]
-                           [this-tox my-tox]
-                           [friend-num (+ i 1)])))
+                           [this-tox my-tox])))
       (gvector-add! friend-list-gvec new-window))))
 
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
 ;  choice -> string -> username
-;  data -> string -> user status message
+;  data -> string -> tox public key
 (define list-box (new list-box%
                       [label "Select Buddy"]
                       [parent frame]
@@ -287,11 +276,38 @@ val is a value that corresponds to the value of the key
                       [style (list 'single 'vertical-label)]
                       [choices (list "Test")]
                       [callback (λ (l e)
+                                  ; when double click, open the window
                                   (when (eq? (send e get-event-type)
                                              'list-box-dclick)
-                                    (let* ((friend-num (send list-box get-selection))
-                                           (friend-window
-                                            (gvector-ref friend-list-gvec friend-num)))
+                                    (let* ((friend-name (send list-box get-string
+                                                              (send list-box get-selection)))
+                                           (friend-key (send list-box get-data
+                                                             (send list-box get-selection))))
+                                      ; look for the friend's name  and key in the gvector
+                                      ; and associate the open window with the friend's name
+                                      (define friend-name-checker
+                                        (λ (num)
+                                          (if (= num (gvector-count friend-list-gvec))
+                                              (gvector-ref friend-list-gvec (-
+                                                                             (gvector-count
+                                                                              friend-list-gvec)
+                                                                             1))
+                                              (cond [(and
+                                                      ; check friend name
+                                                      (string=?
+                                                       (substring friend-name 4)
+                                                       (send
+                                                        (gvector-ref friend-list-gvec num)
+                                                        get-name))
+                                                      ; check friend public key
+                                                      (string=?
+                                                       friend-key
+                                                       (send
+                                                        (gvector-ref friend-list-gvec num)
+                                                        get-key)))
+                                                     (gvector-ref friend-list-gvec num)]
+                                                    [else (friend-name-checker (+ num 1))]))))
+                                      (define friend-window (friend-name-checker 0))
                                       ; check if we're already chatting
                                       (unless (send friend-window is-shown?)
                                         (send friend-window show #t)))))]))
@@ -321,16 +337,20 @@ val is a value that corresponds to the value of the key
     ; get current number of friends
     (define num-friends (tox_count_friendlist my-tox))
     (unless (zero? num-friends)
-      ; make sure friend numbering is correct
-      (renum-friends! friend-list-gvec 0 (gvector-count friend-list-gvec))
       (send list-box clear)
       (define friend-name-bytes (malloc 'atomic (* TOX_FRIEND_ADDRESS_SIZE
                                                    (ctype-sizeof _uint8_t))))
+      (define friend-key-bytes (malloc 'atomic (* TOX_CLIENT_ID_SIZE
+                                                  (ctype-sizeof _uint8_t))))
       ; loop until we get all our friends
-      (do ((friendnum 0 (+ friendnum 1)))
-        ((= friendnum num-friends))
+      (do ((window-num 0 (+ window-num 1)))
+        ((= window-num num-friends))
         (let* ((friend-name-text "")
-               (friend-name-length (tox_get_name my-tox friendnum friend-name-bytes)))
+               (friend-name-length (tox_get_name my-tox window-num friend-name-bytes)))
+          ; grab our friend's public key
+          (tox_get_client_id my-tox window-num friend-key-bytes)
+          (define friend-key-text (ptrtox->hextox friend-key-bytes TOX_CLIENT_ID_SIZE))
+          (define friend-num (tox_get_friend_number my-tox friend-key-bytes))
           ; grab our friends' name into the pointer
           ; loop through and add it to friend-name-text
           (do ((ptrnum 0 (+ ptrnum 1)))
@@ -340,11 +360,17 @@ val is a value that corresponds to the value of the key
                                  (string
                                   (integer->char
                                    (ptr-ref friend-name-bytes _uint8_t ptrnum))))))
-          (send list-box append (string-append "(X) " friend-name-text) friend-name-text)
-          (send (gvector-ref friend-list-gvec friendnum) set-name friend-name-text)
-          (send (gvector-ref friend-list-gvec friendnum) set-new-label
+          ; add to the friend list
+          (send list-box append (string-append "(X) " friend-name-text) friend-key-text)
+          ; make sure friend numbering is correct
+          (send (gvector-ref friend-list-gvec window-num) set-friend-num friend-num)
+          ; add to the gvector
+          (send (gvector-ref friend-list-gvec window-num) set-name friend-name-text)
+          (send (gvector-ref friend-list-gvec window-num) set-key friend-key-text)
+          (send (gvector-ref friend-list-gvec window-num) set-new-label
                 (string-append "Blight - " friend-name-text))
-          (status-checker friendnum (tox_get_friend_connection_status my-tox friendnum)))))))
+          ; update our friends' status icon
+          (status-checker window-num (tox_get_friend_connection_status my-tox window-num)))))))
 (update-friend-list)
 
 ; panel for choice and buttons
@@ -438,8 +464,8 @@ val is a value that corresponds to the value of the key
 
 ;;Define a panel so stuff is aligned
 (define User_panel (new horizontal-panel%
-                       [parent preferences-box]
-                       [alignment '(center center)]))
+                        [parent preferences-box]
+                        [alignment '(center center)]))
 
 (define putfield (new text-field%
                       [parent User_panel]
@@ -629,10 +655,15 @@ val is a value that corresponds to the value of the key
                                    (play-sound (last sounds) #t)]
                                   [else (displayln "All okay!")
                                         ; append new friend to the gvector
-                                        (gvector-add! friend-list-gvec initial-window)
+                                        (gvector-add! friend-list-gvec (new chat-window%
+                                                                            [this-label "a"]
+                                                                            [this-width 400]
+                                                                            [this-height 600]
+                                                                            [this-tox my-tox]))
                                         ; save the tox data
                                         (blight-save-data)
-                                        ; update friend list
+                                        ; update friend list, but don't mess up
+                                        ; the numbering we already have
                                         (update-friend-list)
                                         ; zero-out some fields
                                         (send add-friend-hex-tfield set-value "")
@@ -670,10 +701,7 @@ val is a value that corresponds to the value of the key
                      ; remove from list-box
                      (send list-box delete friend-num)
                      ; remove from gvector
-                     (gvector-remove! friend-list-gvec friend-num)
-                     ; renumber our gvector friends
-                     (renum-friends! friend-list-gvec 0
-                                     (gvector-count friend-list-gvec)))))])
+                     (gvector-remove! friend-list-gvec friend-num))))])
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
@@ -722,7 +750,11 @@ val is a value that corresponds to the value of the key
                                 ; play a sound because we accepted
                                 (play-sound (sixth sounds) #f)
                                 ; append new friend to the gvector
-                                (gvector-add! friend-list-gvec initial-window)
+                                (gvector-add! friend-list-gvec (new chat-window%
+                                                                    [this-label "a"]
+                                                                    [this-width 400]
+                                                                    [this-height 600]
+                                                                    [this-tox my-tox]))
                                 ; update friend list
                                 (update-friend-list)
                                 ; add connection status icons to each friend
