@@ -283,7 +283,7 @@ val is a value that corresponds to the value of the key
                                                               (send list-box get-selection)))
                                            (friend-key (send list-box get-data
                                                              (send list-box get-selection))))
-                                      ; look for the friend's name  and key in the gvector
+                                      ; look for the friend's name and key in the gvector
                                       ; and associate the open window with the friend's name
                                       (define friend-name-checker
                                         (λ (num)
@@ -858,5 +858,5 @@ val is a value that corresponds to the value of the key
    (λ ()
      (let loop ()
        (tox_do my-tox)
-       (sleep 1)
+       (sleep (/ (tox_do_interval my-tox) 1000))
        (loop)))))
