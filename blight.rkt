@@ -455,6 +455,7 @@ val is a value that corresponds to the value of the key
                                         (blight-save-config 'my-name-last username)
                                         (send username-frame-message set-label username)
                                         (tox_set_name my-tox username (string-length username))
+                                        (blight-save-data)
                                         (send l set-value "")))))]))
 
 (new button% [parent User_panel]
@@ -466,6 +467,7 @@ val is a value that corresponds to the value of the key
                      (blight-save-config 'my-name-last username)
                      (send username-frame-message set-label username)
                      (tox_set_name my-tox username (string-length username))
+                     (blight-save-data)
                      (send putfield set-value ""))))])
 
 ;;Status
@@ -492,6 +494,7 @@ val is a value that corresponds to the value of the key
                                         (send status-frame-message set-label status)
                                         (tox_set_status_message my-tox status
                                                                 (string-length status))
+                                        (blight-save-data)
                                         (send l set-value "")))))]))
 
 (new button% [parent Status_panel]
@@ -503,6 +506,7 @@ val is a value that corresponds to the value of the key
                      (blight-save-config 'my-status-last status)
                      (send status-frame-message set-label status)
                      (tox_set_status_message my-tox status (string-length status))
+                     (blight-save-data)
                      (send pstfield set-value ""))))])
 
 ; Close button for preferences dialog box
@@ -626,6 +630,8 @@ val is a value that corresponds to the value of the key
                                   [else (displayln "All okay!")
                                         ; append new friend to the gvector
                                         (gvector-add! friend-list-gvec initial-window)
+                                        ; save the tox data
+                                        (blight-save-data)
                                         ; update friend list
                                         (update-friend-list)
                                         ; zero-out some fields
@@ -659,6 +665,8 @@ val is a value that corresponds to the value of the key
                    (when (eq? mbox 'ok)
                      ; delete from tox friend list
                      (tox_del_friend my-tox friend-num)
+                     ; save the blight data
+                     (blight-save-data)
                      ; remove from list-box
                      (send list-box delete friend-num)
                      ; remove from gvector
@@ -707,7 +715,10 @@ val is a value that corresponds to the value of the key
                     [label "OK"]
                     [callback (λ (button event)
                                 (send friend-request-dialog show #f)
+                                ; add the friend
                                 (tox_add_friend_norequest mtox public-key)
+                                ; save the tox data
+                                (blight-save-data)
                                 ; play a sound because we accepted
                                 (play-sound (sixth sounds) #f)
                                 ; append new friend to the gvector
