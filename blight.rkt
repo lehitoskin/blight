@@ -76,10 +76,12 @@ val is a value that corresponds to the value of the key
 ; data-file is empty, use default settings
 (cond [(zero? (file-size data-file))
        ; set username
-       (tox_set_name my-tox my-name (string-length my-name))
+       (tox_set_name my-tox my-name (bytes-length
+                                     (string->bytes/utf-8 my-name)))
        ; set status message
-       (tox_set_status_message my-tox my-status-message (string-length
-                                                         my-status-message))]
+       (tox_set_status_message my-tox my-status-message
+                               (bytes-length
+                                (string->bytes/utf-8 my-status-message)))]
       ; data-file is not empty, load from data-file
       [(not (zero? (file-size data-file)))
        ; load the messenger from data of size length
@@ -214,13 +216,15 @@ val is a value that corresponds to the value of the key
 (define username-frame-message (new message% [parent frame]
                                     [label my-name]
                                     [min-width
-                                     (string-length my-name)]))
+                                     (bytes-length
+                                      (string->bytes/utf-8 my-name))]))
 (send username-frame-message auto-resize #t)
 
 (define status-frame-message (new message% [parent frame]
                                   [label my-status-message]
                                   [min-width
-                                   (string-length my-status-message)]))
+                                   (bytes-length
+                                    (string->bytes/utf-8 my-status-message))]))
 (send status-frame-message auto-resize #t)
 
 ; choices for status type changes
@@ -346,7 +350,9 @@ val is a value that corresponds to the value of the key
       (do ((window-num 0 (+ window-num 1)))
         ((= window-num num-friends))
         (let* ((friend-name-text "")
-               (friend-name-length (tox_get_name my-tox window-num friend-name-bytes)))
+               (friend-name-length
+                (bytes-length
+                 (string->bytes/utf-8 (tox_get_name my-tox window-num friend-name-bytes)))))
           ; grab our friend's public key
           (tox_get_client_id my-tox window-num friend-key-bytes)
           (define friend-key-text (ptrtox->hextox friend-key-bytes TOX_CLIENT_ID_SIZE))
@@ -480,7 +486,9 @@ val is a value that corresponds to the value of the key
                                         ; set the new username
                                         (blight-save-config 'my-name-last username)
                                         (send username-frame-message set-label username)
-                                        (tox_set_name my-tox username (string-length username))
+                                        (tox_set_name my-tox username
+                                                      (bytes-length
+                                                       (string->bytes/utf-8 username)))
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
@@ -492,7 +500,9 @@ val is a value that corresponds to the value of the key
                    (unless (string=? username "")
                      (blight-save-config 'my-name-last username)
                      (send username-frame-message set-label username)
-                     (tox_set_name my-tox username (string-length username))
+                     (tox_set_name my-tox username
+                                   (bytes-length
+                                    (string->bytes/utf-8 username)))
                      (blight-save-data)
                      (send putfield set-value ""))))])
 
@@ -519,7 +529,8 @@ val is a value that corresponds to the value of the key
                                         (blight-save-config 'my-status-last status)
                                         (send status-frame-message set-label status)
                                         (tox_set_status_message my-tox status
-                                                                (string-length status))
+                                                                (bytes-length
+                                                                 (string->bytes/utf-8 status)))
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
@@ -531,7 +542,9 @@ val is a value that corresponds to the value of the key
                    (unless (string=? status "")
                      (blight-save-config 'my-status-last status)
                      (send status-frame-message set-label status)
-                     (tox_set_status_message my-tox status (string-length status))
+                     (tox_set_status_message my-tox status 
+                                             (bytes-length
+                                              (string->bytes/utf-8 status)))
                      (blight-save-data)
                      (send pstfield set-value ""))))])
 
@@ -628,7 +641,8 @@ val is a value that corresponds to the value of the key
                           (let ((err (tox_add_friend my-tox
                                                      nick-bytes
                                                      message-tfield
-                                                     (string-length message-tfield))))
+                                                     (bytes-length
+                                                      (string->bytes/utf-8 message-tfield)))))
                             (cond [(= err (_TOX_FAERR-index 'TOOLONG))
                                    (displayln "ERROR: TOX_FAERR_TOOLONG")
                                    (play-sound (last sounds) #t)]
