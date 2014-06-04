@@ -350,9 +350,7 @@ val is a value that corresponds to the value of the key
       (do ((window-num 0 (+ window-num 1)))
         ((= window-num num-friends))
         (let* ((friend-name-text "")
-               (friend-name-length
-                (bytes-length
-                 (string->bytes/utf-8 (tox_get_name my-tox window-num friend-name-bytes)))))
+               (friend-name-length (tox_get_name my-tox window-num friend-name-bytes)))
           ; grab our friend's public key
           (tox_get_client_id my-tox window-num friend-key-bytes)
           (define friend-key-text (ptrtox->hextox friend-key-bytes TOX_CLIENT_ID_SIZE))
