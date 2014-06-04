@@ -144,7 +144,8 @@
                  (tox_send_message this-tox
                                    friend-num
                                    (send this-editor get-text)
-                                   (string-length (send this-editor get-text)))
+                                   (bytes-length
+                                    (string->bytes/utf-8 (send this-editor get-text))))
                  (send this-editor erase)
                  (send chat-text-send change-style font-size-delta))]
               ; shift-enter adds a newline to the text area
