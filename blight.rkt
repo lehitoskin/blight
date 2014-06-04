@@ -846,11 +846,26 @@ val is a value that corresponds to the value of the key
                         get-name)))
                 (play-sound (second sounds) #t)])))
 
+(define on-file-send-request
+  (λ (mtox friendnumber filenumber filesize filename length userdata)
+    (displayln "We got a file send request!")))
+
+(define on-file-control
+  (λ (mtox friendnumber receive-send filenumber control-type data length userdata)
+    (displayln "We got a file control!")))
+
+(define on-file-data
+  (λ (mtox friendnumber filenumber data length userdata)
+    (displayln "We got some file data!")))
+
 (tox_callback_friend_request my-tox on-friend-request #f)
 (tox_callback_friend_message my-tox on-friend-message #f)
 (tox_callback_name_change my-tox on-friend-name-change #f)
 (tox_callback_user_status my-tox on-status-type-change #f)
 (tox_callback_connection_status my-tox on-connection-status-change #f)
+(tox_callback_file_send_request my-tox on-file-send-request #f)
+(tox_callback_file_control my-tox on-file-control #f)
+(tox_callback_file_data my-tox on-file-data #f)
 
 ; tox loop that only uses tox_do and sleeps for some amount of time
 (define tox-loop-thread
