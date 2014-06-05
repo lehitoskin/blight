@@ -885,5 +885,6 @@ val is a value that corresponds to the value of the key
    (λ ()
      (let loop ()
        (tox_do my-tox)
-       (sleep (/ (tox_do_interval my-tox) 1000))
+       ;(sleep (/ (tox_do_interval my-tox) 1000))
+       (sleep 1/2)
        (loop)))))
