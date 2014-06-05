@@ -44,6 +44,8 @@
                 ; error sound will be the last element
                 (build-path sound-dir "Error.wav")))
 
+(define make-noise-default #t)
+
 ; tox-path doesn't exist, create it
 (unless (directory-exists? tox-path)
   (make-directory tox-path))
@@ -88,7 +90,8 @@
           'dht-port dht-port-default
           'dht-public-key dht-public-key-default
           'my-name-last my-name-default
-          'my-status-last my-status-message-default))
+          'my-status-last my-status-message-default
+          'make-noise-last make-noise-default))
 
 ; blight-config.json is empty, initialize with default values for variables
 (unless (not (zero? (file-size config-file)))

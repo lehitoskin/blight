@@ -46,6 +46,7 @@ Unported\", all credit attributed to Adam Reid.")
 (define dht-public-key (hash-ref json-info 'dht-public-key))
 (define my-name (hash-ref json-info 'my-name-last))
 (define my-status-message (hash-ref json-info 'my-status-last))
+(define make-noise (hash-ref json-info 'make-noise-last))
 
 #|
 reusable procedure to save information to blight-config.json
@@ -102,9 +103,11 @@ val is a value that corresponds to the value of the key
                                       dht-port
                                       dht-public-key)
           1)
-       (play-sound (fourth sounds) #t)
+       (unless (false? make-noise)
+         (play-sound (fourth sounds) #t))
        (displayln "Connected!")]
-      [else (play-sound (last sounds) #t)
+      [else (unless (false? make-noise)
+              (play-sound (last sounds) #t))
             (displayln "Did not connect!")])
 
 ; reusable procedure to save tox information to data-file
@@ -196,7 +199,8 @@ val is a value that corresponds to the value of the key
     ; this kills the tox
     (tox_kill my-tox)
     ; log out sound
-    (play-sound (fifth sounds) #f)))
+    (unless (false? make-noise)
+      (play-sound (fifth sounds) #f))))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
@@ -546,6 +550,14 @@ val is a value that corresponds to the value of the key
                      (blight-save-data)
                      (send pstfield set-value ""))))])
 
+(new check-box% [parent preferences-box]
+     [label "Make sounds"]
+     [value (not (false? make-noise))]
+     [callback (λ (l e)
+                 (let ((noise (send l get-value)))
+                   (set! make-noise noise)
+                   (blight-save-config 'make-noise-last noise)))])
+
 ; Close button for preferences dialog box
 (new button% [parent preferences-box]
      [label "Close"]
@@ -643,28 +655,36 @@ val is a value that corresponds to the value of the key
                                                       (string->bytes/utf-8 message-tfield)))))
                             (cond [(= err (_TOX_FAERR-index 'TOOLONG))
                                    (displayln "ERROR: TOX_FAERR_TOOLONG")
-                                   (play-sound (last sounds) #t)]
+                                   (unless (false? make-noise)
+                                     (play-sound (last sounds) #t))]
                                   [(= err (_TOX_FAERR-index 'NOMESSAGE))
                                    (displayln "ERROR: TOX_FAERR_NOMESSAGE")
-                                   (play-sound (last sounds) #t)]
+                                   (unless (false? make-noise)
+                                     (play-sound (last sounds) #t))]
                                   [(= err (_TOX_FAERR-index 'OWNKEY))
                                    (displayln "ERROR: TOX_FAERR_OWNKEY")
-                                   (play-sound (last sounds) #t)]
+                                   (unless (false? make-noise)
+                                     (play-sound (last sounds) #t))]
                                   [(= err (_TOX_FAERR-index 'ALREADYSENT))
                                    (displayln "ERROR: TOX_FAERR_ALREADYSENT")
-                                   (play-sound (last sounds) #t)]
+                                   (unless (false? make-noise)
+                                     (play-sound (last sounds) #t))]
                                   [(= err (_TOX_FAERR-index 'UNKNOWN))
                                    (displayln "ERROR: TOX_FAERR_UNKNOWN")
-                                   (play-sound (last sounds) #t)]
+                                   (unless (false? make-noise)
+                                     (play-sound (last sounds) #t))]
                                   [(= err (_TOX_FAERR-index 'BADCHECKSUM))
                                    (displayln "ERROR: TOX_FAERR_BADCHECKSUM")
-                                   (play-sound (last sounds) #t)]
+                                   (unless (false? make-noise)
+                                     (play-sound (last sounds) #t))]
                                   [(= err (_TOX_FAERR-index 'SETNEWNOSPAM))
                                    (displayln "ERROR: TOX_FAERR_SETNEWNOSPAM")
-                                   (play-sound (last sounds) #t)]
+                                   (unless (false? make-noise)
+                                     (play-sound (last sounds) #t))]
                                   [(= err (_TOX_FAERR-index 'NOMEM))
                                    (displayln "ERROR: TOX_FAERR_NOMEM")
-                                   (play-sound (last sounds) #t)]
+                                   (unless (false? make-noise)
+                                     (play-sound (last sounds) #t))]
                                   [else (displayln "All okay!")
                                         ; append new friend to the gvector
                                         (gvector-add! friend-list-gvec (new chat-window%
@@ -681,7 +701,8 @@ val is a value that corresponds to the value of the key
                                         (send add-friend-hex-tfield set-value "")
                                         ; close the window
                                         (send add-friend-box show #f)]))]
-                         [else (play-sound (last sounds) #t)
+                         [else (unless (false? make-noise)
+                                 (play-sound (last sounds) #t))
                                (let ((mbox (message-box "Invalid Tox ID"
                                                         "Sorry, that is an invalid Tox ID."
                                                         add-friend-error-dialog
@@ -760,7 +781,8 @@ val is a value that corresponds to the value of the key
                                 ; save the tox data
                                 (blight-save-data)
                                 ; play a sound because we accepted
-                                (play-sound (sixth sounds) #f)
+                                (unless (false? make-noise)
+                                  (play-sound (sixth sounds) #f))
                                 ; append new friend to the gvector
                                 (gvector-add! friend-list-gvec (new chat-window%
                                                                     [this-label "a"]
@@ -798,7 +820,8 @@ val is a value that corresponds to the value of the key
       (cond [(not (send window is-shown?)) (send window show #t)])
       (send editor insert
             (string-append name ": " message "\n"))
-      (play-sound (first sounds) #t))))
+      (unless (false? make-noise)
+        (play-sound (first sounds) #t)))))
 
 (define on-friend-name-change
   (λ (mtox friendnumber newname length userdata)
@@ -848,7 +871,8 @@ val is a value that corresponds to the value of the key
                   (send
                    (gvector-ref friend-list-gvec friendnumber)
                    get-name)))
-           (play-sound (third sounds) #t)]
+           (unless (false? make-noise)
+             (play-sound (third sounds) #t))]
           ; user is online, add a checkmark
           [else (send list-box set-string friendnumber
                       (string-append
@@ -856,7 +880,8 @@ val is a value that corresponds to the value of the key
                        (send
                         (gvector-ref friend-list-gvec friendnumber)
                         get-name)))
-                (play-sound (second sounds) #t)])))
+                (unless (false? make-noise)
+                  (play-sound (second sounds) #t))])))
 
 (define on-file-send-request
   (λ (mtox friendnumber filenumber filesize filename length userdata)
