@@ -74,6 +74,9 @@ val is a value that corresponds to the value of the key
       (close-output-port config-port-out))))
 
 #| ############ BEGIN TOX STUFF ############ |#
+; we have 0 transfers right now
+(define transfers null)
+
 ; data-file is empty, use default settings
 (cond [(zero? (file-size data-file))
        ; set username
@@ -883,18 +886,55 @@ val is a value that corresponds to the value of the key
                 (unless (false? make-noise)
                   (play-sound (second sounds) #t))])))
 
+; needs to be in its own thread, otherwise we'll d/c
+; TODO:
+; - check if filenumber is outside our range, which must mean
+;   that there was an error, so we must adjust the filenumber accordingly
 (define on-file-send-request
   (λ (mtox friendnumber filenumber filesize filename length userdata)
-    (displayln "We got a file send request!")))
+    (thread
+     (λ ()
+       (let ((mbox (message-box "File Send Request"
+                                (string-append
+                                 (send
+                                  (gvector-ref friend-list-gvec friendnumber)
+                                  get-name)
+                                 " wants to send you "
+                                 filename)
+                                #f
+                                (list 'ok-cancel 'caution))))
+         (cond [(eq? mbox 'ok)
+                (let ((path (put-file "Select a file"
+                                      #f
+                                      download-path
+                                      filename)))
+                  (unless (false? path)
+                    (define message-id (_TOX_FILECONTROL-index 'ACCEPT))
+                    (define receive-editor
+                      (send (gvector-ref friend-list-gvec friendnumber) get-receive-editor))
+                    (tox_file_send_control mtox friendnumber 1 filenumber message-id #f 0)
+                    (set! transfers (setnode transfers (open-output-file path
+                                                                         #:mode 'binary
+                                                                         #:exists 'replace)
+                                             filenumber))
+                    (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")))]))))))
 
 (define on-file-control
-  (λ (mtox friendnumber receive-send filenumber control-type data length userdata)
-    (displayln "We got a file control!")))
+  (λ (mtox friendnumber receive-send filenumber control-type data-ptr length userdata)
+    (cond [(= control-type (_TOX_FILECONTROL-index 'FINISHED))
+           (define data-bytes (make-sized-byte-string data-ptr length))
+           (define receive-editor
+             (send (gvector-ref friend-list-gvec friendnumber) get-receive-editor))
+           (write-bytes data-bytes (list-ref transfers filenumber))
+           (close-output-port (list-ref transfers filenumber))
+           (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")])))
 
 (define on-file-data
-  (λ (mtox friendnumber filenumber data length userdata)
-    (displayln "We got some file data!")))
+  (λ (mtox friendnumber filenumber data-ptr length userdata)
+    (define data-bytes (make-sized-byte-string data-ptr length))
+    (write-bytes data-bytes (list-ref transfers filenumber))))
 
+; register our callback functions
 (tox_callback_friend_request my-tox on-friend-request #f)
 (tox_callback_friend_message my-tox on-friend-message #f)
 (tox_callback_name_change my-tox on-friend-name-change #f)
@@ -910,6 +950,6 @@ val is a value that corresponds to the value of the key
    (λ ()
      (let loop ()
        (tox_do my-tox)
-       ;(sleep (/ (tox_do_interval my-tox) 1000))
-       (sleep 1/2)
+       (sleep (/ (tox_do_interval my-tox) 1000))
+       ;(sleep 1/4)
        (loop)))))

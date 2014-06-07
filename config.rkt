@@ -7,14 +7,17 @@
 ; base tox directory
 (define tox-path (cond [(eq? (system-type) 'unix)
                         (build-path (find-system-path 'home-dir)
-                                     ".config/tox")]
+                                    ".config/tox")]
                        [(eq? (system-type) 'windows)
                         (normal-case-path
-                        (build-path (find-system-path 'home-dir)
+                         (build-path (find-system-path 'home-dir)
                                      "appdata/local/tox"))]
                        [(eq? (system-type) 'macosx)
                         (build-path (find-system-path 'home-dir)
-                                     "Library/Application Support/tox")]))
+                                    "Library/Application Support/tox")]))
+
+(define download-path (normal-case-path (build-path (find-system-path 'home-dir)
+                                                    "Downloads")))
 
 ; history db file
 (define db-file (build-path tox-path "blight-tox.db"))

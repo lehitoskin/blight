@@ -6,9 +6,12 @@
          grab-http
          any->bool
          hex-string?
-         tox-id?)
+         tox-id?
+         delnode
+         setnode)
 
-(require net/url)
+(require #;net/url
+         racket/list)
 
 (define/contract http?
   (-> string? boolean?)
@@ -31,12 +34,12 @@
     ; incomplete grab if the URL has - or _
     (define url (regexp-match #px"https?://(\\w*\\.)*\\w*(/\\w*)*(\\?\\w*(#\\w*)?)?" str))
     (if (false? url)
-        null ; Can this return #f instead?
+        #f
         (first url))))
 
 ; regex for tox://
-;"^((?P<scheme>tox)://)?((?P<tox_id>[[:xdigit:]]{%i})|(?P<authority_user
-;[[:digit:][:alpha:]]+)(@(?P<authority_host>[[:digit:][:alpha:]]+(\\.[[:digit:][:alpha:]]+)+))?)"
+;^((?P<scheme>tox)://)?((?P<tox_id>[[:xdigit:]]{%i})|(?P<authority_user
+;[[:digit:][:alpha:]]+)(@(?P<authority_host>[[:digit:][:alpha:]]+(\\.[[:digit:][:alpha:]]+)+))?)
 
 (define/contract any->bool
   (-> any/c boolean?)
@@ -48,32 +51,51 @@
   (-> any/c boolean?)
   (λ (val)
     (and (string? val)
-         (not (zero? (string-length val))) ; number-conversions can't convert "" hex-strings so they aren't valid.
+         ; number-conversions can't convert "" hex-strings so they aren't valid.
+         (not (zero? (string-length val)))
          (any->bool (andmap (λ (a-char)
                               (or (char-numeric? a-char)
                                   (member a-char (list #\a #\b #\c #\d #\e #\f))))
                             (string->list (string-downcase val)))))))
 
 ; checks if a given string is a valid 76-character Tox ID
-; TODO: more checks to see if the characters in the string
-; are valid for an ID
 (define/contract tox-id?
   (-> string? boolean?)
   (λ (str)
     (and (= (string-length str) 76)
          (hex-string? str))))
 
+; procedure to remove a specific node in a list
+(define/contract delnode
+  (-> list? integer? (or/c null? list?))
+  (λ (lst num)
+    (cond [(null? lst) null]
+          [(or (< num 0) (>= num (length lst))) (raise-range-error 'delnode "list"
+                                                                   "given " num lst
+                                                                   0 (- (length lst) 1))]
+          [else (flatten (cons (take lst num) (drop lst (+ num 1))))])))
+
+; procedure to replace a specific node in a list
+(define/contract setnode
+  (-> list? any/c integer? list?)
+  (λ (lst node num)
+    (cond [(null? lst) (flatten (append lst node))]
+          [(or (< num 0) (>= num (length lst))) (raise-range-error 'setnode "list"
+                                                                   "given " num lst
+                                                                   0 (- (length lst) 1))]
+          [else (flatten (cons (append (take lst num) node) (drop lst (+ num 1))))])))
+
 ; takes a given string and makes it all blue 'n' shit
 ; uses racket/gui to make it blue (and underlined?)
 ; uses net/url to make it clickable?
-(define linkify
+#|(define linkify
   (λ (str)
     (let* ((http (grab-http str))
-           (url (if (null? http)
-                    null
+           (url (if (false? http)
+                    #f
                     (string->url http))))
-      (if (null? url)
-          null
+      (if (flase? url)
+          #f
           #|colorify the string
           clickify the link|#
-          (printf "~a\n" url)))))
+          (printf "~a\n" url)))))|#
