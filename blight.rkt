@@ -75,7 +75,7 @@ val is a value that corresponds to the value of the key
 
 #| ############ BEGIN TOX STUFF ############ |#
 ; we have 0 transfers right now
-(define transfers null)
+(define rtransfers null)
 
 ; data-file is empty, use default settings
 (cond [(zero? (file-size data-file))
@@ -913,26 +913,37 @@ val is a value that corresponds to the value of the key
                     (define receive-editor
                       (send (gvector-ref friend-list-gvec friendnumber) get-receive-editor))
                     (tox_file_send_control mtox friendnumber 1 filenumber message-id #f 0)
-                    (set! transfers (setnode transfers (open-output-file path
-                                                                         #:mode 'binary
-                                                                         #:exists 'replace)
-                                             filenumber))
+                    (set! rtransfers (setnode rtransfers (open-output-file path
+                                                                           #:mode 'binary
+                                                                           #:exists 'replace)
+                                              filenumber))
                     (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")))]))))))
 
 (define on-file-control
   (λ (mtox friendnumber receive-send filenumber control-type data-ptr length userdata)
-    (cond [(= control-type (_TOX_FILECONTROL-index 'FINISHED))
-           (define data-bytes (make-sized-byte-string data-ptr length))
-           (define receive-editor
-             (send (gvector-ref friend-list-gvec friendnumber) get-receive-editor))
-           (write-bytes data-bytes (list-ref transfers filenumber))
-           (close-output-port (list-ref transfers filenumber))
-           (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")])))
+    (let* ((window (gvector-ref friend-list-gvec friendnumber))
+          (receive-editor (send window get-receive-editor)))
+      (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
+                  (zero? receive-send))
+             (define data-bytes (make-sized-byte-string data-ptr length))
+             (write-bytes data-bytes (list-ref rtransfers filenumber))
+             ; close receive transfer
+             (close-output-port (list-ref rtransfers filenumber))
+             ; remove transfer from list
+             (set! rtransfers (delnode rtransfers filenumber))
+             ; notify user transfer has completed
+             (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]
+            [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
+                  (= receive-send 1))
+             ; close the send transfer
+             (send window close-transfer filenumber)
+             ; notify the user the transfer has completed
+             (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]))))
 
 (define on-file-data
   (λ (mtox friendnumber filenumber data-ptr length userdata)
     (define data-bytes (make-sized-byte-string data-ptr length))
-    (write-bytes data-bytes (list-ref transfers filenumber))))
+    (write-bytes data-bytes (list-ref rtransfers filenumber))))
 
 ; register our callback functions
 (tox_callback_friend_request my-tox on-friend-request #f)
