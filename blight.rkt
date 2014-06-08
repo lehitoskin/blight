@@ -913,16 +913,27 @@ val is a value that corresponds to the value of the key
                     (define receive-editor
                       (send (gvector-ref friend-list-gvec friendnumber) get-receive-editor))
                     (tox_file_send_control mtox friendnumber 1 filenumber message-id #f 0)
-                    (set! rtransfers (setnode rtransfers (open-output-file path
-                                                                           #:mode 'binary
-                                                                           #:exists 'replace)
-                                              filenumber))
+                    (if (zero? filenumber)
+                        ; our first receiving transfer, replace the null
+                        (set! rtransfers (setnode rtransfers (open-output-file path
+                                                                               #:mode 'binary
+                                                                               #:exists 'replace)
+                                                  filenumber))
+                        ; not our first, append to the list
+                        (set! rtransfers (flatten (append rtransfers (open-output-file
+                                                                      path
+                                                                      #:mode 'binary
+                                                                      #:exists 'replace)))))
                     (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")))]))))))
 
+; receive-send is 1 or 0
+; 1 - sending
+; 0 - receiving
 (define on-file-control
   (λ (mtox friendnumber receive-send filenumber control-type data-ptr length userdata)
     (let* ((window (gvector-ref friend-list-gvec friendnumber))
-          (receive-editor (send window get-receive-editor)))
+           (receive-editor (send window get-receive-editor)))
+      ; we've finished receiving the file
       (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
                   (zero? receive-send))
              (define data-bytes (make-sized-byte-string data-ptr length))
@@ -933,12 +944,18 @@ val is a value that corresponds to the value of the key
              (set! rtransfers (delnode rtransfers filenumber))
              ; notify user transfer has completed
              (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]
+            ; we've finished sending the file
             [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
                   (= receive-send 1))
              ; close the send transfer
              (send window close-transfer filenumber)
              ; notify the user the transfer has completed
-             (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]))))
+             (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]
+            ; cue that we're going to be sending the data now
+            [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))
+                  (= receive-send 1))
+             (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")
+             (send window send-data filenumber)]))))
 
 (define on-file-data
   (λ (mtox friendnumber filenumber data-ptr length userdata)

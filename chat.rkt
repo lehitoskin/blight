@@ -31,15 +31,24 @@
     (define friend-name "")
     (define friend-key "")
     (define friend-num -1)
+    ; the sending file transfer list and its path list
+    ; easier to have two lists than deal with a list of pairs
     (define stransfers null)
+    (define paths null)
     
     (define add-file-sender
-      (λ (size path filenumber)
+      (λ (path filenumber)
         (define filename (path->string path))
-        (set! stransfers (setnode stransfers (open-input-file path
-                                                              #:mode 'binary)
-                                  filenumber))
-        (send chat-editor-canvas-receive insert "\n***FILE TRANSFER HAS BEGUN***\n\n")))
+        (if (zero? filenumber)
+            ; our first sending transfer, replace the null
+            (set! stransfers (setnode stransfers (open-input-file
+                                                  path
+                                                  #:mode 'binary)
+                                      filenumber))
+            ; not our first, append to the list
+            (set! stransfers (flatten (append stransfers (open-input-file
+                                                          path
+                                                          #:mode 'binary)))))))
     
     (define bytes->ptr
       (λ (some-bytes)
@@ -47,54 +56,39 @@
                                        (ctype-sizeof _uint8_t))))
         (do ((i 0 (+ i 1)))
           ((= i (bytes-length some-bytes)))
-          (ptr-set! ptr _uint8_t i (bytes-ref some-bytes i))
-          ptr)))
+          (ptr-set! ptr _uint8_t i (bytes-ref some-bytes i)))
+        ptr))
     
-    (define send-data
-      (λ ()
-        ; create a new thread to send a file
-        (thread
-         (λ ()
-           (displayln "Inside thread, before file select")
-           (let ((path (get-file "Select a file to send")))
-             (printf "(false? path): ~a\n" (false? path))
-             (unless (not (path? path))
-               (displayln "Inside unless statement")
-               ; total size of the file
-               (define file-size (file-size path))
-               ; the complete file in bytes form
-               (define data-bytes (file->bytes path #:mode 'binary))
-               ; name of the file (taken from the path)
-               (define filename (path->string path))
-               ; maximum piece size we can send at one time
-               (define max-size (tox_file_data_size this-tox friend-num))
-               ; number of the file - index of the list
-               (define filenumber (tox_new_file_sender
-                                   this-tox friend-num
-                                   file-size filename (string-length filename)))
-               (add-file-sender file-size path filenumber)
-               (define piece (peek-bytes max-size
-                                         0
-                                         (list-ref stransfers filenumber)))
-               (tox_file_send_data this-tox friend-num filenumber piece
-                                   (bytes-length piece))
-               (do ((i 0 (+ i 1)))
-                 ((= i file-size))
-                 ; update the max piece size
-                 (set! max-size (tox_file_data_size this-tox friend-num))
-                 ; update the piece
-                 (set! piece (peek-bytes max-size
-                                         (+ max-size i)
-                                         (list-ref stransfers filenumber)))
-                 ; send our piece
-                 (tox_file_send_data this-tox friend-num
-                                     filenumber (bytes->ptr piece)
-                                     (bytes-length piece)))
-               ; tell our friend we're done sending
-               (tox_file_send_control this-tox friend-num
-                                      0 filenumber
-                                      (_TOX_FILECONTROL-index 'FINISHED)
-                                      #f 0)))))))
+    (define/public send-data
+      (λ (filenumber)
+        (define path (list-ref paths filenumber))
+        (define size (file-size path))
+        ; maximum piece size we can send at one time
+        (define max-size (tox_file_data_size this-tox friend-num))
+        (add-file-sender path filenumber)
+        (define piece (peek-bytes max-size
+                                  0
+                                  (list-ref stransfers filenumber)))
+        (tox_file_send_data this-tox friend-num
+                            filenumber (bytes->ptr piece)
+                            (bytes-length piece))
+        (do ((i 0 (+ i 1)))
+          ((= i size))
+          ; update the max piece size
+          (set! max-size (tox_file_data_size this-tox friend-num))
+          ; update the piece
+          (set! piece (peek-bytes max-size
+                                  (+ max-size i)
+                                  (list-ref stransfers filenumber)))
+          ; send our piece
+          (tox_file_send_data this-tox friend-num
+                              filenumber (bytes->ptr piece)
+                              (bytes-length piece)))
+        ; tell our friend we're done sending
+        (tox_file_send_control this-tox friend-num
+                               0 filenumber
+                               (_TOX_FILECONTROL-index 'FINISHED)
+                               #f 0)))
     
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
@@ -117,7 +111,23 @@
          [label "Send File"]
          [help-string "Send a file to this friend"]
          [callback (λ (button event)
-                     (send-data))])
+                     ; create a new thread so we don't get disconnected
+                     (thread
+                      (λ ()
+                        (let ((path (get-file "Select a file to send")))
+                          (unless (false? path)
+                            ; total size of the file
+                            (define size (file-size path))
+                            ; name of the file (taken from the path)
+                            (define filename (path->string path))
+                            (define filenumber
+                              (tox_new_file_sender this-tox friend-num size filename
+                                                   (string-length filename)))
+                            (if (zero? filenumber)
+                                ; our first sending transfer, replace the null
+                                (set! paths (setnode paths path filenumber))
+                                ; not our first, append to the list
+                                (set! paths (flatten (append paths path)))))))))])
     
     ; close the current window
     (new menu-item% [parent menu-file]
@@ -290,7 +300,8 @@
     
     (define/public (close-transfer filenumber)
       (close-input-port (list-ref stransfers filenumber))
-      (set! stransfers (delnode stransfers filenumber)))
+      (set! stransfers (delnode stransfers filenumber))
+      (set! paths (delnode paths filenumber)))
     
     (super-new
      [label this-label]
