@@ -900,7 +900,7 @@ val is a value that corresponds to the value of the key
                                   (gvector-ref friend-list-gvec friendnumber)
                                   get-name)
                                  " wants to send you "
-                                 filename)
+                                 "\"" filename "\"")
                                 #f
                                 (list 'ok-cancel 'caution))))
          (cond [(eq? mbox 'ok)
@@ -943,13 +943,6 @@ val is a value that corresponds to the value of the key
              ; remove transfer from list
              (set! rtransfers (delnode rtransfers filenumber))
              ; notify user transfer has completed
-             (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]
-            ; we've finished sending the file
-            [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
-                  (= receive-send 1))
-             ; close the send transfer
-             (send window close-transfer filenumber)
-             ; notify the user the transfer has completed
              (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]
             ; cue that we're going to be sending the data now
             [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))

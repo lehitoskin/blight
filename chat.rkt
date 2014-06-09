@@ -41,14 +41,9 @@
         (define filename (path->string path))
         (if (zero? filenumber)
             ; our first sending transfer, replace the null
-            (set! stransfers (setnode stransfers (open-input-file
-                                                  path
-                                                  #:mode 'binary)
-                                      filenumber))
+            (set! stransfers (setnode stransfers (file->bytes path) filenumber))
             ; not our first, append to the list
-            (set! stransfers (flatten (append stransfers (open-input-file
-                                                          path
-                                                          #:mode 'binary)))))))
+            (set! stransfers (flatten (append stransfers (file->bytes path)))))))
     
     (define bytes->ptr
       (λ (some-bytes)
@@ -65,30 +60,30 @@
         (define size (file-size path))
         ; maximum piece size we can send at one time
         (define max-size (tox_file_data_size this-tox friend-num))
+        ; number of pieces we're going to send
+        (define num-pieces (quotient size max-size))
         (add-file-sender path filenumber)
-        (define piece (peek-bytes max-size
-                                  0
-                                  (list-ref stransfers filenumber)))
-        (tox_file_send_data this-tox friend-num
-                            filenumber (bytes->ptr piece)
-                            (bytes-length piece))
         (do ((i 0 (+ i 1)))
-          ((= i size))
-          ; update the max piece size
-          (set! max-size (tox_file_data_size this-tox friend-num))
-          ; update the piece
-          (set! piece (peek-bytes max-size
-                                  (+ max-size i)
-                                  (list-ref stransfers filenumber)))
-          ; send our piece
-          (tox_file_send_data this-tox friend-num
-                              filenumber (bytes->ptr piece)
-                              (bytes-length piece)))
+          ((= i num-pieces))
+          (let ((piece (subbytes (list-ref stransfers filenumber)
+                                 (* max-size i) (* max-size (+ i 1)))))
+            ; send our piece
+            (tox_file_send_data this-tox friend-num
+                                filenumber (bytes->ptr piece)
+                                (bytes-length piece))))
+        ; if there is a remainder, send the very last piece
+        (unless (zero? (quotient size max-size))
+          (let ((piece (subbytes (list-ref stransfers filenumber)
+                                 (- size (remainder size max-size)) size)))
+            (tox_file_send_data this-tox friend-num
+                                filenumber (bytes->ptr piece)
+                                (bytes-length piece))))
         ; tell our friend we're done sending
         (tox_file_send_control this-tox friend-num
                                0 filenumber
                                (_TOX_FILECONTROL-index 'FINISHED)
-                               #f 0)))
+                               #f 0)
+        (send chat-text-receive insert "\n***FILE TRANSFER COMPLETED***\n\n")))
     
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
@@ -119,7 +114,7 @@
                             ; total size of the file
                             (define size (file-size path))
                             ; name of the file (taken from the path)
-                            (define filename (path->string path))
+                            (define filename (path->string (last (explode-path path))))
                             (define filenumber
                               (tox_new_file_sender this-tox friend-num size filename
                                                    (string-length filename)))
@@ -299,7 +294,6 @@
       friend-key)
     
     (define/public (close-transfer filenumber)
-      (close-input-port (list-ref stransfers filenumber))
       (set! stransfers (delnode stransfers filenumber))
       (set! paths (delnode paths filenumber)))
     
