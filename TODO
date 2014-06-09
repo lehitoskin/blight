@@ -1,18 +1,12 @@
 TODO:
 
-- Load from data file
-- Populate buddylist with friends from data file
-- Add a friend
-- Send message to friend
-- Status message box on friend list
+- Status message box on friend list (?)
 - Message timestamps
-- Text chat (tox_wait stuff?)
 - Spellcheck
 - Links blue, underlined, and clickable
-- Embedding of video, images, audio, etc. (both p2p and links posted)
+- Embedding of video, images, audio, etc. (both p2p and links posted) (?)
 
 ...
 
-- File transfer
 - Audio chat
 - Video chat
