@@ -146,13 +146,6 @@ val is a value that corresponds to the value of the key
                             (dec->hex (ptr-ref key _uint8_t i))))))
     id-hex))
 
-; obtain our tox id
-(define my-id-bytes (malloc 'atomic
-                            (* TOX_FRIEND_ADDRESS_SIZE
-                               (ctype-sizeof _uint8_t))))
-(tox_get_address my-tox my-id-bytes)
-(define my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
-
 #| ############ BEGIN DATABASE STUFF ################ |#
 ; DATABASE DATABASE! JUST LIVING IN THE DATABASE!
 ; WOWOW
@@ -436,6 +429,13 @@ val is a value that corresponds to the value of the key
      [label "Copy ID to Clipboard"]
      [help-string "Copies your Tox ID to the clipboard"]
      [callback (λ (button event)
+                 ; obtain our tox id
+                 (define my-id-bytes (malloc 'atomic
+                                             (* TOX_FRIEND_ADDRESS_SIZE
+                                                (ctype-sizeof _uint8_t))))
+                 (tox_get_address my-tox my-id-bytes)
+                 (define my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+                 ; copy id to clipboard
                  (send chat-clipboard set-clipboard-string
                        my-id-hex
                        (current-seconds)))])
@@ -562,9 +562,11 @@ val is a value that corresponds to the value of the key
                                           (list 'ok-cancel 'stop))))
                    (when (eq? mbox 'ok)
                      (tox_set_nospam my-tox
-                                     ; largest random will accept
+                                     ; largest (random) can accept
                                      ; corresponds to "FFFFFF2F"
-                                     (dec->hex (random 4294967087))))))])
+                                     (random 4294967087))
+                     ; save our changes
+                     (blight-save-data))))])
 
 (new check-box% [parent preferences-box]
      [label "Make sounds"]
