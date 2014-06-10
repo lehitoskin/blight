@@ -462,13 +462,13 @@ val is a value that corresponds to the value of the key
                        [label "&Edit"]
                        [help-string "Modify Blight"]))
 
+#| #################### PREFERENCES STUFF ################### |#
 (define preferences-box (new dialog%
                              [label "Edit Preferences"]
                              [style (list 'close-button)]
                              [height 200]
                              [width 400]))
 
-#| #################### PREFERENCES STUFF ################### |#
 (define Username_msg (new message%
                           [parent preferences-box]
                           [label "New Username:"]))
@@ -552,6 +552,19 @@ val is a value that corresponds to the value of the key
                                               (string->bytes/utf-8 status)))
                      (blight-save-data)
                      (send pstfield set-value ""))))])
+
+(new button% [parent preferences-box]
+     [label "Change nospam value"]
+     [callback (λ (button event)
+                 (let ((mbox (message-box "Are you certain you want to"
+                                          " change your nospam value?"
+                                          #f
+                                          (list 'ok-cancel 'stop))))
+                   (when (eq? mbox 'ok)
+                     (tox_set_nospam my-tox
+                                     ; largest random will accept
+                                     ; corresponds to "FFFFFF2F"
+                                     (dec->hex (random 4294967087))))))])
 
 (new check-box% [parent preferences-box]
      [label "Make sounds"]
