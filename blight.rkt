@@ -448,7 +448,7 @@ val is a value that corresponds to the value of the key
      [help-string "Quit Blight"]
      [callback (λ (button event)
                  ;(send exit-dialog show #t))])
-                 (let ((mbox (message-box "Quit Blight"
+                 (let ((mbox (message-box "Blight - Quit Blight"
                                           "Are you sure you want to quit Blight?"
                                           exit-dialog
                                           (list 'ok-cancel 'caution))))
@@ -464,7 +464,7 @@ val is a value that corresponds to the value of the key
 
 #| #################### PREFERENCES STUFF ################### |#
 (define preferences-box (new dialog%
-                             [label "Edit Preferences"]
+                             [label "Blight - Edit Preferences"]
                              [style (list 'close-button)]
                              [height 200]
                              [width 400]))
@@ -556,8 +556,9 @@ val is a value that corresponds to the value of the key
 (new button% [parent preferences-box]
      [label "Change nospam value"]
      [callback (λ (button event)
-                 (let ((mbox (message-box "Are you certain you want to"
-                                          " change your nospam value?"
+                 (let ((mbox (message-box "Blight - Change nospam"
+                                          (string-append "Are you certain you want to"
+                                                         " change your nospam value?")
                                           #f
                                           (list 'ok-cancel 'stop))))
                    (when (eq? mbox 'ok)
@@ -585,7 +586,7 @@ val is a value that corresponds to the value of the key
 
 ; add a friend 'n' stuff
 (define add-friend-box (new dialog%
-                            [label "Add a new Tox friend"]
+                            [label "Blight - Add a new Tox friend"]
                             [style (list 'close-button)]))
 
 ; remove a friend
@@ -721,7 +722,7 @@ val is a value that corresponds to the value of the key
                                         (send add-friend-box show #f)]))]
                          [else (unless (false? make-noise)
                                  (play-sound (last sounds) #t))
-                               (let ((mbox (message-box "Invalid Tox ID"
+                               (let ((mbox (message-box "Blight - Invalid Tox ID"
                                                         "Sorry, that is an invalid Tox ID."
                                                         add-friend-error-dialog
                                                         (list 'ok 'stop))))
@@ -740,7 +741,7 @@ val is a value that corresponds to the value of the key
      [label "Delete friend"]
      [callback (λ (button event)
                  (let ((friend-num (send list-box get-selection))
-                       (mbox (message-box "Deleting Friend"
+                       (mbox (message-box "Blight - Deleting Friend"
                                           "Are you sure you want to delete?"
                                           del-friend-dialog
                                           (list 'ok-cancel))))
@@ -909,7 +910,7 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber filenumber filesize filename length userdata)
     (thread
      (λ ()
-       (let ((mbox (message-box "File Send Request"
+       (let ((mbox (message-box "Blight - File Send Request"
                                 (string-append
                                  (send
                                   (gvector-ref friend-list-gvec friendnumber)
