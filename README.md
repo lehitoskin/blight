@@ -5,7 +5,7 @@ Blight
 Blight is a cross-platform graphical user interface for [Tox](https://github.com/irungentoo/ProjectTox-Core) written in [Racket](http://racket-lang.org/) that utilizes [libtoxcore-racket](https://github.com/lehitoskin/libtoxcore-racket).
 In very early pre-alpha stage. All help and testing appreciated.
 
-[![Blight Screenshot](https://i.imgur.com/vGYvOf2.png)](http://imgur.com/vGYvOf2)
+[![Blight Screenshot](https://wiki.tox.im/images/a/ac/Blight.png)](https://wiki.tox.im/images/a/ac/Blight.png)
 
 
 ## Installation
