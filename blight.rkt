@@ -10,7 +10,7 @@
          "helpers.rkt"      ; various useful functions
          ffi/unsafe         ; needed for neat pointer shenanigans
          json               ; for reading and writing to config file
-         db                 ; access sqlite db for stored history
+         "history.rkt"      ; access sqlite db for stored history
          data/gvector)      ; growable vectors for friend list
 
 (define license-message
@@ -98,6 +98,13 @@ val is a value that corresponds to the value of the key
            (ptr-set! data-ptr _uint8_t i (bytes-ref my-bytes i))))
        (printf "Loading from data file... ~a\n" (tox_load my-tox data-ptr size))])
 
+; obtain our tox id
+(define my-id-bytes (malloc 'atomic
+                            (* TOX_FRIEND_ADDRESS_SIZE
+                               (ctype-sizeof _uint8_t))))
+(tox_get_address my-tox my-id-bytes)
+(define my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+
 ; connect to DHT
 (display "Connecting to network... ")
 (cond [(= (tox_bootstrap_from_address my-tox
@@ -134,53 +141,6 @@ val is a value that corresponds to the value of the key
       (write-bytes my-data data-port-out)
       (close-output-port data-port-out))))
 
-; reusable procedure to obtain any Tox ID from a pointer
-(define ptrtox->hextox
-  (λ (key size)
-    (define id-hex "")
-    (do ((i 0 (+ i 1)))
-      ((= i size))
-      (set! id-hex
-            (string-upcase
-             (string-append id-hex
-                            (dec->hex (ptr-ref key _uint8_t i))))))
-    id-hex))
-
-#| ############ BEGIN DATABASE STUFF ################ |#
-; DATABASE DATABASE! JUST LIVING IN THE DATABASE!
-; WOWOW
-(define sqlc
-  (sqlite3-connect
-   #:database db-file
-   #:mode 'create))
-
-; database initialization
-; follows Venom's database scheme
-(query-exec sqlc
-            "create table if not exists History(
-             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-             userHash TEXT NOT NULL,
-             contactHash TEXT NOT NULL,
-             message TEXT NOT NULL,
-             timestamp INTEGER NOT NULL,
-             issent INTEGER NOT NULL);")
-
-; index query
-(query-exec sqlc
-            "CREATE UNIQUE INDEX IF NOT EXISTS main_index
-             ON History (userHash, contactHash, timestamp);")
-
-; insert into history
-;"INSERT INTO History (userHash, contactHash, message, timestamp, issent)
-;VALUES ($USER, $CONTACT, $MESSAGE, $TIME, $SENDER);"
-
-; get history
-; maybe this will be useful for something like
-; File -> Chat history -> Select user
-; or even Right click user -> View Chat History
-;"SELECT * FROM History WHERE userHash = $USER AND contactHash = $CONTACT
-;AND timestamp > $OLDEST;"
-
 ; little procedure to wrap things up for us
 (define clean-up
   (λ ()
@@ -202,7 +162,7 @@ val is a value that corresponds to the value of the key
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
 (define frame (new frame%
-                   [label "Blight"]
+                   [label "Blight - Buddy List"]
                    [width 400]
                    [height 300]
                    [x 0]
@@ -429,12 +389,6 @@ val is a value that corresponds to the value of the key
      [label "Copy ID to Clipboard"]
      [help-string "Copies your Tox ID to the clipboard"]
      [callback (λ (button event)
-                 ; obtain our tox id
-                 (define my-id-bytes (malloc 'atomic
-                                             (* TOX_FRIEND_ADDRESS_SIZE
-                                                (ctype-sizeof _uint8_t))))
-                 (tox_get_address my-tox my-id-bytes)
-                 (define my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
                  ; copy id to clipboard
                  (send chat-clipboard set-clipboard-string
                        my-id-hex
@@ -567,7 +521,10 @@ val is a value that corresponds to the value of the key
                                      ; corresponds to "FFFFFF2F"
                                      (random 4294967087))
                      ; save our changes
-                     (blight-save-data))))])
+                     (blight-save-data)
+                     ; set new tox id
+                     (tox_get_address my-tox my-id-bytes)
+                     (set! my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE)))))])
 
 (new check-box% [parent preferences-box]
      [label "Make sounds"]
@@ -838,9 +795,12 @@ val is a value that corresponds to the value of the key
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
       (send editor insert
-            (string-append name ": " message "\n"))
+            (string-append name " [" (get-time) "]: " message "\n"))
+      ; make a noise
       (unless (false? make-noise)
-        (play-sound (first sounds) #t)))))
+        (play-sound (first sounds) #t))
+      ; add message to the history database
+      (add-history my-id-hex (send window get-key) message 0))))
 
 (define on-friend-name-change
   (λ (mtox friendnumber newname length userdata)

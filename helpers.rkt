@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ; helpers.rkt
 ; contains miscellaneous procedures for things
 (provide http?
@@ -8,10 +8,14 @@
          hex-string?
          tox-id?
          delnode
-         setnode)
+         setnode
+         get-time)
 
 (require #;net/url
-         racket/list)
+         racket/list
+         racket/date
+         racket/contract
+         racket/bool)
 
 (define/contract http?
   (-> string? boolean?)
@@ -84,6 +88,24 @@
                                                                    "given " num lst
                                                                    0 (- (length lst) 1))]
           [else (flatten (cons (append (take lst num) node) (drop lst (+ num 1))))])))
+
+; get the current time formatted to HH:MM:SS
+(define get-time
+  (λ ()
+    (let* ((timestamp (current-date))
+           (ts-hour (date-hour timestamp))
+           (ts-minute (date-minute timestamp))
+           (ts-second (date-second timestamp)))
+      (define hour (if (< ts-hour 10)
+                       (string-append "0" (number->string ts-hour))
+                       (number->string ts-hour)))
+      (define minute (if (< ts-minute 10)
+                         (string-append "0" (number->string ts-minute))
+                         (number->string ts-minute)))
+      (define second (if (< ts-second 10)
+                         (string-append "0" (number->string ts-second))
+                         (number->string ts-second)))
+      (string-append hour ":" minute ":" second))))
 
 ; takes a given string and makes it all blue 'n' shit
 ; uses racket/gui to make it blue (and underlined?)

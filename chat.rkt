@@ -3,7 +3,9 @@
 ; contains chat-window definitions
 (require libtoxcore-racket
          ffi/unsafe
-         "helpers.rkt")
+         "helpers.rkt"
+         "number-conversions.rkt"
+         "history.rkt")
 (provide (all-defined-out))
 
 #|
@@ -19,6 +21,18 @@
 
 (define font-size-delta
   (make-object style-delta% 'change-size 10))
+
+; reusable procedure to obtain any Tox ID from a pointer
+(define ptrtox->hextox
+  (λ (key size)
+    (define id-hex "")
+    (do ((i 0 (+ i 1)))
+      ((= i size))
+      (set! id-hex
+            (string-upcase
+             (string-append id-hex
+                            (dec->hex (ptr-ref key _uint8_t i))))))
+    id-hex))
 
 (define chat-window%
   (class frame%
@@ -195,7 +209,7 @@
               [(and (eqv? key #\return) (eq? shift #f))
                (unless (string=? (send this-editor get-text) "")
                  (send chat-text-receive insert
-                       (string-append "Me: "
+                       (string-append "Me [" (get-time) "]: "
                                       (send this-editor get-text)
                                       "\n"))
                  (tox_send_message this-tox
@@ -203,6 +217,13 @@
                                    (send this-editor get-text)
                                    (bytes-length
                                     (string->bytes/utf-8 (send this-editor get-text))))
+                 ; obtain our tox id
+                 (define my-id-bytes (malloc 'atomic
+                                             (* TOX_FRIEND_ADDRESS_SIZE
+                                                (ctype-sizeof _uint8_t))))
+                 (tox_get_address this-tox my-id-bytes)
+                 (define my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+                 (add-history my-id-hex friend-key (send this-editor get-text) 1)
                  (send this-editor erase)
                  (send chat-text-send change-style font-size-delta))]
               ; shift-enter adds a newline to the text area
