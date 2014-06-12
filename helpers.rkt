@@ -1,4 +1,4 @@
-#lang racket/base
+#lang racket
 ; helpers.rkt
 ; contains miscellaneous procedures for things
 (provide http?
@@ -12,10 +12,7 @@
          get-time)
 
 (require #;net/url
-         racket/list
-         racket/date
-         racket/contract
-         racket/bool)
+         racket/date)
 
 (define/contract http?
   (-> string? boolean?)

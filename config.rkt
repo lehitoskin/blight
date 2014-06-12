@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ; config.rkt
 ; contains default values for variables
 (require json)
@@ -105,3 +105,15 @@
     (write-json json-default config-port-out)
     (write-json (json-null) config-port-out)
     (close-output-port config-port-out)))
+
+; list of unicode emoticons
+(define emojis (list "😁" "😂" "😃" "😄" "😅" "😇"
+                     "😈" "😉" "😊" "😋" "😌" "😍"
+                     "😎" "😏" "😐" "😒" "😓" "😔"
+                     "😖" "😘" "😚" "😜" "😝" "😞"
+                     "😠" "😡" "😢" "😣" "😥" "😨"
+                     "😩" "😪" "😫" "😭" "😰" "😱"
+                     "😲" "😳" "😵" "😶" "😷" "😸"
+                     "😹" "😺" "😻" "😼" "😽" "😾"
+                     "😿" "🙀" "☺" "☹" "⚇" "🐱"
+                     "♥" "☔" "☀" "♫" "☕" "★"))

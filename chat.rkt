@@ -5,7 +5,8 @@
          ffi/unsafe
          "helpers.rkt"
          "number-conversions.rkt"
-         "history.rkt")
+         "history.rkt"
+         "config.rkt")
 (provide (all-defined-out))
 
 #|
@@ -168,6 +169,138 @@
                                             [style (list 'control-border 'no-hscroll
                                                          'auto-vscroll 'no-focus)]
                                             [wheel-step 3]))
+    
+    (define panel (new horizontal-panel%
+                       [parent chat-frame]
+                       [alignment '(right center)]))
+    
+    (define emoji-button (new button%
+                              [parent panel]
+                              [label "Enter Emoji"]
+                              [callback (λ (button event)
+                                          (send emoji-dialog show #t))]))
+    
+    #| ##################### BEGIN EMOJI STUFF #################### |#
+    (define emoji-dialog (new dialog%
+                              [label "Blight - Select Emoji"]
+                              [style (list 'close-button)]))
+    
+    ; first row of emoji
+    (define row-one (new horizontal-panel%
+                         [parent emoji-dialog]))
+    
+    (for ([i (in-range 6)])
+      (make-object button%
+        (format "~a" (list-ref emojis i))
+        row-one
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis i)))))
+    
+    ; second row of emoji
+    (define row-two (new horizontal-panel%
+                         [parent emoji-dialog]))
+    
+    (for ([i (in-range 6)])
+      (make-object button%
+        (format "~a" (list-ref emojis (+ i 6)))
+        row-two
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis (+ i 6))))))
+    
+    ; third row of emoji
+    (define row-three (new horizontal-panel%
+                           [parent emoji-dialog]))
+    
+    (for ([i (in-range 6)])
+      (make-object button%
+        (format "~a" (list-ref emojis (+ i 12)))
+        row-three
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis (+ i 12))))))
+    
+    ; fourth row of emoji
+    (define row-four (new horizontal-panel%
+                          [parent emoji-dialog]))
+    
+    (for ((i (in-range 6)))
+      (make-object button%
+        (format "~a" (list-ref emojis (+ i 18)))
+        row-four
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis (+ i 18))))))
+    
+    ; fifth row of emoji
+    (define row-five (new horizontal-panel%
+                          [parent emoji-dialog]))
+    
+    (for ((i (in-range 6)))
+      (make-object button%
+        (format "~a" (list-ref emojis (+ i 24)))
+        row-five
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis (+ i 24))))))
+    
+    ; sixth row of emoji
+    (define row-six (new horizontal-panel%
+                         [parent emoji-dialog]))
+    
+    (for ((i (in-range 6)))
+      (make-object button%
+        (format "~a" (list-ref emojis (+ i 30)))
+        row-six
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis (+ i 30))))))
+    
+    ; seventh row of emoji
+    (define row-seven (new horizontal-panel%
+                           [parent emoji-dialog]))
+    
+    (for ((i (in-range 6)))
+      (make-object button%
+        (format "~a" (list-ref emojis (+ i 36)))
+        row-seven
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis (+ i 36))))))
+    
+    ; eighth row of emoji
+    (define row-eight (new horizontal-panel%
+                           [parent emoji-dialog]))
+    
+    (for ((i (in-range 6)))
+      (make-object button%
+        (format "~a" (list-ref emojis (+ i 42)))
+        row-eight
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis (+ i 42))))))
+    
+    ; ninth row of emoji
+    (define row-nine (new horizontal-panel%
+                          [parent emoji-dialog]))
+    
+    (for ((i (in-range 6)))
+      (make-object button%
+        (format "~a" (list-ref emojis (+ i 48)))
+        row-nine
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis (+ i 48))))))
+    
+    ; tenth and final row of emoji
+    (define row-ten (new horizontal-panel%
+                         [parent emoji-dialog]))
+    
+    (for ((i (in-range 6)))
+      (make-object button%
+        (format "~a" (list-ref emojis (+ i 54)))
+        row-ten
+        (λ (button event)
+          (send chat-text-send insert (list-ref emojis (+ i 54))))))
+    
+    (new button%
+         [parent emoji-dialog]
+         [label "Close"]
+         [callback (λ (button event)
+                     (send emoji-dialog show #f))])
+    #| #################### END EMOJI STUFF #################### |#
     
     (define chat-text-send (new text%
                                 [line-spacing 1.0]
