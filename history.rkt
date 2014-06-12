@@ -48,10 +48,9 @@ sent is 0: they sent; 1: we sent
   (λ (user contact message sent)
     (query-exec
      sqlc
-     (string-append "INSERT INTO History (userHash, contactHash, message,"
-                    " timestamp, issent) VALUES (\""
-                    user "\", \"" contact "\", \"" message "\", "
-                    (number->string (current-seconds)) ", " (number->string sent) ");"))))
+     (format "INSERT INTO History ~a VALUES (~s,~s,~s,~a,~a);"
+             "(userHash, contactHash, message, timestamp, issent)"
+             user contact message (current-seconds) sent))))
 
 ; get history
 ; maybe this will be useful for something like

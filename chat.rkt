@@ -51,6 +51,11 @@
     (define stransfers null)
     (define paths null)
     
+    (define/private repeat
+      (λ (proc times)
+        (cond [(zero? times) #t]
+              [else (proc) (repeat proc (- times 1))])))
+    
     (define add-file-sender
       (λ (path filenumber)
         (define filename (path->string path))
@@ -160,14 +165,46 @@
                                    [auto-wrap #t]))
     (send chat-text-receive change-style font-size-delta)
     
-    (define chat-editor-canvas-receive (new editor-canvas%
+    (define custom-receive-canvas%
+      (class editor-canvas%
+        (inherit refresh get-dc get-size)
+        (init-field parent
+                    label
+                    editor
+                    style
+                    wheel-step
+                    min-height
+                    vert-margin)
+        (define/override (on-char key-event)
+          (let ((key (send key-event get-key-code))
+                (control (send key-event get-control-down)))
+            (cond
+              ; ^c - copy selected text to clipboard
+              [(and (eqv? key #\c) (eq? control #t)) (send editor copy)]
+              ; scroll up/scroll down
+              [(eqv? key 'wheel-up) (repeat
+                                     (λ () (send editor move-position 'up))
+                                     wheel-step)]
+              [(eqv? key 'wheel-down) (repeat
+                                       (λ ()(send editor move-position 'down))
+                                       wheel-step)])))
+        (super-new
+         [parent parent]
+         [label label]
+         [editor editor]
+         [style style]
+         [wheel-step wheel-step]
+         [min-height min-height]
+         [vert-margin vert-margin])))
+    
+    (define chat-editor-canvas-receive (new custom-receive-canvas%
                                             [parent chat-frame]
                                             [label "Messages received"]
                                             [editor chat-text-receive]
                                             [min-height 400]
                                             [vert-margin 5]
                                             [style (list 'control-border 'no-hscroll
-                                                         'auto-vscroll 'no-focus)]
+                                                         'auto-vscroll)]
                                             [wheel-step 3]))
     
     (define panel (new horizontal-panel%
@@ -386,8 +423,12 @@
               [(eqv? key 'home) (send this-editor move-position 'home)]
               [(eqv? key 'end) (send this-editor move-position 'end)]
               ; janky workaround because implementing wheel scrolling is a PITA
-              [(eqv? key 'wheel-up) (send this-editor move-position 'up)]
-              [(eqv? key 'wheel-down) (send this-editor move-position 'down)]
+              [(eqv? key 'wheel-up) (repeat
+                                     (λ () (send this-editor move-position 'up))
+                                     this-wheel-step)]
+              [(eqv? key 'wheel-down) (repeat
+                                       (λ ()(send this-editor move-position 'down))
+                                       this-wheel-step)]
               ; regular key pressed, add to text area
               [(char? key) (send this-editor insert key)])))
         (super-new
