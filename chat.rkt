@@ -398,6 +398,8 @@
                  (send chat-text-send change-style font-size-delta))]
               ; shift-enter adds a newline to the text area
               [(and (eqv? key #\return) (eq? shift #t)) (send this-editor insert "\n")]
+              ; enter on the keypad adds a newline to the text area
+              [(eqv? key #\u0003) (send this-editor insert "\n")]
               ; press backspace, delete previous character or selected text
               [(eqv? key #\backspace) (send this-editor delete)]
               ; press delete, delete proceding character or selected text
