@@ -1,8 +1,7 @@
 #!/usr/bin/env racket
 #lang racket/gui
 ; blight.rkt
-; GUI Tox client
-; most of these here are for the buddy-list
+; GUI Tox client written in Racket
 (require libtoxcore-racket ; wrapper
          "chat.rkt"         ; contains definitions for chat window
          "config.rkt"       ; default config file
@@ -162,25 +161,28 @@ val is a value that corresponds to the value of the key
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
 (define frame (new frame%
-                   [label "Blight - Buddy List"]
+                   [label "Blight - Friend List"]
                    [width 400]
                    [height 300]
                    [x 0]
                    [y 0]))
 
 ; make a static text message in the frame
-(define frame-msg (new message% [parent frame]
-                       [label "Blight Buddy List"]
+(define frame-msg (new message%
+                       [parent frame]
+                       [label "Blight Friend List"]
                        [min-width 40]))
 
-(define username-frame-message (new message% [parent frame]
+(define username-frame-message (new message%
+                                    [parent frame]
                                     [label my-name]
                                     [min-width
                                      (bytes-length
                                       (string->bytes/utf-8 my-name))]))
 (send username-frame-message auto-resize #t)
 
-(define status-frame-message (new message% [parent frame]
+(define status-frame-message (new message%
+                                  [parent frame]
                                   [label my-status-message]
                                   [min-width
                                    (bytes-length
@@ -188,20 +190,21 @@ val is a value that corresponds to the value of the key
 (send status-frame-message auto-resize #t)
 
 ; choices for status type changes
-(new choice%
-     [parent frame]
-     [label ""]
-     [min-width 400]
-     [choices '("Available"
-                "Away"
-                "Busy")]
-     [callback (λ (l e)
-                 (cond [(= (send l get-selection) (_TOX_USERSTATUS-index 'NONE))
-                        (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'NONE))]
-                       [(= (send l get-selection) (_TOX_USERSTATUS-index 'AWAY))
-                        (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'AWAY))]
-                       [(= (send l get-selection) (_TOX_USERSTATUS-index 'BUSY))
-                        (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'BUSY))]))])
+(define status-choice
+  (new choice%
+       [parent frame]
+       [label ""]
+       [min-width 400]
+       [choices '("Available"
+                  "Away"
+                  "Busy")]
+       [callback (λ (l e)
+                   (cond [(= (send l get-selection) (_TOX_USERSTATUS-index 'NONE))
+                          (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'NONE))]
+                         [(= (send l get-selection) (_TOX_USERSTATUS-index 'AWAY))
+                          (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'AWAY))]
+                         [(= (send l get-selection) (_TOX_USERSTATUS-index 'BUSY))
+                          (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'BUSY))]))]))
 
 #| ################## FRIEND LIST STUFF #################### |#
 ; obtain number of friends
@@ -233,48 +236,49 @@ val is a value that corresponds to the value of the key
 ; format: (indexed by list-box starting from 0)
 ;  choice -> string -> username
 ;  data -> string -> tox public key
-(define list-box (new list-box%
-                      [label "Select Buddy"]
-                      [parent frame]
-                      [min-height 250]
-                      [style (list 'single 'vertical-label)]
-                      [choices (list "Test")]
-                      [callback (λ (l e)
-                                  ; when double click, open the window
-                                  (when (eq? (send e get-event-type)
-                                             'list-box-dclick)
-                                    (let* ((friend-name (send list-box get-string
-                                                              (send list-box get-selection)))
-                                           (friend-key (send list-box get-data
-                                                             (send list-box get-selection))))
-                                      ; look for the friend's name and key in the gvector
-                                      ; and associate the open window with the friend's name
-                                      (define friend-name-checker
-                                        (λ (num)
-                                          (if (= num (gvector-count friend-list-gvec))
-                                              (gvector-ref friend-list-gvec (-
-                                                                             (gvector-count
-                                                                              friend-list-gvec)
-                                                                             1))
-                                              (cond [(and
-                                                      ; check friend name
-                                                      (string=?
-                                                       (substring friend-name 4)
-                                                       (send
-                                                        (gvector-ref friend-list-gvec num)
-                                                        get-name))
-                                                      ; check friend public key
-                                                      (string=?
-                                                       friend-key
-                                                       (send
-                                                        (gvector-ref friend-list-gvec num)
-                                                        get-key)))
-                                                     (gvector-ref friend-list-gvec num)]
-                                                    [else (friend-name-checker (+ num 1))]))))
-                                      (define friend-window (friend-name-checker 0))
-                                      ; check if we're already chatting
-                                      (unless (send friend-window is-shown?)
-                                        (send friend-window show #t)))))]))
+(define list-box
+  (new list-box%
+       [label "Select Friend"]
+       [parent frame]
+       [min-height 250]
+       [style (list 'single 'vertical-label)]
+       [choices (list "Test")]
+       [callback (λ (l e)
+                   ; when double click, open the window
+                   (when (eq? (send e get-event-type)
+                              'list-box-dclick)
+                     (let* ((friend-name (send list-box get-string
+                                               (send list-box get-selection)))
+                            (friend-key (send list-box get-data
+                                              (send list-box get-selection))))
+                       ; look for the friend's name and key in the gvector
+                       ; and associate the open window with the friend's name
+                       (define friend-name-checker
+                         (λ (num)
+                           (if (= num (gvector-count friend-list-gvec))
+                               (gvector-ref friend-list-gvec (-
+                                                              (gvector-count
+                                                               friend-list-gvec)
+                                                              1))
+                               (cond [(and
+                                       ; check friend name
+                                       (string=?
+                                        (substring friend-name 4)
+                                        (send
+                                         (gvector-ref friend-list-gvec num)
+                                         get-name))
+                                       ; check friend public key
+                                       (string=?
+                                        friend-key
+                                        (send
+                                         (gvector-ref friend-list-gvec num)
+                                         get-key)))
+                                      (gvector-ref friend-list-gvec num)]
+                                     [else (friend-name-checker (+ num 1))]))))
+                       (define friend-window (friend-name-checker 0))
+                       ; check if we're already chatting
+                       (unless (send friend-window is-shown?)
+                         (send friend-window show #t)))))]))
 
 ; set data for each item in list-box
 ; data may be arbitrary, but a label will suffice
@@ -369,10 +373,12 @@ val is a value that corresponds to the value of the key
                                              'auto-vscroll 'no-focus)]))
 
 ; button to close the About Blight window
-(new button% [parent help-dialog]
-     [label "&OK"]
-     [callback (λ (button event)
-                 (send help-dialog show #f))])
+(define help-about-ok
+  (new button%
+       [parent help-dialog]
+       [label "&OK"]
+       [callback (λ (button event)
+                   (send help-dialog show #f))]))
 
 #| ############ MENU BAR AND STUFF ############## |#
 ; menu bar for the frame
@@ -380,39 +386,45 @@ val is a value that corresponds to the value of the key
                             [parent frame]))
 
 ; menu File for menu bar
-(define menu-file (new menu% [parent frame-menu-bar]
+(define menu-file (new menu%
+                       [parent frame-menu-bar]
                        [label "&File"]
                        [help-string "Open, Quit, etc."]))
 
 ; Copy ID to Clipboard item for File
-(new menu-item% [parent menu-file]
-     [label "Copy ID to Clipboard"]
-     [help-string "Copies your Tox ID to the clipboard"]
-     [callback (λ (button event)
-                 ; copy id to clipboard
-                 (send chat-clipboard set-clipboard-string
-                       my-id-hex
-                       (current-seconds)))])
+(define menu-copy-id
+  (new menu-item%
+       [parent menu-file]
+       [label "Copy ID to Clipboard"]
+       [help-string "Copies your Tox ID to the clipboard"]
+       [callback (λ (button event)
+                   ; copy id to clipboard
+                   (send chat-clipboard set-clipboard-string
+                         my-id-hex
+                         (current-seconds)))]))
 
 ; Quit menu item for File
 ; uses message-box with 'ok-cancel
-(new menu-item% [parent menu-file]
-     [label "&Quit"]
-     [shortcut #\Q]
-     [help-string "Quit Blight"]
-     [callback (λ (button event)
-                 ;(send exit-dialog show #t))])
-                 (let ((mbox (message-box "Blight - Quit Blight"
-                                          "Are you sure you want to quit Blight?"
-                                          exit-dialog
-                                          (list 'ok-cancel 'caution))))
-                   (if (eq? mbox 'ok)
-                       ((clean-up)
-                        (exit))
-                       null)))])
+(define menu-quit
+  (new menu-item%
+       [parent menu-file]
+       [label "&Quit"]
+       [shortcut #\Q]
+       [help-string "Quit Blight"]
+       [callback (λ (button event)
+                   ;(send exit-dialog show #t))])
+                   (let ((mbox (message-box "Blight - Quit Blight"
+                                            "Are you sure you want to quit Blight?"
+                                            exit-dialog
+                                            (list 'ok-cancel 'caution))))
+                     (if (eq? mbox 'ok)
+                         ((clean-up)
+                          (exit))
+                         null)))]))
 
 ; menu Edit for menu bar
-(define menu-edit (new menu% [parent frame-menu-bar]
+(define menu-edit (new menu%
+                       [parent frame-menu-bar]
                        [label "&Edit"]
                        [help-string "Modify Blight"]))
 
@@ -451,19 +463,20 @@ val is a value that corresponds to the value of the key
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
-(new button% [parent User_panel]
-     [label "Set"]
-     [callback (λ (button event)
-                 (let ((username (send putfield get-value)))
-                   ; refuse to set the username if it's empty
-                   (unless (string=? username "")
-                     (blight-save-config 'my-name-last username)
-                     (send username-frame-message set-label username)
-                     (tox_set_name my-tox username
-                                   (bytes-length
-                                    (string->bytes/utf-8 username)))
-                     (blight-save-data)
-                     (send putfield set-value ""))))])
+(define putfield-set
+  (new button% [parent User_panel]
+       [label "Set"]
+       [callback (λ (button event)
+                   (let ((username (send putfield get-value)))
+                     ; refuse to set the username if it's empty
+                     (unless (string=? username "")
+                       (blight-save-config 'my-name-last username)
+                       (send username-frame-message set-label username)
+                       (tox_set_name my-tox username
+                                     (bytes-length
+                                      (string->bytes/utf-8 username)))
+                       (blight-save-data)
+                       (send putfield set-value ""))))]))
 
 ;;Status
 (define Status_msg (new message%
@@ -475,7 +488,8 @@ val is a value that corresponds to the value of the key
                          [parent preferences-box]
                          [alignment '(center center)]))
 
-(define pstfield (new text-field% [parent Status_panel] 
+(define pstfield (new text-field%
+                      [parent Status_panel] 
                       [label ""] 
                       [style (list  'single)]
                       [callback (λ (l e)
@@ -493,52 +507,61 @@ val is a value that corresponds to the value of the key
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
-(new button% [parent Status_panel]
-     [label "Set"]
-     [callback (λ (button event)
-                 (let ((status (send pstfield get-value)))
-                   ; refuse to set status if it's empty
-                   (unless (string=? status "")
-                     (blight-save-config 'my-status-last status)
-                     (send status-frame-message set-label status)
-                     (tox_set_status_message my-tox status 
-                                             (bytes-length
-                                              (string->bytes/utf-8 status)))
-                     (blight-save-data)
-                     (send pstfield set-value ""))))])
+(define pstfield-set-button
+  (new button%
+       [parent Status_panel]
+       [label "Set"]
+       [callback (λ (button event)
+                   (let ((status (send pstfield get-value)))
+                     ; refuse to set status if it's empty
+                     (unless (string=? status "")
+                       (blight-save-config 'my-status-last status)
+                       (send status-frame-message set-label status)
+                       (tox_set_status_message my-tox status 
+                                               (bytes-length
+                                                (string->bytes/utf-8 status)))
+                       (blight-save-data)
+                       (send pstfield set-value ""))))]))
 
-(new button% [parent preferences-box]
-     [label "Change nospam value"]
-     [callback (λ (button event)
-                 (let ((mbox (message-box "Blight - Change nospam"
-                                          (string-append "Are you certain you want to"
-                                                         " change your nospam value?")
-                                          #f
-                                          (list 'ok-cancel 'stop))))
-                   (when (eq? mbox 'ok)
-                     (tox_set_nospam my-tox
-                                     ; largest (random) can accept
-                                     ; corresponds to "FFFFFF2F"
-                                     (random 4294967087))
-                     ; save our changes
-                     (blight-save-data)
-                     ; set new tox id
-                     (tox_get_address my-tox my-id-bytes)
-                     (set! my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE)))))])
+(define change-nospam-button
+  (new button%
+       [parent preferences-box]
+       [label "Change nospam value"]
+       [callback (λ (button event)
+                   (let ((mbox (message-box "Blight - Change nospam"
+                                            (string-append "Are you certain you want to"
+                                                           " change your nospam value?")
+                                            #f
+                                            (list 'ok-cancel 'stop))))
+                     (when (eq? mbox 'ok)
+                       (tox_set_nospam my-tox
+                                       ; largest (random) can accept
+                                       ; corresponds to "FFFFFF2F"
+                                       (random 4294967087))
+                       ; save our changes
+                       (blight-save-data)
+                       ; set new tox id
+                       (tox_get_address my-tox my-id-bytes)
+                       (set! my-id-hex
+                             (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE)))))]))
 
-(new check-box% [parent preferences-box]
-     [label "Make sounds"]
-     [value (not (false? make-noise))]
-     [callback (λ (l e)
-                 (let ((noise (send l get-value)))
-                   (set! make-noise noise)
-                   (blight-save-config 'make-noise-last noise)))])
+(define make-sounds-button
+  (new check-box%
+       [parent preferences-box]
+       [label "Make sounds"]
+       [value (not (false? make-noise))]
+       [callback (λ (l e)
+                   (let ((noise (send l get-value)))
+                     (set! make-noise noise)
+                     (blight-save-config 'make-noise-last noise)))]))
 
 ; Close button for preferences dialog box
-(new button% [parent preferences-box]
-     [label "Close"]
-     [callback (λ (button event)
-                 (send preferences-box show #f))])
+(define preferences-close-button
+  (new button%
+       [parent preferences-box]
+       [label "Close"]
+       [callback (λ (button event)
+                   (send preferences-box show #f))]))
 #| #################### END PREFERENCES STUFF ################### |#
 
 ; add a friend 'n' stuff
@@ -579,138 +602,149 @@ val is a value that corresponds to the value of the key
                                      [style (list 'close-button)]))
 
 ; Preferences menu item for Edit
-(new menu-item% [parent menu-edit]
-     [label "Preferences"]
-     [shortcut #\R]
-     [help-string "Modify Blight preferences"]
-     [callback (λ (button event)
-                 (send preferences-box show #t))])
+(define menu-preferences (new menu-item%
+                              [parent menu-edit]
+                              [label "Preferences"]
+                              [shortcut #\R]
+                              [help-string "Modify Blight preferences"]
+                              [callback (λ (button event)
+                                          (send preferences-box show #t))]))
 
 ; menu Help for menu bar
-(define menu-help (new menu% [parent frame-menu-bar]
+(define menu-help (new menu%
+                       [parent frame-menu-bar]
                        [label "&Help"]
                        [help-string "Get information about Blight"]))
 
 ; About Blight menu item for Help
-(new menu-item% [parent menu-help]
-     [label "About Blight"]
-     [help-string "Show information about Blight"]
-     [callback (λ (button event)
-                 (send help-dialog show #t))])
+(define menu-help-about (new menu-item%
+                             [parent menu-help]
+                             [label "About Blight"]
+                             [help-string "Show information about Blight"]
+                             [callback (λ (button event)
+                                         (send help-dialog show #t))]))
 
 ; send friend request
-(new button% [parent panel]
-     [label "Add friend"]
-     [callback (λ (button event)
-                 (send add-friend-box show #t))])
+(define add-friend-button (new button%
+                               [parent panel]
+                               [label "Add friend"]
+                               [callback (λ (button event)
+                                           (send add-friend-box show #t))]))
 
 ; OK button for add-friend dialog box
-(new button% [parent add-friend-panel]
-     [label "OK"]
-     [callback (λ (button event)
-                 (let ((hex-tfield (send add-friend-hex-tfield get-value))
-                       (message-tfield (send add-friend-message-tfield get-value)))
-                   ; add the friend to the friend list
-                   (cond [(tox-id? hex-tfield)
-                          ; convert hex to bytes
-                          (define nick-bytes (malloc 'atomic
-                                                     (* TOX_FRIEND_ADDRESS_SIZE
-                                                        (ctype-sizeof _uint8_t))))
-                          (do ((i 0 (+ i 1))
-                               (j 0 (+ j 2)))
-                            ((= i TOX_FRIEND_ADDRESS_SIZE))
-                            (ptr-set! nick-bytes _uint8_t i
-                                      (hex->dec
-                                       (string-append
-                                        (string (string-ref hex-tfield j))
-                                        (string (string-ref hex-tfield (+ j 1)))))))
-                          (let ((err (tox_add_friend my-tox
-                                                     nick-bytes
-                                                     message-tfield
-                                                     (bytes-length
-                                                      (string->bytes/utf-8 message-tfield)))))
-                            (cond [(= err (_TOX_FAERR-index 'TOOLONG))
-                                   (displayln "ERROR: TOX_FAERR_TOOLONG")
-                                   (unless (false? make-noise)
-                                     (play-sound (last sounds) #t))]
-                                  [(= err (_TOX_FAERR-index 'NOMESSAGE))
-                                   (displayln "ERROR: TOX_FAERR_NOMESSAGE")
-                                   (unless (false? make-noise)
-                                     (play-sound (last sounds) #t))]
-                                  [(= err (_TOX_FAERR-index 'OWNKEY))
-                                   (displayln "ERROR: TOX_FAERR_OWNKEY")
-                                   (unless (false? make-noise)
-                                     (play-sound (last sounds) #t))]
-                                  [(= err (_TOX_FAERR-index 'ALREADYSENT))
-                                   (displayln "ERROR: TOX_FAERR_ALREADYSENT")
-                                   (unless (false? make-noise)
-                                     (play-sound (last sounds) #t))]
-                                  [(= err (_TOX_FAERR-index 'UNKNOWN))
-                                   (displayln "ERROR: TOX_FAERR_UNKNOWN")
-                                   (unless (false? make-noise)
-                                     (play-sound (last sounds) #t))]
-                                  [(= err (_TOX_FAERR-index 'BADCHECKSUM))
-                                   (displayln "ERROR: TOX_FAERR_BADCHECKSUM")
-                                   (unless (false? make-noise)
-                                     (play-sound (last sounds) #t))]
-                                  [(= err (_TOX_FAERR-index 'SETNEWNOSPAM))
-                                   (displayln "ERROR: TOX_FAERR_SETNEWNOSPAM")
-                                   (unless (false? make-noise)
-                                     (play-sound (last sounds) #t))]
-                                  [(= err (_TOX_FAERR-index 'NOMEM))
-                                   (displayln "ERROR: TOX_FAERR_NOMEM")
-                                   (unless (false? make-noise)
-                                     (play-sound (last sounds) #t))]
-                                  [else (displayln "All okay!")
-                                        ; append new friend to the gvector
-                                        (gvector-add! friend-list-gvec (new chat-window%
-                                                                            [this-label "a"]
-                                                                            [this-width 400]
-                                                                            [this-height 600]
-                                                                            [this-tox my-tox]))
-                                        ; save the tox data
-                                        (blight-save-data)
-                                        ; update friend list, but don't mess up
-                                        ; the numbering we already have
-                                        (update-friend-list)
-                                        ; zero-out some fields
-                                        (send add-friend-hex-tfield set-value "")
-                                        ; close the window
-                                        (send add-friend-box show #f)]))]
-                         [else (unless (false? make-noise)
-                                 (play-sound (last sounds) #t))
-                               (let ((mbox (message-box "Blight - Invalid Tox ID"
-                                                        "Sorry, that is an invalid Tox ID."
-                                                        add-friend-error-dialog
-                                                        (list 'ok 'stop))))
-                                 (when (eq? mbox 'ok)
-                                   (send add-friend-error-dialog show #f)))])))])
+(define add-friend-ok-button
+  (new button%
+       [parent add-friend-panel]
+       [label "OK"]
+       [callback (λ (button event)
+                   (let ((hex-tfield (send add-friend-hex-tfield get-value))
+                         (message-tfield (send add-friend-message-tfield get-value)))
+                     ; add the friend to the friend list
+                     (cond [(tox-id? hex-tfield)
+                            ; convert hex to bytes
+                            (define nick-bytes (malloc 'atomic
+                                                       (* TOX_FRIEND_ADDRESS_SIZE
+                                                          (ctype-sizeof _uint8_t))))
+                            (do ((i 0 (+ i 1))
+                                 (j 0 (+ j 2)))
+                              ((= i TOX_FRIEND_ADDRESS_SIZE))
+                              (ptr-set! nick-bytes _uint8_t i
+                                        (hex->dec
+                                         (string-append
+                                          (string (string-ref hex-tfield j))
+                                          (string (string-ref hex-tfield (+ j 1)))))))
+                            (let ((err (tox_add_friend my-tox
+                                                       nick-bytes
+                                                       message-tfield
+                                                       (bytes-length
+                                                        (string->bytes/utf-8 message-tfield)))))
+                              ; check for all the friend add errors
+                              (cond [(= err (_TOX_FAERR-index 'TOOLONG))
+                                     (displayln "ERROR: TOX_FAERR_TOOLONG")
+                                     (unless (false? make-noise)
+                                       (play-sound (last sounds) #t))]
+                                    [(= err (_TOX_FAERR-index 'NOMESSAGE))
+                                     (displayln "ERROR: TOX_FAERR_NOMESSAGE")
+                                     (unless (false? make-noise)
+                                       (play-sound (last sounds) #t))]
+                                    [(= err (_TOX_FAERR-index 'OWNKEY))
+                                     (displayln "ERROR: TOX_FAERR_OWNKEY")
+                                     (unless (false? make-noise)
+                                       (play-sound (last sounds) #t))]
+                                    [(= err (_TOX_FAERR-index 'ALREADYSENT))
+                                     (displayln "ERROR: TOX_FAERR_ALREADYSENT")
+                                     (unless (false? make-noise)
+                                       (play-sound (last sounds) #t))]
+                                    [(= err (_TOX_FAERR-index 'UNKNOWN))
+                                     (displayln "ERROR: TOX_FAERR_UNKNOWN")
+                                     (unless (false? make-noise)
+                                       (play-sound (last sounds) #t))]
+                                    [(= err (_TOX_FAERR-index 'BADCHECKSUM))
+                                     (displayln "ERROR: TOX_FAERR_BADCHECKSUM")
+                                     (unless (false? make-noise)
+                                       (play-sound (last sounds) #t))]
+                                    [(= err (_TOX_FAERR-index 'SETNEWNOSPAM))
+                                     (displayln "ERROR: TOX_FAERR_SETNEWNOSPAM")
+                                     (unless (false? make-noise)
+                                       (play-sound (last sounds) #t))]
+                                    [(= err (_TOX_FAERR-index 'NOMEM))
+                                     (displayln "ERROR: TOX_FAERR_NOMEM")
+                                     (unless (false? make-noise)
+                                       (play-sound (last sounds) #t))]
+                                    [else (displayln "All okay!")
+                                          ; append new friend to the gvector
+                                          (gvector-add! friend-list-gvec (new chat-window%
+                                                                              [this-label "a"]
+                                                                              [this-width 400]
+                                                                              [this-height 600]
+                                                                              [this-tox my-tox]))
+                                          ; save the tox data
+                                          (blight-save-data)
+                                          ; update friend list, but don't mess up
+                                          ; the numbering we already have
+                                          (update-friend-list)
+                                          ; zero-out some fields
+                                          (send add-friend-hex-tfield set-value "")
+                                          ; close the window
+                                          (send add-friend-box show #f)]))]
+                           [else (unless (false? make-noise)
+                                   (play-sound (last sounds) #t))
+                                 (let ((mbox (message-box "Blight - Invalid Tox ID"
+                                                          "Sorry, that is an invalid Tox ID."
+                                                          add-friend-error-dialog
+                                                          (list 'ok 'stop))))
+                                   (when (eq? mbox 'ok)
+                                     (send add-friend-error-dialog show #f)))])))]))
 
 ; don't actually want to add a friend right now
-(new button% [parent add-friend-panel]
-     [label "Cancel"]
-     [callback (λ (button event)
-                 (send add-friend-hex-tfield set-value "")
-                 (send add-friend-box show #f))])
+(define add-friend-cancel-button
+  (new button%
+       [parent add-friend-panel]
+       [label "Cancel"]
+       [callback (λ (button event)
+                   (send add-friend-hex-tfield set-value "")
+                   (send add-friend-box show #f))]))
 
-; Remove buddy from list
-(new button% [parent panel]
-     [label "Delete friend"]
-     [callback (λ (button event)
-                 (let ((friend-num (send list-box get-selection))
-                       (mbox (message-box "Blight - Deleting Friend"
-                                          "Are you sure you want to delete?"
-                                          del-friend-dialog
-                                          (list 'ok-cancel))))
-                   (when (eq? mbox 'ok)
-                     ; delete from tox friend list
-                     (tox_del_friend my-tox friend-num)
-                     ; save the blight data
-                     (blight-save-data)
-                     ; remove from list-box
-                     (send list-box delete friend-num)
-                     ; remove from gvector
-                     (gvector-remove! friend-list-gvec friend-num))))])
+; remove friend from list
+(define delete-friend-button
+  (new button%
+       [parent panel]
+       [label "Delete friend"]
+       [callback (λ (button event)
+                   (let ((friend-num (send list-box get-selection))
+                         (mbox (message-box "Blight - Deleting Friend"
+                                            "Are you sure you want to delete?"
+                                            del-friend-dialog
+                                            (list 'ok-cancel))))
+                     (when (eq? mbox 'ok)
+                       ; delete from tox friend list
+                       (tox_del_friend my-tox friend-num)
+                       ; save the blight data
+                       (blight-save-data)
+                       ; remove from list-box
+                       (send list-box delete friend-num)
+                       ; remove from gvector
+                       (gvector-remove! friend-list-gvec friend-num))))]))
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
