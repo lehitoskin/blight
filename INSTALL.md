@@ -2,7 +2,7 @@ Installation
 ============
 
 First of all, install the Tox core library.
-Follow ProjectTox-Core [installation instructions](https://github.com/irungentoo/ProjectTox-Core/blob/master/INSTALL.md#linux).
+Follow toxcore [installation instructions](https://github.com/irungentoo/toxcore/blob/master/INSTALL.md#linux).
 
 Next, install Racket through either the repositories or by source.
 
