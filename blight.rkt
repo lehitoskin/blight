@@ -209,15 +209,12 @@ val is a value that corresponds to the value of the key
 ; obtain number of friends
 (define initial-num-friends (tox_count_friendlist my-tox))
 
-; base friend window initialization
-(define initial-window (new chat-window%
-                            [this-label "a"]
-                            [this-width 400]
-                            [this-height 600]
-                            [this-tox my-tox]))
-
 ; we want at least one chat window
-(define friend-list (list initial-window))
+(define friend-list (list (new chat-window%
+                               [this-label "a"]
+                               [this-width 400]
+                               [this-height 600]
+                               [this-tox my-tox])))
 
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the gvector
@@ -250,7 +247,7 @@ val is a value that corresponds to the value of the key
                                                (send list-box get-selection)))
                             (friend-key (send list-box get-data
                                               (send list-box get-selection))))
-                       ; look for the friend's name and key in the gvector
+                       ; look for the friend's name and key in the list
                        ; and associate the open window with the friend's name
                        (define friend-name-checker
                          (λ (num)
@@ -737,7 +734,7 @@ val is a value that corresponds to the value of the key
                        (blight-save-data)
                        ; remove from list-box
                        (send list-box delete friend-num)
-                       ; remove from gvector
+                       ; remove from list
                        (set! friend-list (delnode friend-list friend-num)))))]))
 
 #| ############### START THE GUI, YO ############### |#
@@ -970,5 +967,4 @@ val is a value that corresponds to the value of the key
      (let loop ()
        (tox_do my-tox)
        (sleep (/ (tox_do_interval my-tox) 1000))
-       ;(sleep 1/4)
        (loop)))))
