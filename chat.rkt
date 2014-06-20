@@ -231,7 +231,8 @@
         (format "~a" (list-ref emojis i))
         row-one
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis i)))))
+          (send chat-text-send insert (list-ref emojis i))
+          (send emoji-dialog show #f))))
     
     ; second row of emoji
     (define row-two (new horizontal-panel%
@@ -242,7 +243,8 @@
         (format "~a" (list-ref emojis (+ i 6)))
         row-two
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis (+ i 6))))))
+          (send chat-text-send insert (list-ref emojis (+ i 6)))
+          (send emoji-dialog show #f))))
     
     ; third row of emoji
     (define row-three (new horizontal-panel%
@@ -253,7 +255,8 @@
         (format "~a" (list-ref emojis (+ i 12)))
         row-three
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis (+ i 12))))))
+          (send chat-text-send insert (list-ref emojis (+ i 12)))
+          (send emoji-dialog show #f))))
     
     ; fourth row of emoji
     (define row-four (new horizontal-panel%
@@ -264,7 +267,8 @@
         (format "~a" (list-ref emojis (+ i 18)))
         row-four
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis (+ i 18))))))
+          (send chat-text-send insert (list-ref emojis (+ i 18)))
+          (send emoji-dialog show #f))))
     
     ; fifth row of emoji
     (define row-five (new horizontal-panel%
@@ -275,7 +279,8 @@
         (format "~a" (list-ref emojis (+ i 24)))
         row-five
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis (+ i 24))))))
+          (send chat-text-send insert (list-ref emojis (+ i 24)))
+          (send emoji-dialog show #f))))
     
     ; sixth row of emoji
     (define row-six (new horizontal-panel%
@@ -286,7 +291,8 @@
         (format "~a" (list-ref emojis (+ i 30)))
         row-six
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis (+ i 30))))))
+          (send chat-text-send insert (list-ref emojis (+ i 30)))
+          (send emoji-dialog show #f))))
     
     ; seventh row of emoji
     (define row-seven (new horizontal-panel%
@@ -297,7 +303,8 @@
         (format "~a" (list-ref emojis (+ i 36)))
         row-seven
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis (+ i 36))))))
+          (send chat-text-send insert (list-ref emojis (+ i 36)))
+          (send emoji-dialog show #f))))
     
     ; eighth row of emoji
     (define row-eight (new horizontal-panel%
@@ -308,7 +315,8 @@
         (format "~a" (list-ref emojis (+ i 42)))
         row-eight
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis (+ i 42))))))
+          (send chat-text-send insert (list-ref emojis (+ i 42)))
+          (send emoji-dialog show #f))))
     
     ; ninth row of emoji
     (define row-nine (new horizontal-panel%
@@ -319,7 +327,8 @@
         (format "~a" (list-ref emojis (+ i 48)))
         row-nine
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis (+ i 48))))))
+          (send chat-text-send insert (list-ref emojis (+ i 48)))
+          (send emoji-dialog show #f))))
     
     ; tenth and final row of emoji
     (define row-ten (new horizontal-panel%
@@ -330,7 +339,8 @@
         (format "~a" (list-ref emojis (+ i 54)))
         row-ten
         (λ (button event)
-          (send chat-text-send insert (list-ref emojis (+ i 54))))))
+          (send chat-text-send insert (list-ref emojis (+ i 54)))
+          (send emoji-dialog show #f))))
     
     (new button%
          [parent emoji-dialog]
