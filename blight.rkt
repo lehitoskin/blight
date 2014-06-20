@@ -9,7 +9,8 @@
          "helpers.rkt"      ; various useful functions
          ffi/unsafe         ; needed for neat pointer shenanigans
          json               ; for reading and writing to config file
-         "history.rkt")     ; access sqlite db for stored history
+         "history.rkt"      ; access sqlite db for stored history
+         "toxdns.rkt")      ; for toxdns lookups
 
 (define license-message
   "Blight - a Tox client written in Racket.
@@ -480,7 +481,7 @@ val is a value that corresponds to the value of the key
 (define pstfield (new text-field%
                       [parent Status_panel] 
                       [label ""] 
-                      [style (list  'single)]
+                      [style (list 'single)]
                       [callback (λ (l e)
                                   (let ((status (send l get-value)))
                                     (when (eq? (send e get-event-type)
@@ -553,72 +554,85 @@ val is a value that corresponds to the value of the key
                    (send preferences-box show #f))]))
 #| #################### END PREFERENCES STUFF ################### |#
 
-; add a friend 'n' stuff
+#| #################### BEGIN ADD FRIEND STUFF ####################### |#
 (define add-friend-box (new dialog%
                             [label "Blight - Add a new Tox friend"]
                             [style (list 'close-button)]))
 
-; remove a friend
-(define del-friend-dialog (new dialog%
-                               [label "Remove a Tox friend"]
-                               [style (list 'close-button)]))
+(define dns-msg (new message%
+                     [parent add-friend-box]
+                     [label "DNS nickname:"]))
+
+(define dns-panel (new horizontal-panel%
+                       [parent add-friend-box]
+                       [alignment '(center center)]))
+
+(define add-friend-txt-tfield (new text-field%
+                                   [parent dns-panel]
+                                   [label ""]
+                                   [min-width 38]))
+
+; choices for status type changes
+(define dns-domain-choice
+  (new choice%
+       [parent dns-panel]
+       [label ""]
+       ;[min-width 400]
+       [choices '("toxme.se"
+                  "utox.org")]))
+
+(define hex-message (new message%
+                         [parent add-friend-box]
+                         [label "Friend ID(X):"]))
+
+(define hex-panel (new horizontal-panel%
+                       [parent add-friend-box]
+                       [alignment '(center center)]))
 
 ; add friend with Tox ID
-; TODO:
-; DNS shit
 (define add-friend-hex-tfield (new text-field%
-                                   [parent add-friend-box]
-                                   [label "Friend ID(X):"]
+                                   [parent hex-panel]
+                                   [label ""]
                                    [min-width 38]
-                                   [callback (λ (l on-char)
+                                   [callback (λ (l e)
                                                (if (tox-id? (send l get-value))
-                                                   (send l set-label "Friend ID(✓):")
-                                                   (send l set-label "Friend ID(X):")))]))
+                                                   (send hex-message set-label
+                                                         "Friend ID(✓):")
+                                                   (send hex-message set-label
+                                                         "Friend ID(X):")))]))
+
+(define message-message (new message%
+                             [parent add-friend-box]
+                             [label "Message:"]))
+
+(define message-panel (new horizontal-panel%
+                           [parent add-friend-box]
+                           [alignment '(center center)]))
 
 ; message to send as a friend request
 (define add-friend-message-tfield (new text-field%
-                                       [parent add-friend-box]
-                                       [label "Message:"]
+                                       [parent message-panel]
+                                       [label ""]
                                        [min-width 38]
                                        [init-value "Please let me add you to my contact list"]))
 
 ; panel for the buttons
 (define add-friend-panel (new horizontal-panel%
-                              [parent add-friend-box]))
+                              [parent add-friend-box]
+                              [alignment '(right center)]))
 
 (define add-friend-error-dialog (new dialog%
                                      [label "Invalid Tox ID"]
                                      [style (list 'close-button)]))
 
-; Preferences menu item for Edit
-(define menu-preferences (new menu-item%
-                              [parent menu-edit]
-                              [label "Preferences"]
-                              [shortcut #\R]
-                              [help-string "Modify Blight preferences"]
-                              [callback (λ (button event)
-                                          (send preferences-box show #t))]))
-
-; menu Help for menu bar
-(define menu-help (new menu%
-                       [parent frame-menu-bar]
-                       [label "&Help"]
-                       [help-string "Get information about Blight"]))
-
-; About Blight menu item for Help
-(define menu-help-about (new menu-item%
-                             [parent menu-help]
-                             [label "About Blight"]
-                             [help-string "Show information about Blight"]
-                             [callback (λ (button event)
-                                         (send help-dialog show #t))]))
-
-; send friend request
-(define add-friend-button (new button%
-                               [parent panel]
-                               [label "Add friend"]
-                               [callback (λ (button event)
-                                           (send add-friend-box show #t))]))
+; don't actually want to add a friend right now
+(define add-friend-cancel-button
+  (new button%
+       [parent add-friend-panel]
+       [label "Cancel"]
+       [callback (λ (button event)
+                   (send add-friend-hex-tfield set-value "")
+                   (send add-friend-box show #f))]))
 
 ; OK button for add-friend dialog box
 (define add-friend-ok-button
@@ -626,22 +640,40 @@ val is a value that corresponds to the value of the key
        [parent add-friend-panel]
        [label "OK"]
        [callback (λ (button event)
-                   (let ((hex-tfield (send add-friend-hex-tfield get-value))
-                         (message-tfield (send add-friend-message-tfield get-value)))
+                   (let ((nick-tfield (send add-friend-txt-tfield get-value))
+                         (hex-tfield (send add-friend-hex-tfield get-value))
+                         (message-tfield (send add-friend-message-tfield get-value))
+                         (domain (send dns-domain-choice get-string
+                                       (send dns-domain-choice get-selection))))
                      ; add the friend to the friend list
-                     (cond [(tox-id? hex-tfield)
+                     (cond [(or
+                             (and (string=? hex-tfield "")
+                                  (not (string=? nick-tfield "")))
+                             (and (string=? nick-tfield "")
+                                  (tox-id? hex-tfield)))
                             ; convert hex to bytes
                             (define nick-bytes (malloc 'atomic
                                                        (* TOX_FRIEND_ADDRESS_SIZE
                                                           (ctype-sizeof _uint8_t))))
-                            (do ((i 0 (+ i 1))
-                                 (j 0 (+ j 2)))
-                              ((= i TOX_FRIEND_ADDRESS_SIZE))
-                              (ptr-set! nick-bytes _uint8_t i
-                                        (hex->dec
-                                         (string-append
-                                          (string (string-ref hex-tfield j))
-                                          (string (string-ref hex-tfield (+ j 1)))))))
+                            (cond [(string=? nick-tfield "")
+                                   (do ((i 0 (+ i 1))
+                                        (j 0 (+ j 2)))
+                                     ((= i TOX_FRIEND_ADDRESS_SIZE))
+                                     (ptr-set! nick-bytes _uint8_t i
+                                               (hex->dec
+                                                (string-append
+                                                 (string (string-ref hex-tfield j))
+                                                 (string (string-ref hex-tfield (+ j 1)))))))]
+                                  [(string=? hex-tfield "")
+                                   (define friend-hex (tox-dns1 nick-tfield domain))
+                                   (do ((i 0 (+ i 1))
+                                        (j 0 (+ j 2)))
+                                     ((= i TOX_FRIEND_ADDRESS_SIZE))
+                                     (ptr-set! nick-bytes _uint8_t i
+                                               (hex->dec
+                                                (string-append
+                                                 (string (string-ref friend-hex j))
+                                                 (string (string-ref friend-hex (+ j 1)))))))])
                             (let ((err (tox_add_friend my-tox
                                                        nick-bytes
                                                        message-tfield
@@ -706,15 +738,42 @@ val is a value that corresponds to the value of the key
                                                           (list 'ok 'stop))))
                                    (when (eq? mbox 'ok)
                                      (send add-friend-error-dialog show #f)))])))]))
+#| ##################### END ADD FRIEND STUFF ####################### |#
 
-; don't actually want to add a friend right now
-(define add-friend-cancel-button
-  (new button%
-       [parent add-friend-panel]
-       [label "Cancel"]
-       [callback (λ (button event)
-                   (send add-friend-hex-tfield set-value "")
-                   (send add-friend-box show #f))]))
+; Preferences menu item for Edit
+(define menu-preferences (new menu-item%
+                              [parent menu-edit]
+                              [label "Preferences"]
+                              [shortcut #\R]
+                              [help-string "Modify Blight preferences"]
+                              [callback (λ (button event)
+                                          (send preferences-box show #t))]))
+
+; menu Help for menu bar
+(define menu-help (new menu%
+                       [parent frame-menu-bar]
+                       [label "&Help"]
+                       [help-string "Get information about Blight"]))
+
+; About Blight menu item for Help
+(define menu-help-about (new menu-item%
+                             [parent menu-help]
+                             [label "About Blight"]
+                             [help-string "Show information about Blight"]
+                             [callback (λ (button event)
+                                         (send help-dialog show #t))]))
+
+; send friend request
+(define add-friend-button (new button%
+                               [parent panel]
+                               [label "Add friend"]
+                               [callback (λ (button event)
+                                           (send add-friend-box show #t))]))
+
+; remove a friend
+(define del-friend-dialog (new dialog%
+                               [label "Remove a Tox friend"]
+                               [style (list 'close-button)]))
 
 ; remove friend from list
 (define delete-friend-button
@@ -910,9 +969,10 @@ val is a value that corresponds to the value of the key
                     (tox_file_send_control mtox friendnumber 1 filenumber message-id #f 0)
                     (if (zero? filenumber)
                         ; our first receiving transfer, replace the null
-                        (set! rtransfers (setnode rtransfers (open-output-file path
-                                                                               #:mode 'binary
-                                                                               #:exists 'replace)
+                        (set! rtransfers (setnode rtransfers (open-output-file
+                                                              path
+                                                              #:mode 'binary
+                                                              #:exists 'replace)
                                                   filenumber))
                         ; not our first, append to the list
                         (set! rtransfers (append rtransfers (list (open-output-file
