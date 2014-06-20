@@ -122,32 +122,34 @@ val is a value that corresponds to the value of the key
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
   (λ ()
-    ; necessary for saving the messenger
-    (define size (tox_size my-tox))
-    (define data-ptr (malloc 'atomic size))
-    ; place all tox info into data-ptr
-    (tox_save my-tox data-ptr)
-    ; SAVE INFORMATION TO DATA
-    (let ((my-data #"")
-          (data-port-out (open-output-file data-file
-                                           #:mode 'binary
-                                           #:exists 'truncate/replace)))
-      (do ((i 0 (+ i 1)))
-        ((= i size))
-        (set! my-data
-              (bytes-append my-data
-                            (bytes (ptr-ref data-ptr _uint8_t i)))))
-      (write-bytes my-data data-port-out)
-      (close-output-port data-port-out))))
+    (thread
+     (λ ()
+       ; necessary for saving the messenger
+       (define size (tox_size my-tox))
+       (define data-ptr (malloc 'atomic size))
+       ; place all tox info into data-ptr
+       (tox_save my-tox data-ptr)
+       ; SAVE INFORMATION TO DATA
+       (let ((my-data #"")
+             (data-port-out (open-output-file data-file
+                                              #:mode 'binary
+                                              #:exists 'truncate/replace)))
+         (do ((i 0 (+ i 1)))
+           ((= i size))
+           (set! my-data
+                 (bytes-append my-data
+                               (bytes (ptr-ref data-ptr _uint8_t i)))))
+         (write-bytes my-data data-port-out)
+         (close-output-port data-port-out))))))
 
 ; little procedure to wrap things up for us
 (define clean-up
   (λ ()
     ; save tox info to data-file
-    (blight-save-data)
+    (define data-thread (blight-save-data))
     ; disconnect from the database
     (disconnect sqlc)
-    ; close input port
+    ; close config file input port
     (close-input-port config-port-in)
     ; kill tox thread
     (kill-thread tox-loop-thread)
@@ -155,7 +157,12 @@ val is a value that corresponds to the value of the key
     (tox_kill my-tox)
     ; log out sound
     (unless (false? make-noise)
-      (play-sound (fifth sounds) #f))))
+      (play-sound (fifth sounds) #f))
+    ; make sure the data is completely saved
+    (let loop ()
+      (unless (not (thread-running? data-thread))
+        (sleep 1/4)
+        (loop)))))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
@@ -577,7 +584,6 @@ val is a value that corresponds to the value of the key
   (new choice%
        [parent dns-panel]
        [label ""]
-       ;[min-width 400]
        [choices '("toxme.se"
                   "utox.org")]))
 
