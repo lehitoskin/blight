@@ -638,6 +638,7 @@ val is a value that corresponds to the value of the key
        [label "Cancel"]
        [callback (λ (button event)
                    (send add-friend-hex-tfield set-value "")
+		   (send add-friend-txt-tfield set-value "")
                    (send add-friend-box show #f))]))
 
 ; OK button for add-friend dialog box
@@ -734,6 +735,7 @@ val is a value that corresponds to the value of the key
                                           (update-list-box)
                                           ; zero-out some fields
                                           (send add-friend-hex-tfield set-value "")
+                                          (send add-friend-txt-tfield set-value "")
                                           ; close the window
                                           (send add-friend-box show #f)]))]
                            [else (unless (false? make-noise)
