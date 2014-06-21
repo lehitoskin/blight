@@ -33,6 +33,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 Tox's sounds are licensed under the \"Creative Commons Attribution 3.0
 Unported\", all credit attributed to Adam Reid.")
 
+(define get-help-message
+  "Need more help? Try adding leah_twoskin@toxme.se (or leahtwoskin@utox.org)
+and bug the dev! Alternatively, you could join #tox-dev on freenode and see
+if people have a similar problem.")
+
 ; instantiate Tox session
 (define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
 
@@ -213,7 +218,7 @@ val is a value that corresponds to the value of the key
                          [(= (send l get-selection) (_TOX_USERSTATUS-index 'BUSY))
                           (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'BUSY))]))]))
 
-#| ################## FRIEND LIST STUFF #################### |#
+#| ################## BEGIN FRIEND LIST STUFF #################### |#
 ; obtain number of friends
 (define initial-num-friends (tox_count_friendlist my-tox))
 
@@ -342,42 +347,9 @@ val is a value that corresponds to the value of the key
 (define panel (new horizontal-panel%
                    [parent frame]
                    [alignment (list 'right 'center)]))
+#| ################## END FRIEND LIST STUFF #################### |#
 
-; dialog box when exiting
-(define exit-dialog (new dialog%
-                         [label "Exit Blight"]
-                         [style (list 'close-button)]))
-
-; dialog box when looking at Help
-(define help-dialog (new dialog%
-                         [label "About Blight"]
-                         [style (list 'close-button)]))
-
-(define help-text (new text%
-                       [line-spacing 1.0]
-                       [auto-wrap #t]))
-(send help-text change-style font-size-delta)
-(send help-text insert license-message)
-
-; canvas to print the license message
-(define help-editor-canvas (new editor-canvas%
-                                [parent help-dialog]
-                                [min-height 380]
-                                [min-width 600]
-                                [vert-margin 10]
-                                [editor help-text]
-                                [style (list 'control-border 'no-hscroll
-                                             'auto-vscroll 'no-focus)]))
-
-; button to close the About Blight window
-(define help-about-ok
-  (new button%
-       [parent help-dialog]
-       [label "&OK"]
-       [callback (λ (button event)
-                   (send help-dialog show #f))]))
-
-#| ############ MENU BAR AND STUFF ############## |#
+#| ################### BEGIN MENU BAR STUFF #################### |#
 ; menu bar for the frame
 (define frame-menu-bar (new menu-bar%
                             [parent frame]))
@@ -400,6 +372,11 @@ val is a value that corresponds to the value of the key
                          my-id-hex
                          (current-seconds)))]))
 
+; dialog box when exiting
+(define exit-dialog (new dialog%
+                         [label "Exit Blight"]
+                         [style (list 'close-button)]))
+
 ; Quit menu item for File
 ; uses message-box with 'ok-cancel
 (define menu-quit
@@ -409,21 +386,110 @@ val is a value that corresponds to the value of the key
        [shortcut #\Q]
        [help-string "Quit Blight"]
        [callback (λ (button event)
-                   ;(send exit-dialog show #t))])
-                   (let ((mbox (message-box "Blight - Quit Blight"
-                                            "Are you sure you want to quit Blight?"
-                                            exit-dialog
-                                            (list 'ok-cancel 'caution))))
-                     (if (eq? mbox 'ok)
-                         ((clean-up)
-                          (exit))
-                         null)))]))
+                   (let ((mbox (message-box/custom
+                                "Blight - Quit Blight"
+                                "Are you sure you want to quit Blight?"
+                                "&OK"
+                                "&Cancel"
+                                #f
+                                exit-dialog
+                                (list 'caution 'no-default))))
+                     (cond [(= mbox 1) (clean-up) (exit)])))]))
 
 ; menu Edit for menu bar
 (define menu-edit (new menu%
                        [parent frame-menu-bar]
                        [label "&Edit"]
                        [help-string "Modify Blight"]))
+
+; Preferences menu item for Edit
+(define menu-preferences (new menu-item%
+                              [parent menu-edit]
+                              [label "Preferences"]
+                              [shortcut #\R]
+                              [help-string "Modify Blight preferences"]
+                              [callback (λ (button event)
+                                          (send preferences-box show #t))]))
+
+(define help-get-dialog (new dialog%
+                             [label "Blight - Get Help"]
+                             [style (list 'close-button)]))
+
+(define help-get-text (new text%
+                           [line-spacing 1.0]
+                           [auto-wrap #t]))
+(send help-get-text change-style font-size-delta)
+(send help-get-text insert get-help-message)
+
+(define help-get-editor-canvas
+  (new editor-canvas%
+       [parent help-get-dialog]
+       [min-height 100]
+       [min-width 600]
+       [vert-margin 10]
+       [editor help-get-text]
+       [style (list 'control-border 'no-hscroll
+                    'auto-vscroll 'no-focus)]))
+
+(define help-get-ok
+  (new button%
+       [parent help-get-dialog]
+       [label "&OK"]
+       [callback (λ (button event)
+                   (send help-get-dialog show #f))]))
+
+; dialog box when looking at Help -> About
+(define help-about-dialog (new dialog%
+                               [label "Blight - License"]
+                               [style (list 'close-button)]))
+
+(define help-about-text (new text%
+                             [line-spacing 1.0]
+                             [auto-wrap #t]))
+(send help-about-text change-style font-size-delta)
+(send help-about-text insert license-message)
+
+; canvas to print the license message
+(define help-about-editor-canvas
+  (new editor-canvas%
+       [parent help-about-dialog]
+       [min-height 380]
+       [min-width 600]
+       [vert-margin 10]
+       [editor help-about-text]
+       [style (list 'control-border 'no-hscroll
+                    'auto-vscroll 'no-focus)]))
+
+; button to close the About Blight window
+(define help-about-ok
+  (new button%
+       [parent help-about-dialog]
+       [label "&OK"]
+       [callback (λ (button event)
+                   (send help-about-dialog show #f))]))
+
+; menu Help for menu bar
+(define menu-help (new menu%
+                       [parent frame-menu-bar]
+                       [label "&Help"]
+                       [help-string "Get information about Blight"]))
+
+; About Blight menu item for Help
+(define menu-help-get-help (new menu-item%
+                                [parent menu-help]
+                                [label "Get Help"]
+                                [help-string "Get Help with Blight"]
+                                [callback (λ (button event)
+                                            (send help-get-dialog show #t))]))
+
+; About Blight menu item for Help
+(define menu-help-about (new menu-item%
+                             [parent menu-help]
+                             [label "About Blight"]
+                             [help-string "Show information about Blight"]
+                             [callback (λ (button event)
+                                         (send help-about-dialog show #t))]))
+#| #################### END MENU BAR STUFF ################## |#
 
 #| #################### PREFERENCES STUFF ################### |#
 (define preferences-box (new dialog%
@@ -638,7 +704,7 @@ val is a value that corresponds to the value of the key
        [label "Cancel"]
        [callback (λ (button event)
                    (send add-friend-hex-tfield set-value "")
-		   (send add-friend-txt-tfield set-value "")
+                   (send add-friend-txt-tfield set-value "")
                    (send add-friend-box show #f))]))
 
 ; OK button for add-friend dialog box
@@ -747,29 +813,6 @@ val is a value that corresponds to the value of the key
                                    (when (eq? mbox 'ok)
                                      (send add-friend-error-dialog show #f)))])))]))
 #| ##################### END ADD FRIEND STUFF ####################### |#
-
-; Preferences menu item for Edit
-(define menu-preferences (new menu-item%
-                              [parent menu-edit]
-                              [label "Preferences"]
-                              [shortcut #\R]
-                              [help-string "Modify Blight preferences"]
-                              [callback (λ (button event)
-                                          (send preferences-box show #t))]))
-
-; menu Help for menu bar
-(define menu-help (new menu%
-                       [parent frame-menu-bar]
-                       [label "&Help"]
-                       [help-string "Get information about Blight"]))
-
-; About Blight menu item for Help
-(define menu-help-about (new menu-item%
-                             [parent menu-help]
-                             [label "About Blight"]
-                             [help-string "Show information about Blight"]
-                             [callback (λ (button event)
-                                         (send help-dialog show #t))]))
 
 ; send friend request
 (define add-friend-button (new button%
@@ -950,10 +993,7 @@ val is a value that corresponds to the value of the key
                 (unless (false? make-noise)
                   (play-sound (second sounds) #t))])))
 
-; needs to be in its own thread, otherwise we'll d/c
-; TODO:
-; - check if filenumber is outside our range, which must mean
-;   that there was an error, so we must adjust the filenumber accordingly
+; needs to be in its own thread, otherwise we'll d/c(?)
 (define on-file-send-request
   (λ (mtox friendnumber filenumber filesize filename length userdata)
     (thread
