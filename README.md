@@ -1,6 +1,6 @@
 Blight
 ======
-[![Build Status](http://jenkins.libtoxcore.so/job/Blight-Debian/badge/icon)](http://jenkins.tox.im/job/Blight-Debian/)
+[![Build Status](http://jenkins.libtoxcore.so/job/Blight-Debian/badge/icon)](http://jenkins.libtoxcore.so/job/Blight-Debian/)
 
 Blight is a cross-platform graphical user interface for [Tox](https://github.com/irungentoo/toxcore) written in [Racket](http://racket-lang.org/) that utilizes [libtoxcore-racket](https://github.com/lehitoskin/libtoxcore-racket).
 In very early pre-alpha stage. All help and testing appreciated.
