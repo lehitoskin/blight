@@ -82,7 +82,7 @@
 
 ; default DHT settings
 ; if blight-config.json exists, do not use these
-(define dht-address-default "192.254.75.98")
+(define dht-address-default "23.226.230.47")
 (define dht-port-default 33445)
 (define dht-public-key-default
   "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074")

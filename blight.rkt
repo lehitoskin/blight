@@ -34,7 +34,7 @@ Tox's sounds are licensed under the \"Creative Commons Attribution 3.0
 Unported\", all credit attributed to Adam Reid.")
 
 (define get-help-message
-  "Need more help? Try adding leah_twoskin@toxme.se (or leahtwoskin@utox.org)
+  "Need more help? Try adding leahtwoskin@toxme.se (or leahtwoskin@utox.org)
 and bug the dev! Alternatively, you could join #tox-dev on freenode and see
 if people have a similar problem.")
 
@@ -80,6 +80,9 @@ val is a value that corresponds to the value of the key
 #| ############ BEGIN TOX STUFF ############ |#
 ; we have 0 transfers right now
 (define rtransfers null)
+(define total-len 0)
+(define sent 0)
+(define percent 0)
 
 ; data-file is empty, use default settings
 (cond [(zero? (file-size data-file))
@@ -103,9 +106,7 @@ val is a value that corresponds to the value of the key
        (printf "Loading from data file... ~a\n" (tox_load my-tox data-ptr size))])
 
 ; obtain our tox id
-(define my-id-bytes (malloc 'atomic
-                            (* TOX_FRIEND_ADDRESS_SIZE
-                               (ctype-sizeof _uint8_t))))
+(define my-id-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
 (tox_get_address my-tox my-id-bytes)
 (define my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
 
@@ -165,9 +166,9 @@ val is a value that corresponds to the value of the key
       (play-sound (fifth sounds) #f))
     ; make sure the data is completely saved
     (let loop ()
-      (unless (not (thread-running? data-thread))
-        (sleep 1/4)
-        (loop)))))
+      (cond [(thread-running? data-thread)
+             (sleep 1/4)
+             (loop)]))))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
@@ -308,10 +309,8 @@ val is a value that corresponds to the value of the key
     (define num-friends (tox_count_friendlist my-tox))
     (unless (zero? num-friends)
       (send list-box clear)
-      (define friend-name-bytes (malloc 'atomic (* TOX_FRIEND_ADDRESS_SIZE
-                                                   (ctype-sizeof _uint8_t))))
-      (define friend-key-bytes (malloc 'atomic (* TOX_CLIENT_ID_SIZE
-                                                  (ctype-sizeof _uint8_t))))
+      (define friend-name-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
+      (define friend-key-bytes (malloc 'atomic TOX_CLIENT_ID_SIZE))
       ; loop until we get all our friends
       (do ((window-num 0 (+ window-num 1)))
         ((= window-num num-friends))
@@ -725,9 +724,7 @@ val is a value that corresponds to the value of the key
                              (and (string=? nick-tfield "")
                                   (tox-id? hex-tfield)))
                             ; convert hex to bytes
-                            (define nick-bytes (malloc 'atomic
-                                                       (* TOX_FRIEND_ADDRESS_SIZE
-                                                          (ctype-sizeof _uint8_t))))
+                            (define nick-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
                             (cond [(string=? nick-tfield "")
                                    (do ((i 0 (+ i 1))
                                         (j 0 (+ j 2)))
@@ -854,7 +851,7 @@ val is a value that corresponds to the value of the key
 #| ########### START CALLBACK PROCEDURE DEFINITIONS ########## |#
 ; set all the callback functions
 (define on-friend-request
-  (λ (mtox public-key data length userdata)
+  (λ (mtox public-key data len userdata)
     ; convert public-key from bytes to string so we can display it
     (define id-hex (ptrtox->hextox public-key TOX_CLIENT_ID_SIZE))
     ; friend request dialog
@@ -925,7 +922,7 @@ val is a value that corresponds to the value of the key
     (send friend-request-dialog show #t)))
 
 (define on-friend-message
-  (λ (mtox friendnumber message length userdata)
+  (λ (mtox friendnumber message len userdata)
     (let* ((window (list-ref friend-list friendnumber))
            (editor (send window get-receive-editor))
            (name (send window get-name)))
@@ -940,7 +937,7 @@ val is a value that corresponds to the value of the key
       (add-history my-id-hex (send window get-key) message 0))))
 
 (define on-friend-name-change
-  (λ (mtox friendnumber newname length userdata)
+  (λ (mtox friendnumber newname len userdata)
     (let ((window (list-ref friend-list friendnumber)))
       ; update the name in the list-box
       (send list-box set-string friendnumber newname)
@@ -995,7 +992,7 @@ val is a value that corresponds to the value of the key
 
 ; needs to be in its own thread, otherwise we'll d/c(?)
 (define on-file-send-request
-  (λ (mtox friendnumber filenumber filesize filename length userdata)
+  (λ (mtox friendnumber filenumber filesize filename len userdata)
     (thread
      (λ ()
        (let ((mbox (message-box "Blight - File Send Request"
@@ -1015,6 +1012,10 @@ val is a value that corresponds to the value of the key
                     (define receive-editor
                       (send (list-ref friend-list friendnumber) get-receive-editor))
                     (tox_file_send_control mtox friendnumber 1 filenumber message-id #f 0)
+                    (set! sent 0)
+                    (set! total-len filesize)
+                    (set! percent 0)
+                    (send (list-ref friend-list friendnumber) set-gauge-pos percent)
                     (if (zero? filenumber)
                         ; our first receiving transfer, replace the null
                         (set! rtransfers (setnode rtransfers (open-output-file
@@ -1033,13 +1034,13 @@ val is a value that corresponds to the value of the key
 ; 1 - sending
 ; 0 - receiving
 (define on-file-control
-  (λ (mtox friendnumber receive-send filenumber control-type data-ptr length userdata)
+  (λ (mtox friendnumber receive-send filenumber control-type data-ptr len userdata)
     (let* ((window (list-ref friend-list friendnumber))
            (receive-editor (send window get-receive-editor)))
       ; we've finished receiving the file
       (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
                   (zero? receive-send))
-             (define data-bytes (make-sized-byte-string data-ptr length))
+             (define data-bytes (make-sized-byte-string data-ptr len))
              (write-bytes data-bytes (list-ref rtransfers filenumber))
              ; close receive transfer
              (close-output-port (list-ref rtransfers filenumber))
@@ -1054,9 +1055,12 @@ val is a value that corresponds to the value of the key
              (send window send-data filenumber)]))))
 
 (define on-file-data
-  (λ (mtox friendnumber filenumber data-ptr length userdata)
-    (define data-bytes (make-sized-byte-string data-ptr length))
-    (write-bytes data-bytes (list-ref rtransfers filenumber))))
+  (λ (mtox friendnumber filenumber data-ptr len userdata)
+    (define data-bytes (make-sized-byte-string data-ptr len))
+    (write-bytes data-bytes (list-ref rtransfers filenumber))
+    (set! sent (+ sent len))
+    (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
+    (send (list-ref friend-list friendnumber) set-gauge-pos percent)))
 
 ; register our callback functions
 (tox_callback_friend_request my-tox on-friend-request #f)

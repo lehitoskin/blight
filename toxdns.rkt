@@ -43,7 +43,7 @@
 
 ; create new dns instance
 (define my-dns (tox_dns3_new utox-public-key))
-(define dns-ptr (malloc 'atomic (* 1024 (ctype-sizeof _uint8_t))))
+(define dns-ptr (malloc 'atomic 1024))
 (define request-id (malloc 'atomic (ctype-sizeof _uint32_t)))
 
 ; procedure to send a tox dns3 request and obtain a

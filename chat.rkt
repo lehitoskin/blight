@@ -3,11 +3,13 @@
 ; contains chat-window definitions
 (require libtoxcore-racket
          ffi/unsafe
+         racket/flonum
          "helpers.rkt"
          "number-conversions.rkt"
          "history.rkt"
          "config.rkt")
-(provide (all-defined-out))
+(provide (all-defined-out)
+         fl->exact-integer)
 
 #|
  # issues:
@@ -59,16 +61,16 @@
     (define add-file-sender
       (λ (path filenumber)
         (define filename (path->string path))
+        (send transfer-gauge set-value 0)
         (if (zero? filenumber)
             ; our first sending transfer, replace the null
             (set! stransfers (setnode stransfers (file->bytes path) filenumber))
             ; not our first, append to the list
-            (set! stransfers (flatten (append stransfers (file->bytes path)))))))
+            (set! stransfers (append stransfers (list (file->bytes path)))))))
     
     (define bytes->ptr
       (λ (some-bytes)
-        (define ptr (malloc 'atomic (* (bytes-length some-bytes)
-                                       (ctype-sizeof _uint8_t))))
+        (define ptr (malloc 'atomic (bytes-length some-bytes)))
         (do ((i 0 (+ i 1)))
           ((= i (bytes-length some-bytes)))
           (ptr-set! ptr _uint8_t i (bytes-ref some-bytes i)))
@@ -78,6 +80,8 @@
       (λ (filenumber)
         (define path (list-ref paths filenumber))
         (define size (file-size path))
+        (define sent 0)
+        (define percent 0)
         ; maximum piece size we can send at one time
         (define max-size (tox_file_data_size this-tox friend-num))
         ; number of pieces we're going to send
@@ -90,14 +94,22 @@
             ; send our piece
             (tox_file_send_data this-tox friend-num
                                 filenumber (bytes->ptr piece)
-                                (bytes-length piece))))
+                                (bytes-length piece))
+            ; update file-send gauge
+            (set! sent (+ sent (bytes-length piece)))
+            (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
+            (send transfer-gauge set-value percent)))
         ; if there is a remainder, send the very last piece
         (unless (zero? (quotient size max-size))
           (let ((piece (subbytes (list-ref stransfers filenumber)
                                  (- size (remainder size max-size)) size)))
             (tox_file_send_data this-tox friend-num
                                 filenumber (bytes->ptr piece)
-                                (bytes-length piece))))
+                                (bytes-length piece))
+            ; update file-send gauge
+            (set! sent (+ sent (bytes-length piece)))
+            (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
+            (send transfer-gauge set-value percent)))
         ; tell our friend we're done sending
         (tox_file_send_control this-tox friend-num
                                0 filenumber
@@ -142,7 +154,7 @@
                                 ; our first sending transfer, replace the null
                                 (set! paths (setnode paths path filenumber))
                                 ; not our first, append to the list
-                                (set! paths (flatten (append paths path)))))))))])
+                                (set! paths (append paths (list path)))))))))])
     
     ; close the current window
     (new menu-item% [parent menu-file]
@@ -396,9 +408,7 @@
                (do-send third-third)
                ; add messages to history
                ; obtain our tox id
-               (define my-id-bytes (malloc 'atomic
-                                           (* TOX_FRIEND_ADDRESS_SIZE
-                                              (ctype-sizeof _uint8_t))))
+               (define my-id-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
                (tox_get_address this-tox my-id-bytes)
                (define my-id-hex
                  (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
@@ -412,9 +422,7 @@
                (do-send second-half)
                ; add messages to history
                ; obtain our tox id
-               (define my-id-bytes (malloc 'atomic
-                                           (* TOX_FRIEND_ADDRESS_SIZE
-                                              (ctype-sizeof _uint8_t))))
+               (define my-id-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
                (tox_get_address this-tox my-id-bytes)
                (define my-id-hex
                  (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
@@ -423,9 +431,7 @@
                (do-send msg-bytes)
                ; add message to history
                ; obtain our tox id
-               (define my-id-bytes (malloc 'atomic
-                                           (* TOX_FRIEND_ADDRESS_SIZE
-                                              (ctype-sizeof _uint8_t))))
+               (define my-id-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
                (tox_get_address this-tox my-id-bytes)
                (define my-id-hex
                  (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
@@ -530,6 +536,11 @@
                                          [this-min-height 100]
                                          [this-vert-margin 5]))
     
+    (define transfer-gauge (new gauge%
+                                [label "Transfers "]
+                                [parent chat-frame]
+                                [range 100])) ; range in percentage
+    
     (define/public (set-new-label x)
       (send chat-frame set-label x)
       (send chat-frame-msg set-label x))
@@ -570,6 +581,9 @@
     (define/public (close-transfer filenumber)
       (set! stransfers (delnode stransfers filenumber))
       (set! paths (delnode paths filenumber)))
+    
+    (define/public (set-gauge-pos num)
+      (send transfer-gauge set-value num))
     
     (super-new
      [label this-label]
