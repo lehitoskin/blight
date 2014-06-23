@@ -194,9 +194,11 @@
 ;; NameServer String Type Class -> (Values Boolean LB LB LB LB LB)
 (define (dns-query nameserver-ip addr type class)
   (unless (assoc type types)
-    (raise-type-error 'dns-query "DNS query type" type))
+    ;(raise-type-error 'dns-query "DNS query type" type))
+    #f)
   (unless (assoc class classes)
-    (raise-type-error 'dns-query "DNS query class" class))
+    ;(raise-type-error 'dns-query "DNS query class" class))
+    #f)
 
   (define nameserver (ip-address->string nameserver-ip))
   (define query (make-query (random 256) (string->bytes/latin-1 addr)
@@ -218,19 +220,21 @@
   ;; First two bytes must match sent message id:
   (unless (and (= (car reply)  (car query))
                (= (cadr reply) (cadr query)))
-    (error 'dns-query "bad reply id from server"))
+    ;(error 'dns-query "bad reply id from server"))
+    #f)
   (define v0 (caddr reply))
   (define v1 (cadddr reply))
   ;; Check for error code:
   (let ([rcode (bitwise-and #xf v1)])
     (unless (zero? rcode)
-      (error 'dns-query "error from server: ~a"
+      #;(error 'dns-query "error from server: ~a"
              (case rcode
                [(1) "format error"]
                [(2) "server failure"]
                [(3) "name error"]
                [(4) "not implemented"]
-               [(5) "refused"]))))
+               [(5) "refused"]))
+      #f))
   (define qd-count (octet-pair->number (list-ref reply 4) (list-ref reply 5)))
   (define an-count (octet-pair->number (list-ref reply 6) (list-ref reply 7)))
   (define ns-count (octet-pair->number (list-ref reply 8) (list-ref reply 9)))
@@ -241,7 +245,8 @@
                 [(nss start) (parse-n parse-rr start reply ns-count)]
                 [(ars start) (parse-n parse-rr start reply ar-count)])
     (unless (null? start)
-      (error 'dns-query "error parsing server reply"))
+      ;(error 'dns-query "error parsing server reply"))
+      #f)
     (values (positive? (bitwise-and #x4 v0))
             qds ans nss ars reply)))
 

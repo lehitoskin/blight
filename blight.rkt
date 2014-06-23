@@ -719,13 +719,19 @@ val is a value that corresponds to the value of the key
                                        (send dns-domain-choice get-selection))))
                      ; add the friend to the friend list
                      (cond [(or
+                             ; the hex field is empty, nick field cannot be empty
                              (and (string=? hex-tfield "")
-                                  (not (string=? nick-tfield "")))
+                                  (and (not (string=? nick-tfield ""))
+                                       ; make sure we get a response from the DNS
+                                       (not (false? (tox-dns1 nick-tfield domain)))))
+                             ; the nick field is empty, hex field cannot be empty
                              (and (string=? nick-tfield "")
+                                  ; make sure hex field is a proper tox id
                                   (tox-id? hex-tfield)))
                             ; convert hex to bytes
                             (define nick-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
                             (cond [(string=? nick-tfield "")
+                                   ; place the id inside the pointer
                                    (do ((i 0 (+ i 1))
                                         (j 0 (+ j 2)))
                                      ((= i TOX_FRIEND_ADDRESS_SIZE))
@@ -735,7 +741,9 @@ val is a value that corresponds to the value of the key
                                                  (string (string-ref hex-tfield j))
                                                  (string (string-ref hex-tfield (+ j 1)))))))]
                                   [(string=? hex-tfield "")
+                                   ; obtain the id from the dns query
                                    (define friend-hex (tox-dns1 nick-tfield domain))
+                                   ; place the id inside the pointer
                                    (do ((i 0 (+ i 1))
                                         (j 0 (+ j 2)))
                                      ((= i TOX_FRIEND_ADDRESS_SIZE))
@@ -801,12 +809,14 @@ val is a value that corresponds to the value of the key
                                           (send add-friend-txt-tfield set-value "")
                                           ; close the window
                                           (send add-friend-box show #f)]))]
+                           ; something went wrong!
                            [else (unless (false? make-noise)
                                    (play-sound (last sounds) #t))
-                                 (let ((mbox (message-box "Blight - Invalid Tox ID"
-                                                          "Sorry, that is an invalid Tox ID."
-                                                          add-friend-error-dialog
-                                                          (list 'ok 'stop))))
+                                 (let ((mbox (message-box
+                                              "Blight - Invalid Tox ID"
+                                              "Sorry, that is an invalid Tox ID or DNS nick."
+                                              add-friend-error-dialog
+                                              (list 'ok 'stop))))
                                    (when (eq? mbox 'ok)
                                      (send add-friend-error-dialog show #f)))])))]))
 #| ##################### END ADD FRIEND STUFF ####################### |#

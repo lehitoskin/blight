@@ -22,20 +22,27 @@
            (define dns-str (string-append nick "._tox.toxme.se"))
            (let-values ([(auth? qds ans nss ars reply)
                          (dns-query nameserver dns-str 'txt 'in)])
-             (define answer (bytes->string/utf-8 (subbytes
-                                                  (list->bytes (fifth (first ans)))
-                                                  11
-                                                  87)))
-             answer)]
+             ; dns responds an empty list when there is no valid nick
+             (cond [(not (empty? ans))
+                    (define answer (bytes->string/utf-8 (subbytes
+                                                         (list->bytes (fifth (first ans)))
+                                                         11
+                                                         87)))
+                    answer]
+                   [else #f]))]
           [(string=? domain "utox.org")
            (define dns-str (string-append nick "._tox.utox.org"))
            (let-values ([(auth? qds ans nss ars reply)
                          (dns-query nameserver dns-str 'txt 'in)])
-             (define answer (bytes->string/utf-8 (subbytes
-                                                  (list->bytes (fifth (first ans)))
-                                                  11
-                                                  87)))
-             answer)])))
+             ; dns responds '((#"query._tox.utox.org" txt in 0 (0)))
+             ; when there is no valid nick
+             (cond [(= (length (fifth (first ans))) 1) #f]
+                   [else 
+                    (define answer (bytes->string/utf-8 (subbytes
+                                                         (list->bytes (fifth (first ans)))
+                                                         11
+                                                         87)))
+                    answer]))])))
 
 ; public key of utox dns
 #|(define utox-public-key
