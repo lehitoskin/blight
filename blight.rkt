@@ -165,10 +165,7 @@ val is a value that corresponds to the value of the key
     (unless (false? make-noise)
       (play-sound (fifth sounds) #f))
     ; make sure the data is completely saved
-    (let loop ()
-      (cond [(thread-running? data-thread)
-             (sleep 1/4)
-             (loop)]))))
+    (thread-wait data-thread)))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
