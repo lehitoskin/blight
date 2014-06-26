@@ -89,9 +89,7 @@ val is a value that corresponds to the value of the key
        ; set username
        (set-name my-tox my-name)
        ; set status message
-       (set-status-message my-tox my-status-message
-                           (bytes-length
-                            (string->bytes/utf-8 my-status-message)))]
+       (set-status-message my-tox my-status-message)]
       ; data-file is not empty, load from data-file
       [(not (zero? (file-size data-file)))
        ; load the messenger from data of size length
@@ -1010,16 +1008,13 @@ val is a value that corresponds to the value of the key
                                                                    #:exists 'replace)))))
                     (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")))]))))))
 
-; receive-send is 1 or 0
-; 1 - sending
-; 0 - receiving
 (define on-file-control
-  (λ (mtox friendnumber receive-send filenumber control-type data-ptr len userdata)
+  (λ (mtox friendnumber sending? filenumber control-type data-ptr len userdata)
     (let* ((window (list-ref friend-list friendnumber))
            (receive-editor (send window get-receive-editor)))
       ; we've finished receiving the file
       (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
-                  (zero? receive-send))
+                  (false? sending?))
              (define data-bytes (make-sized-byte-string data-ptr len))
              (write-bytes data-bytes (list-ref rtransfers filenumber))
              ; close receive transfer
@@ -1030,7 +1025,7 @@ val is a value that corresponds to the value of the key
              (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]
             ; cue that we're going to be sending the data now
             [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))
-                  (= receive-send 1))
+                  (not (false? sending?)))
              (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")
              (send window send-data filenumber)]))))
 

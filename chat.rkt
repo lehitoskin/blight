@@ -100,9 +100,7 @@
           (let ((piece (subbytes (list-ref stransfers filenumber)
                                  (* max-size i) (* max-size (+ i 1)))))
             ; send our piece
-            (send-file-data this-tox friend-num
-                            filenumber piece
-                            (bytes-length piece))
+            (send-file-data this-tox friend-num filenumber piece (bytes-length piece))
             ; update file-send gauge
             (set! sent (+ sent (bytes-length piece)))
             (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
@@ -111,16 +109,14 @@
         (unless (zero? (quotient size max-size))
           (let ((piece (subbytes (list-ref stransfers filenumber)
                                  (- size (remainder size max-size)) size)))
-            (send-file-data this-tox friend-num
-                            filenumber piece
-                            (bytes-length piece))
+            (send-file-data this-tox friend-num filenumber piece (bytes-length piece))
             ; update file-send gauge
             (set! sent (+ sent (bytes-length piece)))
             (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
             (send transfer-gauge set-value percent)))
         ; tell our friend we're done sending
         (send-file-control this-tox friend-num
-                           0 filenumber
+                           #f filenumber
                            (_TOX_FILECONTROL-index 'FINISHED)
                            #f 0)
         (send chat-text-receive insert "\n***FILE TRANSFER COMPLETED***\n\n")))
@@ -156,8 +152,7 @@
                             ; name of the file (taken from the path)
                             (define filename (path->string (last (explode-path path))))
                             (define filenumber
-                              (new-file-sender this-tox friend-num size filename
-                                               (string-length filename)))
+                              (new-file-sender this-tox friend-num size filename))
                             (if (zero? filenumber)
                                 ; our first sending transfer, replace the null
                                 (set! paths (setnode paths path filenumber))
