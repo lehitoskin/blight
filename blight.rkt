@@ -39,7 +39,7 @@ and bug the dev! Alternatively, you could join #tox-dev on freenode and see
 if people have a similar problem.")
 
 ; instantiate Tox session
-(define my-tox (tox_new TOX_ENABLE_IPV6_DEFAULT))
+(define my-tox (tox-new TOX_ENABLE_IPV6_DEFAULT))
 
 #| ############ BEGIN JSON STUFF ############ |#
 ; read from blight-config.json
@@ -87,36 +87,31 @@ val is a value that corresponds to the value of the key
 ; data-file is empty, use default settings
 (cond [(zero? (file-size data-file))
        ; set username
-       (tox_set_name my-tox my-name (bytes-length
-                                     (string->bytes/utf-8 my-name)))
+       (set-name my-tox my-name)
        ; set status message
-       (tox_set_status_message my-tox my-status-message
-                               (bytes-length
-                                (string->bytes/utf-8 my-status-message)))]
+       (set-status-message my-tox my-status-message
+                           (bytes-length
+                            (string->bytes/utf-8 my-status-message)))]
       ; data-file is not empty, load from data-file
       [(not (zero? (file-size data-file)))
        ; load the messenger from data of size length
        (define size (file-size data-file))
-       (define data-ptr (malloc 'atomic size))
        ; no conversions necessary because bytes-ref reports a decimal value
-       (let ((my-bytes (file->bytes data-file #:mode 'binary)))
-         (do ((i 0 (+ i 1)))
-           ((= i size))
-           (ptr-set! data-ptr _uint8_t i (bytes-ref my-bytes i))))
-       (printf "Loading from data file... ~a\n" (tox_load my-tox data-ptr size))])
+       (define my-bytes (file->bytes data-file #:mode 'binary))
+       (printf "Loading from data file... ~a\n" (tox-load my-tox my-bytes size))])
 
 ; obtain our tox id
-(define my-id-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
-(tox_get_address my-tox my-id-bytes)
-(define my-id-hex (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+(define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+(get-address my-tox my-id-bytes)
+(define my-id-hex (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
 
 ; connect to DHT
 (display "Connecting to network... ")
-(cond [(= (tox_bootstrap_from_address my-tox
-                                      dht-address
-                                      TOX_ENABLE_IPV6_DEFAULT
-                                      dht-port
-                                      dht-public-key)
+(cond [(= (bootstrap-from-address my-tox
+                                  dht-address
+                                  TOX_ENABLE_IPV6_DEFAULT
+                                  dht-port
+                                  dht-public-key)
           1)
        (unless (false? make-noise)
          (play-sound (fourth sounds) #t))
@@ -131,21 +126,15 @@ val is a value that corresponds to the value of the key
     (thread
      (λ ()
        ; necessary for saving the messenger
-       (define size (tox_size my-tox))
-       (define data-ptr (malloc 'atomic size))
+       (define size (tox-size my-tox))
+       (define data-bytes (make-bytes size))
        ; place all tox info into data-ptr
-       (tox_save my-tox data-ptr)
+       (tox-save! my-tox data-bytes)
        ; SAVE INFORMATION TO DATA
-       (let ((my-data #"")
-             (data-port-out (open-output-file data-file
+       (let ((data-port-out (open-output-file data-file
                                               #:mode 'binary
                                               #:exists 'truncate/replace)))
-         (do ((i 0 (+ i 1)))
-           ((= i size))
-           (set! my-data
-                 (bytes-append my-data
-                               (bytes (ptr-ref data-ptr _uint8_t i)))))
-         (write-bytes my-data data-port-out)
+         (write-bytes data-bytes data-port-out)
          (close-output-port data-port-out))))))
 
 ; little procedure to wrap things up for us
@@ -160,7 +149,7 @@ val is a value that corresponds to the value of the key
     ; kill tox thread
     (kill-thread tox-loop-thread)
     ; this kills the tox
-    (tox_kill my-tox)
+    (tox-kill! my-tox)
     ; log out sound
     (unless (false? make-noise)
       (play-sound (fifth sounds) #f))
@@ -210,15 +199,15 @@ val is a value that corresponds to the value of the key
                   "Busy")]
        [callback (λ (l e)
                    (cond [(= (send l get-selection) (_TOX_USERSTATUS-index 'NONE))
-                          (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'NONE))]
+                          (set-user-status my-tox (_TOX_USERSTATUS-index 'NONE))]
                          [(= (send l get-selection) (_TOX_USERSTATUS-index 'AWAY))
-                          (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'AWAY))]
+                          (set-user-status my-tox (_TOX_USERSTATUS-index 'AWAY))]
                          [(= (send l get-selection) (_TOX_USERSTATUS-index 'BUSY))
-                          (tox_set_user_status my-tox (_TOX_USERSTATUS-index 'BUSY))]))]))
+                          (set-user-status my-tox (_TOX_USERSTATUS-index 'BUSY))]))]))
 
 #| ################## BEGIN FRIEND LIST STUFF #################### |#
 ; obtain number of friends
-(define initial-num-friends (tox_count_friendlist my-tox))
+(define initial-num-friends (friendlist-length my-tox))
 
 ; we want at least one chat window
 (define friend-list (list (new chat-window%
@@ -228,7 +217,7 @@ val is a value that corresponds to the value of the key
                                [this-tox my-tox])))
 
 ; loop through and create as many chat-window%'s
-; as there are friends and add them to the gvector
+; as there are friends and add them to the list
 (unless (zero? initial-num-friends)
   (do ((i 1 (+ i 1)))
     ((= i initial-num-friends))
@@ -289,7 +278,7 @@ val is a value that corresponds to the value of the key
 ; helper to avoid spamming notification sounds
 (define status-checker
   (λ (friendnumber status)
-    (let ((type (tox_get_user_status my-tox friendnumber)))
+    (let ((type (get-user-status my-tox friendnumber)))
       (cond [(zero? status)
              ; if the user is offline, prepend his name with (X)
              (send list-box set-string friendnumber
@@ -303,40 +292,40 @@ val is a value that corresponds to the value of the key
 (define update-list-box
   (λ ()
     ; get current number of friends
-    (define num-friends (tox_count_friendlist my-tox))
+    (define num-friends (friendlist-length my-tox))
     (unless (zero? num-friends)
       (send list-box clear)
-      (define friend-name-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
-      (define friend-key-bytes (malloc 'atomic TOX_CLIENT_ID_SIZE))
+      (define friend-name-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+      (define friend-key-bytes (make-bytes TOX_CLIENT_ID_SIZE))
       ; loop until we get all our friends
       (do ((window-num 0 (+ window-num 1)))
         ((= window-num num-friends))
         (let* ((friend-name-text "")
-               (friend-name-length (tox_get_name my-tox window-num friend-name-bytes)))
+               (friend-name-length (get-name my-tox window-num friend-name-bytes)))
           ; grab our friend's public key
-          (tox_get_client_id my-tox window-num friend-key-bytes)
-          (define friend-key-text (ptrtox->hextox friend-key-bytes TOX_CLIENT_ID_SIZE))
-          (define friend-num (tox_get_friend_number my-tox friend-key-bytes))
+          (get-client-id my-tox window-num friend-key-bytes)
+          (define friend-key-text (bytes->hex-string friend-key-bytes TOX_CLIENT_ID_SIZE))
+          (define friend-num (get-friend-number my-tox friend-key-bytes))
           ; grab our friends' name into the pointer
           ; loop through and add it to friend-name-text
-          (do ((ptrnum 0 (+ ptrnum 1)))
-            ((= ptrnum friend-name-length))
+          (do ((i 0 (+ i 1)))
+            ((= i friend-name-length))
             (set! friend-name-text
                   (string-append friend-name-text
                                  (string
                                   (integer->char
-                                   (ptr-ref friend-name-bytes _uint8_t ptrnum))))))
+                                   (bytes-ref friend-name-bytes i))))))
           ; add to the friend list
           (send list-box append (string-append "(X) " friend-name-text) friend-key-text)
           ; make sure friend numbering is correct
           (send (list-ref friend-list window-num) set-friend-num friend-num)
-          ; add to the gvector
+          ; add to the list
           (send (list-ref friend-list window-num) set-name friend-name-text)
           (send (list-ref friend-list window-num) set-key friend-key-text)
           (send (list-ref friend-list window-num) set-new-label
                 (string-append "Blight - " friend-name-text))
           ; update our friends' status icon
-          (status-checker window-num (tox_get_friend_connection_status my-tox window-num)))))))
+          (status-checker window-num (get-friend-connection-status my-tox window-num)))))))
 (update-list-box)
 
 ; panel for choice and buttons
@@ -516,9 +505,7 @@ val is a value that corresponds to the value of the key
                                         ; set the new username
                                         (blight-save-config 'my-name-last username)
                                         (send username-frame-message set-label username)
-                                        (tox_set_name my-tox username
-                                                      (bytes-length
-                                                       (string->bytes/utf-8 username)))
+                                        (set-name my-tox username)
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
@@ -531,9 +518,7 @@ val is a value that corresponds to the value of the key
                      (unless (string=? username "")
                        (blight-save-config 'my-name-last username)
                        (send username-frame-message set-label username)
-                       (tox_set_name my-tox username
-                                     (bytes-length
-                                      (string->bytes/utf-8 username)))
+                       (set-name my-tox username)
                        (blight-save-data)
                        (send putfield set-value ""))))]))
 
@@ -560,9 +545,7 @@ val is a value that corresponds to the value of the key
                                         ; set the new status
                                         (blight-save-config 'my-status-last status)
                                         (send status-frame-message set-label status)
-                                        (tox_set_status_message my-tox status
-                                                                (bytes-length
-                                                                 (string->bytes/utf-8 status)))
+                                        (set-status-message my-tox status)
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
@@ -576,9 +559,7 @@ val is a value that corresponds to the value of the key
                      (unless (string=? status "")
                        (blight-save-config 'my-status-last status)
                        (send status-frame-message set-label status)
-                       (tox_set_status_message my-tox status 
-                                               (bytes-length
-                                                (string->bytes/utf-8 status)))
+                       (set-status-message my-tox status)
                        (blight-save-data)
                        (send pstfield set-value ""))))]))
 
@@ -593,16 +574,16 @@ val is a value that corresponds to the value of the key
                                             #f
                                             (list 'ok-cancel 'stop))))
                      (when (eq? mbox 'ok)
-                       (tox_set_nospam my-tox
-                                       ; largest (random) can accept
-                                       ; corresponds to "FFFFFF2F"
-                                       (random 4294967087))
+                       (set-nospam! my-tox
+                                    ; largest (random) can accept
+                                    ; corresponds to "FFFFFF2F"
+                                    (random 4294967087))
                        ; save our changes
                        (blight-save-data)
                        ; set new tox id
-                       (tox_get_address my-tox my-id-bytes)
+                       (get-address my-tox my-id-bytes)
                        (set! my-id-hex
-                             (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE)))))]))
+                             (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE)))))]))
 
 (define make-sounds-button
   (new check-box%
@@ -726,34 +707,26 @@ val is a value that corresponds to the value of the key
                                   ; make sure hex field is a proper tox id
                                   (tox-id? hex-tfield)))
                             ; convert hex to bytes
-                            (define nick-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
+                            (define nick-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+                            ; we're doing a direct friend add
                             (cond [(string=? nick-tfield "")
-                                   ; place the id inside the pointer
-                                   (do ((i 0 (+ i 1))
-                                        (j 0 (+ j 2)))
-                                     ((= i TOX_FRIEND_ADDRESS_SIZE))
-                                     (ptr-set! nick-bytes _uint8_t i
-                                               (hex->dec
-                                                (string-append
-                                                 (string (string-ref hex-tfield j))
-                                                 (string (string-ref hex-tfield (+ j 1)))))))]
+                                   ; obtain the byte form of the id
+                                   (set! nick-bytes
+                                         (hex-string->bytes
+                                          hex-tfield
+                                          TOX_FRIEND_ADDRESS_SIZE))]
+                                  ; we're doing a dns lookup
                                   [(string=? hex-tfield "")
                                    ; obtain the id from the dns query
                                    (define friend-hex (tox-dns1 nick-tfield domain))
-                                   ; place the id inside the pointer
-                                   (do ((i 0 (+ i 1))
-                                        (j 0 (+ j 2)))
-                                     ((= i TOX_FRIEND_ADDRESS_SIZE))
-                                     (ptr-set! nick-bytes _uint8_t i
-                                               (hex->dec
-                                                (string-append
-                                                 (string (string-ref friend-hex j))
-                                                 (string (string-ref friend-hex (+ j 1)))))))])
-                            (let ((err (tox_add_friend my-tox
-                                                       nick-bytes
-                                                       message-tfield
-                                                       (bytes-length
-                                                        (string->bytes/utf-8 message-tfield)))))
+                                   ; obtain the byte form of the id
+                                   (set! nick-bytes
+                                         (hex-string->bytes
+                                          friend-hex
+                                          TOX_FRIEND_ADDRESS_SIZE))])
+                            (let ((err (add-friend my-tox
+                                                   nick-bytes
+                                                   message-tfield)))
                               ; check for all the friend add errors
                               (cond [(= err (_TOX_FAERR-index 'TOOLONG))
                                      (displayln "ERROR: TOX_FAERR_TOOLONG")
@@ -788,7 +761,7 @@ val is a value that corresponds to the value of the key
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
                                     [else (displayln "All okay!")
-                                          ; append new friend to the gvector
+                                          ; append new friend to the list
                                           (set! friend-list (append
                                                              friend-list
                                                              (list (new chat-window%
@@ -843,7 +816,7 @@ val is a value that corresponds to the value of the key
                                             (list 'ok-cancel))))
                      (when (eq? mbox 'ok)
                        ; delete from tox friend list
-                       (tox_del_friend my-tox friend-num)
+                       (del-friend my-tox friend-num)
                        ; save the blight data
                        (blight-save-data)
                        ; remove from list-box
@@ -860,7 +833,7 @@ val is a value that corresponds to the value of the key
 (define on-friend-request
   (λ (mtox public-key data len userdata)
     ; convert public-key from bytes to string so we can display it
-    (define id-hex (ptrtox->hextox public-key TOX_CLIENT_ID_SIZE))
+    (define id-hex (bytes->hex-string public-key TOX_CLIENT_ID_SIZE))
     ; friend request dialog
     (define friend-request-dialog (new dialog%
                                        [label "Blight - Friend Request"]
@@ -892,13 +865,13 @@ val is a value that corresponds to the value of the key
                     [callback (λ (button event)
                                 (send friend-request-dialog show #f)
                                 ; add the friend
-                                (tox_add_friend_norequest mtox public-key)
+                                (add-friend-norequest mtox public-key)
                                 ; save the tox data
                                 (blight-save-data)
                                 ; play a sound because we accepted
                                 (unless (false? make-noise)
                                   (play-sound (sixth sounds) #f))
-                                ; append new friend to the gvector
+                                ; append new friend to the list
                                 (set! friend-list (append
                                                    friend-list
                                                    (list (new chat-window%
@@ -910,10 +883,10 @@ val is a value that corresponds to the value of the key
                                 (update-list-box)
                                 ; add connection status icons to each friend
                                 (do ((i 0 (+ i 1)))
-                                  ((= i (tox_count_friendlist mtox)))
+                                  ((= i (friendlist-length mtox)))
                                   (status-checker
                                    i
-                                   (tox_get_friend_connection_status mtox i))))]))
+                                   (get-friend-connection-status mtox i))))]))
     
     (define cancel (new button% [parent friend-request-panel]
                         [label "Cancel"]
@@ -948,12 +921,12 @@ val is a value that corresponds to the value of the key
     (let ((window (list-ref friend-list friendnumber)))
       ; update the name in the list-box
       (send list-box set-string friendnumber newname)
-      ; update the name in the gvector
+      ; update the name in the list
       (send window set-name newname)
       ; update the name in the window
       (send window set-new-label (string-append "Blight - " newname))
       ; add connection status icon
-      (status-checker friendnumber (tox_get_friend_connection_status mtox friendnumber)))))
+      (status-checker friendnumber (get-friend-connection-status mtox friendnumber)))))
 
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)
@@ -1018,7 +991,7 @@ val is a value that corresponds to the value of the key
                     (define message-id (_TOX_FILECONTROL-index 'ACCEPT))
                     (define receive-editor
                       (send (list-ref friend-list friendnumber) get-receive-editor))
-                    (tox_file_send_control mtox friendnumber 1 filenumber message-id #f 0)
+                    (send-file-control mtox friendnumber #t filenumber message-id #f 0)
                     (set! sent 0)
                     (set! total-len filesize)
                     (set! percent 0)
@@ -1070,20 +1043,20 @@ val is a value that corresponds to the value of the key
     (send (list-ref friend-list friendnumber) set-gauge-pos percent)))
 
 ; register our callback functions
-(tox_callback_friend_request my-tox on-friend-request #f)
-(tox_callback_friend_message my-tox on-friend-message #f)
-(tox_callback_name_change my-tox on-friend-name-change #f)
-(tox_callback_user_status my-tox on-status-type-change #f)
-(tox_callback_connection_status my-tox on-connection-status-change #f)
-(tox_callback_file_send_request my-tox on-file-send-request #f)
-(tox_callback_file_control my-tox on-file-control #f)
-(tox_callback_file_data my-tox on-file-data #f)
+(callback-friend-request my-tox on-friend-request)
+(callback-friend_message my-tox on-friend-message)
+(callback-name-change my-tox on-friend-name-change)
+(callback-user-status my-tox on-status-type-change)
+(callback-connection-status my-tox on-connection-status-change)
+(callback-file-send-request my-tox on-file-send-request)
+(callback-file-control my-tox on-file-control)
+(callback-file-data my-tox on-file-data)
 
 ; tox loop that only uses tox_do and sleeps for some amount of time
 (define tox-loop-thread
   (thread
    (λ ()
      (let loop ()
-       (tox_do my-tox)
-       (sleep (/ (tox_do_interval my-tox) 1000))
+       (tox-do my-tox)
+       (sleep (/ (tox-do-interval my-tox) 1000))
        (loop)))))

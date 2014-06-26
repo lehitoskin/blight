@@ -25,17 +25,33 @@
 (define font-size-delta
   (make-object style-delta% 'change-size 10))
 
-; reusable procedure to obtain any Tox ID from a pointer
-(define ptrtox->hextox
-  (λ (key size)
-    (define id-hex "")
+; TODO: make tail-recursive (start at (bytes-length bstr) and end at 0)
+(define bytes->hex-string
+  (λ (bstr len)
+    (define hex "")
     (do ((i 0 (+ i 1)))
-      ((= i size))
-      (set! id-hex
-            (string-upcase
-             (string-append id-hex
-                            (dec->hex (ptr-ref key _uint8_t i))))))
-    id-hex))
+      ((= i (bytes-length bstr)))
+      (set! hex (string-append
+                 hex
+                 (string-upcase
+                  (dec->hex (bytes-ref bstr i))))))
+    hex))
+
+; TODO: make tail-recursive (start at (bytes-length bstr) and end at 0)
+(define hex-string->bytes
+  (λ (hexstr len)
+    (define bstr #"")
+    (do ((i 0 (+ i 1))
+         (j 0 (+ j 2)))
+      ((= i len))
+      (set! bstr (bytes-append
+                  bstr
+                  (bytes
+                   (hex->dec
+                    (string-append
+                     (string (string-ref hexstr j))
+                     (string (string-ref hexstr (+ j 1)))))))))
+    bstr))
 
 (define chat-window%
   (class frame%
@@ -68,14 +84,6 @@
             ; not our first, append to the list
             (set! stransfers (append stransfers (list (file->bytes path)))))))
     
-    (define bytes->ptr
-      (λ (some-bytes)
-        (define ptr (malloc 'atomic (bytes-length some-bytes)))
-        (do ((i 0 (+ i 1)))
-          ((= i (bytes-length some-bytes)))
-          (ptr-set! ptr _uint8_t i (bytes-ref some-bytes i)))
-        ptr))
-    
     (define/public send-data
       (λ (filenumber)
         (define path (list-ref paths filenumber))
@@ -83,7 +91,7 @@
         (define sent 0)
         (define percent 0)
         ; maximum piece size we can send at one time
-        (define max-size (tox_file_data_size this-tox friend-num))
+        (define max-size (file-data-size this-tox friend-num))
         ; number of pieces we're going to send
         (define num-pieces (quotient size max-size))
         (add-file-sender path filenumber)
@@ -92,9 +100,9 @@
           (let ((piece (subbytes (list-ref stransfers filenumber)
                                  (* max-size i) (* max-size (+ i 1)))))
             ; send our piece
-            (tox_file_send_data this-tox friend-num
-                                filenumber (bytes->ptr piece)
-                                (bytes-length piece))
+            (send-file-data this-tox friend-num
+                            filenumber piece
+                            (bytes-length piece))
             ; update file-send gauge
             (set! sent (+ sent (bytes-length piece)))
             (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
@@ -103,18 +111,18 @@
         (unless (zero? (quotient size max-size))
           (let ((piece (subbytes (list-ref stransfers filenumber)
                                  (- size (remainder size max-size)) size)))
-            (tox_file_send_data this-tox friend-num
-                                filenumber (bytes->ptr piece)
-                                (bytes-length piece))
+            (send-file-data this-tox friend-num
+                            filenumber piece
+                            (bytes-length piece))
             ; update file-send gauge
             (set! sent (+ sent (bytes-length piece)))
             (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
             (send transfer-gauge set-value percent)))
         ; tell our friend we're done sending
-        (tox_file_send_control this-tox friend-num
-                               0 filenumber
-                               (_TOX_FILECONTROL-index 'FINISHED)
-                               #f 0)
+        (send-file-control this-tox friend-num
+                           0 filenumber
+                           (_TOX_FILECONTROL-index 'FINISHED)
+                           #f 0)
         (send chat-text-receive insert "\n***FILE TRANSFER COMPLETED***\n\n")))
     
     ; create a new top-level window
@@ -148,8 +156,8 @@
                             ; name of the file (taken from the path)
                             (define filename (path->string (last (explode-path path))))
                             (define filenumber
-                              (tox_new_file_sender this-tox friend-num size filename
-                                                   (string-length filename)))
+                              (new-file-sender this-tox friend-num size filename
+                                               (string-length filename)))
                             (if (zero? filenumber)
                                 ; our first sending transfer, replace the null
                                 (set! paths (setnode paths path filenumber))
@@ -389,14 +397,14 @@
     
     ; send the message to the editor and then through tox
     ; assumes msg is already a byte-string
-    (define send-message
+    (define do-send-message
       (λ (editor msg-bytes)
         ; procedure to send to the editor and to tox
         (define do-send
           (λ (byte-str)
             (send chat-text-receive insert
                   (string-append "Me [" (get-time) "]: " (bytes->string/utf-8 byte-str) "\n"))
-            (tox_send_message this-tox friend-num msg-bytes (bytes-length byte-str))))
+            (send-message this-tox friend-num msg-bytes (bytes-length byte-str))))
         (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
                ; if the message is greater than twice our max length, split it
                ; into three chunks
@@ -408,10 +416,10 @@
                (do-send third-third)
                ; add messages to history
                ; obtain our tox id
-               (define my-id-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
-               (tox_get_address this-tox my-id-bytes)
+               (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+               (get-address this-tox my-id-bytes)
                (define my-id-hex
-                 (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+                 (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
                (add-history my-id-hex friend-key (send editor get-text) 1)]
               [(and (> (bytes-length msg-bytes) TOX_MAX_MESSAGE_LENGTH)
                     (<= (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2)))
@@ -422,19 +430,19 @@
                (do-send second-half)
                ; add messages to history
                ; obtain our tox id
-               (define my-id-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
-               (tox_get_address this-tox my-id-bytes)
+               (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+               (get-address this-tox my-id-bytes)
                (define my-id-hex
-                 (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+                 (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
                (add-history my-id-hex friend-key (send editor get-text) 1)]
               [else
                (do-send msg-bytes)
                ; add message to history
                ; obtain our tox id
-               (define my-id-bytes (malloc 'atomic TOX_FRIEND_ADDRESS_SIZE))
-               (tox_get_address this-tox my-id-bytes)
+               (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+               (get-address this-tox my-id-bytes)
                (define my-id-hex
-                 (ptrtox->hextox my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+                 (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
                (add-history my-id-hex friend-key (send editor get-text) 1)])))
     
     (define chat-text-send (new text%
@@ -476,7 +484,7 @@
               [(and (eqv? key #\return) (eq? shift #f))
                (unless (string=? (send this-editor get-text) "")
                  (let ((msg-bytes (string->bytes/utf-8 (send this-editor get-text))))
-                   (send-message this-editor msg-bytes)
+                   (do-send-message this-editor msg-bytes)
                    (send this-editor erase)
                    (send this-editor change-style font-size-delta)))]
               ; shift-enter adds a newline to the text area
