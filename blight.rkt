@@ -105,12 +105,11 @@ val is a value that corresponds to the value of the key
 
 ; connect to DHT
 (display "Connecting to network... ")
-(cond [(= (bootstrap-from-address my-tox
-                                  dht-address
-                                  TOX_ENABLE_IPV6_DEFAULT
-                                  dht-port
-                                  dht-public-key)
-          1)
+(cond [(not (false? (bootstrap-from-address my-tox
+                                            dht-address
+                                            TOX_ENABLE_IPV6_DEFAULT
+                                            dht-port
+                                            dht-public-key)))
        (unless (false? make-noise)
          (play-sound (fourth sounds) #t))
        (displayln "Connected!")]
@@ -293,26 +292,18 @@ val is a value that corresponds to the value of the key
     (define num-friends (friendlist-length my-tox))
     (unless (zero? num-friends)
       (send list-box clear)
-      (define friend-name-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
-      (define friend-key-bytes (make-bytes TOX_CLIENT_ID_SIZE))
+      (define friend-name-buf (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+      (define friend-key-buf (make-bytes TOX_CLIENT_ID_SIZE))
       ; loop until we get all our friends
       (do ((window-num 0 (+ window-num 1)))
         ((= window-num num-friends))
-        (let* ((friend-name-text "")
-               (friend-name-length (get-name my-tox window-num friend-name-bytes)))
+        (let* ((friend-name-length (get-name my-tox window-num friend-name-buf))
+               (friend-name-text (bytes->string/utf-8
+                                  (subbytes friend-name-buf 0 friend-name-length))))
           ; grab our friend's public key
-          (get-client-id my-tox window-num friend-key-bytes)
-          (define friend-key-text (bytes->hex-string friend-key-bytes TOX_CLIENT_ID_SIZE))
-          (define friend-num (get-friend-number my-tox friend-key-bytes))
-          ; grab our friends' name into the pointer
-          ; loop through and add it to friend-name-text
-          (do ((i 0 (+ i 1)))
-            ((= i friend-name-length))
-            (set! friend-name-text
-                  (string-append friend-name-text
-                                 (string
-                                  (integer->char
-                                   (bytes-ref friend-name-bytes i))))))
+          (get-client-id my-tox window-num friend-key-buf)
+          (define friend-key-text (bytes->hex-string friend-key-buf TOX_CLIENT_ID_SIZE))
+          (define friend-num (get-friend-number my-tox friend-key-buf))
           ; add to the friend list
           (send list-box append (string-append "(X) " friend-name-text) friend-key-text)
           ; make sure friend numbering is correct
