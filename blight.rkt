@@ -194,6 +194,7 @@ val is a value that corresponds to the value of the key
        [choices '("Available"
                   "Away"
                   "Busy")]
+       [selection (get-self-user-status my-tox)]
        [callback (λ (l e)
                    (cond [(= (send l get-selection) (_TOX_USERSTATUS-index 'NONE))
                           (set-user-status my-tox (_TOX_USERSTATUS-index 'NONE))]
