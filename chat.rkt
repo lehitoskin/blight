@@ -100,7 +100,13 @@
           (let ((piece (subbytes (list-ref stransfers filenumber)
                                  (* max-size i) (* max-size (+ i 1)))))
             ; send our piece
-            (send-file-data this-tox friend-num filenumber piece (bytes-length piece))
+            ; if there is an error, sleep and then try again.
+            (let loop ()
+              (cond [(= -1 (send-file-data this-tox friend-num
+                                           filenumber piece (bytes-length piece)))
+                     (tox-do this-tox)
+                     (sleep (/ (tox-do-interval this-tox) 1000))
+                     (loop)]))
             ; update file-send gauge
             (set! sent (+ sent (bytes-length piece)))
             (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
@@ -109,7 +115,14 @@
         (unless (zero? (quotient size max-size))
           (let ((piece (subbytes (list-ref stransfers filenumber)
                                  (- size (remainder size max-size)) size)))
-            (send-file-data this-tox friend-num filenumber piece (bytes-length piece))
+            ; send our piece
+            ; if there is an error, sleep and then try again.
+            (let loop ()
+              (cond [(= -1 (send-file-data this-tox friend-num
+                                           filenumber piece (bytes-length piece)))
+                     (tox-do this-tox)
+                     (sleep (/ (tox-do-interval this-tox) 1000))
+                     (loop)]))
             ; update file-send gauge
             (set! sent (+ sent (bytes-length piece)))
             (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
