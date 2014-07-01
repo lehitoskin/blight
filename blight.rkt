@@ -4,6 +4,7 @@
 ; GUI Tox client written in Racket
 (require libtoxcore-racket ; wrapper
          "chat.rkt"         ; contains definitions for chat window
+         "group.rkt"        ; contains definitions for group window
          "config.rkt"       ; default config file
          "number-conversions.rkt" ; bin, dec, and hex conversions
          "helpers.rkt"      ; various useful functions
@@ -214,6 +215,13 @@ val is a value that corresponds to the value of the key
                                [this-height 600]
                                [this-tox my-tox])))
 
+(define group-list (list (new group-window%
+                              [this-label "Groupchat #0"]
+                              [this-height 600]
+                              [this-width 800]
+                              [this-tox my-tox]
+                              [group-number 0])))
+
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the list
 (unless (zero? initial-num-friends)
@@ -241,33 +249,40 @@ val is a value that corresponds to the value of the key
                    ; when double click, open the window
                    (when (eq? (send e get-event-type)
                               'list-box-dclick)
-                     (let* ((friend-name (send list-box get-string
-                                               (send list-box get-selection)))
-                            (friend-key (send list-box get-data
-                                              (send list-box get-selection))))
+                     (let* ((selection (send list-box get-selection))
+                            (friend-name (send list-box get-string selection))
+                            (friend-key (send list-box get-data selection))
+                            (group-num 0))
                        ; look for the friend's name and key in the list
                        ; and associate the open window with the friend's name
                        (define friend-name-checker
                          (λ (num)
                            (if (= num (length friend-list))
                                (list-ref friend-list (- (length friend-list) 1))
-                               (cond [(and
-                                       ; check friend name
-                                       (string=?
-                                        (substring friend-name 4)
-                                        (send (list-ref friend-list num) get-name))
-                                       ; check friend public key
+                               (cond [; check friend public key
                                        (string=?
                                         friend-key
-                                        (send (list-ref friend-list num) get-key)))
+                                        (send (list-ref friend-list num) get-key))
                                       ; return the chat window
                                       (list-ref friend-list num)]
                                      ; otherwise, keep looping
                                      [else (friend-name-checker (+ num 1))]))))
-                       (define friend-window (friend-name-checker 0))
+                       (define group-num-checker
+                         (λ (num)
+                           (if (= num (length group-list))
+                               (list-ref group-list (- (length group-list) 1))
+                               (cond [(= group-num
+                                         (send
+                                          (list-ref group-list num)
+                                          get-group-number))
+                                      (list-ref group-list num)]
+                                     [else (group-num-checker (+ num 1))]))))
+                       (define window (if (<= selection (- (length friend-list) 1))
+                                          (friend-name-checker 0)
+                                          (group-num-checker 0)))
                        ; check if we're already chatting
-                       (unless (send friend-window is-shown?)
-                         (send friend-window show #t)))))]))
+                       (unless (send window is-shown?)
+                         (send window show #t)))))]))
 
 ; set data for each item in list-box
 ; data may be arbitrary, but a label will suffice
@@ -291,6 +306,8 @@ val is a value that corresponds to the value of the key
   (λ ()
     ; get current number of friends
     (define num-friends (friendlist-length my-tox))
+    ; get number of groupchats
+    (define num-groups (count-chatlist my-tox))
     (unless (zero? num-friends)
       (send list-box clear)
       (define friend-name-buf (make-bytes TOX_FRIEND_ADDRESS_SIZE))
@@ -315,7 +332,11 @@ val is a value that corresponds to the value of the key
           (send (list-ref friend-list window-num) set-new-label
                 (string-append "Blight - " friend-name-text))
           ; update our friends' status icon
-          (status-checker window-num (get-friend-connection-status my-tox window-num)))))))
+          (status-checker window-num (get-friend-connection-status my-tox window-num)))))
+    (unless (zero? num-groups)
+      (do ((i 0 (+ i 1)))
+        ((= i num-groups))
+        (send list-box append (format "Group Chat #~a" i))))))
 (update-list-box)
 
 ; panel for choice and buttons
@@ -780,6 +801,32 @@ val is a value that corresponds to the value of the key
                                    (when (eq? mbox 'ok)
                                      (send add-friend-error-dialog show #f)))])))]))
 #| ##################### END ADD FRIEND STUFF ####################### |#
+
+#| ##################### BEGIN ADD GROUP STUFF ###################### |#
+(define add-group-button
+  (new button%
+       [parent panel]
+       [label "Add group"]
+       [callback (λ (button event)
+                   (let ((err (add-groupchat my-tox)))
+                     ; there's more than one groupchat
+                     (displayln err)
+                     (cond [(>= err 1)
+                            (displayln "Inside >= err 1")
+                            (set! group-list (append
+                                               group-list
+                                               (list
+                                                (new group-window%
+                                                     [this-label (format "Groupchat #~a" err)]
+                                                     [this-height 600]
+                                                     [this-width 800]
+                                                     [this-tox my-tox]
+                                                     [group-number err]))))
+                            (update-list-box)]
+                           ; there's only the one groupchat
+                           [(zero? err)
+                            (update-list-box)])))]))
+#| ##################### END ADD GROUP STUFF ######################## |#
 
 ; send friend request
 (define add-friend-button (new button%
