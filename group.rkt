@@ -53,8 +53,6 @@
          [callback (λ (button event)
                      (send this show #f))])
     
-    ; make a static text message in the frame
-    ; replaced immediately by list-box from buddy list
     (define group-frame-msg (new message%
                                  [parent group-frame]
                                  [label this-label]
@@ -293,8 +291,7 @@
         ; procedure to send to the editor and to tox
         (define do-send
           (λ (byte-str)
-            (send group-text-receive insert
-                  (string-append "Me [" (get-time) "]: " (bytes->string/utf-8 byte-str) "\n"))
+            ; only need to send message through tox, will echo through callback
             (group-message-send this-tox group-number msg-bytes (bytes-length byte-str))))
         (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
                ; if the message is greater than twice our max length, split it
@@ -440,6 +437,9 @@
     
     (define/public (get-group-number)
       group-number)
+    
+    (define/public (get-list-box)
+      group-list-box)
     
     (super-new
      [label this-label]

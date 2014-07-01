@@ -216,7 +216,7 @@ val is a value that corresponds to the value of the key
                                [this-tox my-tox])))
 
 (define group-list (list (new group-window%
-                              [this-label "Groupchat #0"]
+                              [this-label "Blight - Groupchat #0"]
                               [this-height 600]
                               [this-width 800]
                               [this-tox my-tox]
@@ -249,26 +249,25 @@ val is a value that corresponds to the value of the key
                    ; when double click, open the window
                    (when (eq? (send e get-event-type)
                               'list-box-dclick)
-                     (let* ((selection (send list-box get-selection))
-                            (friend-name (send list-box get-string selection))
-                            (friend-key (send list-box get-data selection))
-                            (group-num 0))
-                       ; look for the friend's name and key in the list
+                     (let* ((selection (send list-box get-selection)))
+                       ; look for the friend's key in the list
                        ; and associate the open window with the friend's name
                        (define friend-name-checker
                          (λ (num)
+                           (define friend-key (send list-box get-data selection))
                            (if (= num (length friend-list))
                                (list-ref friend-list (- (length friend-list) 1))
                                (cond [; check friend public key
-                                       (string=?
-                                        friend-key
-                                        (send (list-ref friend-list num) get-key))
+                                      (string=?
+                                       friend-key
+                                       (send (list-ref friend-list num) get-key))
                                       ; return the chat window
                                       (list-ref friend-list num)]
                                      ; otherwise, keep looping
                                      [else (friend-name-checker (+ num 1))]))))
                        (define group-num-checker
                          (λ (num)
+                           (define group-num (- selection (length friend-list)))
                            (if (= num (length group-list))
                                (list-ref group-list (- (length group-list) 1))
                                (cond [(= group-num
@@ -333,10 +332,11 @@ val is a value that corresponds to the value of the key
                 (string-append "Blight - " friend-name-text))
           ; update our friends' status icon
           (status-checker window-num (get-friend-connection-status my-tox window-num)))))
+    ; add the current groupchats to the bottom of the list
     (unless (zero? num-groups)
       (do ((i 0 (+ i 1)))
         ((= i num-groups))
-        (send list-box append (format "Group Chat #~a" i))))))
+        (send list-box append (format "Group Chat #~a" i) i)))))
 (update-list-box)
 
 ; panel for choice and buttons
@@ -809,23 +809,23 @@ val is a value that corresponds to the value of the key
        [label "Add group"]
        [callback (λ (button event)
                    (let ((err (add-groupchat my-tox)))
-                     ; there's more than one groupchat
-                     (displayln err)
-                     (cond [(>= err 1)
-                            (displayln "Inside >= err 1")
-                            (set! group-list (append
-                                               group-list
-                                               (list
-                                                (new group-window%
-                                                     [this-label (format "Groupchat #~a" err)]
-                                                     [this-height 600]
-                                                     [this-width 800]
-                                                     [this-tox my-tox]
-                                                     [group-number err]))))
-                            (update-list-box)]
-                           ; there's only the one groupchat
-                           [(zero? err)
-                            (update-list-box)])))]))
+                     (cond
+                       ; there's more than one groupchat
+                       [(>= err 1)
+                        (set! group-list
+                              (append
+                               group-list
+                               (list
+                                (new group-window%
+                                     [this-label (format"Blight - Groupchat #~a" err)]
+                                     [this-height 600]
+                                     [this-width 800]
+                                     [this-tox my-tox]
+                                     [group-number err]))))
+                        (update-list-box)]
+                       ; there's only the one groupchat
+                       [(zero? err)
+                        (update-list-box)])))]))
 #| ##################### END ADD GROUP STUFF ######################## |#
 
 ; send friend request
@@ -853,7 +853,7 @@ val is a value that corresponds to the value of the key
                                             (list 'ok-cancel))))
                      (when (eq? mbox 'ok)
                        ; delete from tox friend list
-                       (del-friend my-tox friend-num)
+                       (del-friend! my-tox friend-num)
                        ; save the blight data
                        (blight-save-data)
                        ; remove from list-box
@@ -1076,6 +1076,51 @@ val is a value that corresponds to the value of the key
     (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
     (send (list-ref friend-list friendnumber) set-gauge-pos percent)))
 
+(define on-group-invite
+  (λ (mtox friendnumber group-public-key userdata)
+    (let* ((friendname (send (list-ref friend-list friendnumber) get-name))
+           (mbox (message-box "Blight - Groupchat Invite"
+                              (string-append friendname
+                                             " has invited you to a groupchat!")
+                              #f
+                              (list 'ok-cancel 'caution))))
+      (when (eq? mbox 'ok)
+        (define err (join-groupchat mtox friendnumber group-public-key))
+        (unless (= -1 err)
+          (set! group-list
+                (append (list (new group-window%
+                                   [this-label (format "Blight - Groupchat #~a" err)]
+                                   [this-height 600]
+                                   [this-width 800]
+                                   [this-tox my-tox]
+                                   [group-number err]))))
+          (update-list-box))))))
+
+(define on-group-message
+  (λ (mtox groupnumber friendgroupnumber message len userdata)
+    (let* ((window (list-ref group-list groupnumber))
+           (editor (send window get-receive-editor))
+           (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
+           (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
+           (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
+      (send editor insert (string-append name " [" (get-time) "]: " message "\n")))))
+
+(define on-group-namelist-change
+  (λ (mtox groupnumber peernumber change userdata)
+    (let ((lbox (send (list-ref group-list groupnumber) get-list-box)))
+      (cond [(= change (_TOX_CHAT_CHANGE_PEER-index 'ADD))
+             (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
+             (define len (get-group-peername! mtox groupnumber peernumber name-buf))
+             (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+             (send lbox append name)]
+            [(= change (_TOX_CHAT_CHANGE_PEER-index 'DEL))
+             (send lbox delete peernumber)]
+            [(= change (_TOX_CHAT_CHANGE_PEER-index 'NAME))
+             (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
+             (define len (get-group-peername! mtox groupnumber peernumber name-buf))
+             (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+             (send lbox set-string peernumber name)]))))
+
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
 (callback-friend_message my-tox on-friend-message)
@@ -1085,6 +1130,9 @@ val is a value that corresponds to the value of the key
 (callback-file-send-request my-tox on-file-send-request)
 (callback-file-control my-tox on-file-control)
 (callback-file-data my-tox on-file-data)
+(callback-group-invite my-tox on-group-invite)
+(callback-group-message my-tox on-group-message)
+(callback-group-namelist-change my-tox on-group-namelist-change)
 
 ; tox loop that only uses tox_do and sleeps for some amount of time
 (define tox-loop-thread
