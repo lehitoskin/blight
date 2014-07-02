@@ -17,8 +17,6 @@
                 this-tox
                 group-number)
     
-    (define group-name "")
-    
     (define/private repeat
       (λ (proc times)
         (cond [(zero? times) #t]
@@ -39,11 +37,50 @@
     (define menu-file (new menu% [parent group-frame-menu-bar]
                            [label "&File"]))
     
+    (define invite-frame (new frame%
+                              [label "Blight - Invite Friend"]
+                              [width 200]
+                              [height 400]))
+    
+    (define invite-list-box (new list-box%
+                                 [parent invite-frame]
+                                 [label "Friends"]
+                                 [style (list 'single 'vertical-label)]
+                                 [choices (list "")]
+                                 [callback (λ (l e)
+                                             (when (eq? (send e get-event-type)
+                                                        'list-box-dclick)
+                                               (let ((selection (send l get-selection)))
+                                                 (invite-friend this-tox selection group-number)
+                                                 (send invite-frame show #f))))]))
+    
+    (new button% [parent invite-frame]
+         [label "&Cancel"]
+         [callback (λ (button event)
+                     (send invite-frame show #f))])
+    
+    (define/public update-invite-list
+      (λ ()
+        (define num-friends (friendlist-length this-tox))
+        (unless (zero? num-friends)
+          (send invite-list-box clear)
+          (define friend-name-buf (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+          (define friend-key-buf (make-bytes TOX_CLIENT_ID_SIZE))
+          ; loop until we get all our friends
+          (do ((num 0 (+ num 1)))
+            ((= num num-friends))
+            (let* ((friend-name-length (get-name this-tox num friend-name-buf))
+                   (friend-name-text (bytes->string/utf-8
+                                      (subbytes friend-name-buf 0 friend-name-length))))
+              ; add to the invite list
+              (send invite-list-box append friend-name-text))))))
+    (update-invite-list)
+    
     (new menu-item% [parent menu-file]
          [label "Invite"]
          [help-string "Invite a friend"]
          [callback (λ (button event)
-                     (displayln "Tried to invite a friend!"))])
+                     (send invite-frame show #t))])
     
     ; close the current window
     (new menu-item% [parent menu-file]
@@ -112,7 +149,7 @@
     
     (define group-list-box (new list-box%
                                 [parent topside-panel]
-                                [label "Name"]
+                                [label "0 Peers"]
                                 [style (list 'single 'vertical-label)]
                                 [choices (list "Me")]))
     
@@ -312,8 +349,8 @@
               [else (do-send msg-bytes)])))
     
     (define group-text-send (new text%
-                                [line-spacing 1.0]
-                                [auto-wrap #t]))
+                                 [line-spacing 1.0]
+                                 [auto-wrap #t]))
     (send group-text-send change-style font-size-delta)
     
     ; guess I need to override some shit to get the keys just right
@@ -401,24 +438,18 @@
     
     ; an editor canvas where text% messages will appear
     (define group-editor-canvas-send (new custom-editor-canvas%
-                                         [this-parent group-frame]
-                                         [this-label "Your message goes here"]
-                                         [this-editor group-text-send]
-                                         [this-style (list 'control-border 'no-hscroll
-                                                           'auto-vscroll)]
-                                         [this-wheel-step 3]
-                                         [this-min-height 100]
-                                         [this-vert-margin 5]))
+                                          [this-parent group-frame]
+                                          [this-label "Your message goes here"]
+                                          [this-editor group-text-send]
+                                          [this-style (list 'control-border 'no-hscroll
+                                                            'auto-vscroll)]
+                                          [this-wheel-step 3]
+                                          [this-min-height 100]
+                                          [this-vert-margin 5]))
     
     (define/public (set-new-label x)
       (send group-frame set-label x)
       (send group-frame-msg set-label x))
-    
-    (define/public (get-name x)
-      group-name)
-    
-    (define/public (set-name x)
-      (set! group-name x))
     
     (define/override (show x)
       (send group-frame show x))

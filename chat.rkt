@@ -410,7 +410,7 @@
         (define do-send
           (λ (byte-str)
             (send chat-text-receive insert
-                  (string-append "Me [" (get-time) "]: " (bytes->string/utf-8 byte-str) "\n"))
+                  (string-append "[" (get-time) "] Me: " (bytes->string/utf-8 byte-str) "\n"))
             (send-message this-tox friend-num msg-bytes (bytes-length byte-str))))
         (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
                ; if the message is greater than twice our max length, split it

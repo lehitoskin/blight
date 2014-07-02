@@ -249,12 +249,12 @@ val is a value that corresponds to the value of the key
                    ; when double click, open the window
                    (when (eq? (send e get-event-type)
                               'list-box-dclick)
-                     (let* ((selection (send list-box get-selection)))
+                     (let ((selection (send l get-selection)))
                        ; look for the friend's key in the list
                        ; and associate the open window with the friend's name
                        (define friend-name-checker
                          (λ (num)
-                           (define friend-key (send list-box get-data selection))
+                           (define friend-key (send l get-data selection))
                            (if (= num (length friend-list))
                                (list-ref friend-list (- (length friend-list) 1))
                                (cond [; check friend public key
@@ -789,7 +789,15 @@ val is a value that corresponds to the value of the key
                                           (send add-friend-hex-tfield set-value "")
                                           (send add-friend-txt-tfield set-value "")
                                           ; close the window
-                                          (send add-friend-box show #f)]))]
+                                          (send add-friend-box show #f)
+                                          ; the invite list needs to be updated for
+                                          ; the groupchat windows that still exist
+                                          (unless (zero? (length group-list))
+                                            (do ((i 0 (+ i 1)))
+                                              ((= i (count-chatlist)))
+                                              (send
+                                               (list-ref group-list i)
+                                               update-invite-list)))]))]
                            ; something went wrong!
                            [else (unless (false? make-noise)
                                    (play-sound (last sounds) #t))
@@ -802,31 +810,59 @@ val is a value that corresponds to the value of the key
                                      (send add-friend-error-dialog show #f)))])))]))
 #| ##################### END ADD FRIEND STUFF ####################### |#
 
-#| ##################### BEGIN ADD GROUP STUFF ###################### |#
+#| ####################### BEGIN GROUP STUFF ######################## |#
 (define add-group-button
   (new button%
        [parent panel]
        [label "Add group"]
        [callback (λ (button event)
+                   ; we're out of groupchat windows!
+                   ; spawn a new one
+                   (cond [(zero? (length group-list))
+                          (set! group-list
+                                (setnode group-list
+                                         (new group-window%
+                                              [this-label "Blight - Groupchat #0"]
+                                              [this-height 600]
+                                              [this-width 800]
+                                              [this-tox my-tox]
+                                              [group-number 0]) 0))])
                    (let ((err (add-groupchat my-tox)))
                      (cond
                        ; there's more than one groupchat
-                       [(>= err 1)
+                       [(> err 0)
                         (set! group-list
                               (append
                                group-list
                                (list
                                 (new group-window%
-                                     [this-label (format"Blight - Groupchat #~a" err)]
+                                     [this-label (format "Blight - Groupchat #~a" err)]
                                      [this-height 600]
                                      [this-width 800]
                                      [this-tox my-tox]
                                      [group-number err]))))
                         (update-list-box)]
-                       ; there's only the one groupchat
-                       [(zero? err)
+                       ; we're calling the 0th groupchat window
+                       [(and (zero? err)
+                             (= (length group-list) 1))
                         (update-list-box)])))]))
-#| ##################### END ADD GROUP STUFF ######################## |#
+
+(define del-group-button
+  (new button%
+       [parent panel]
+       [label "Del group"]
+       [callback (λ (button event)
+                   (let ((num (send list-box get-selection)))
+                     ; unless num is a friend and we have no groups right now
+                     (unless (and (<= num (length friend-list))
+                                  (zero? (count-chatlist my-tox)))
+                       ; delete from tox groupchat list
+                       (del-groupchat! my-tox (- num (length friend-list)))
+                       ; remove from list-box
+                       (send list-box delete num)
+                       ; remove from list
+                       (set! group-list (delnode group-list (- num (length friend-list)))))))]))
+#| ####################### END GROUP STUFF ########################## |#
 
 ; send friend request
 (define add-friend-button (new button%
@@ -844,7 +880,7 @@ val is a value that corresponds to the value of the key
 (define delete-friend-button
   (new button%
        [parent panel]
-       [label "Delete friend"]
+       [label "Del friend"]
        [callback (λ (button event)
                    (let ((friend-num (send list-box get-selection))
                          (mbox (message-box "Blight - Deleting Friend"
@@ -859,7 +895,13 @@ val is a value that corresponds to the value of the key
                        ; remove from list-box
                        (send list-box delete friend-num)
                        ; remove from list
-                       (set! friend-list (delnode friend-list friend-num)))))]))
+                       (set! friend-list (delnode friend-list friend-num))
+                       ; the invite list needs to be updated for
+                       ; the groupchat windows that still exist
+                       (unless (zero? (length group-list))
+                         (do ((i 0 (+ i 1)))
+                           ((= i (count-chatlist)))
+                           (send (list-ref group-list i) update-invite-list))))))]))
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
@@ -923,7 +965,13 @@ val is a value that corresponds to the value of the key
                                   ((= i (friendlist-length mtox)))
                                   (status-checker
                                    i
-                                   (get-friend-connection-status mtox i))))]))
+                                   (get-friend-connection-status mtox i)))
+                                ; the invite list needs to be updated for
+                                ; the groupchat windows that still exist
+                                (unless (zero? (length group-list))
+                                  (do ((i 0 (+ i 1)))
+                                    ((= i (count-chatlist)))
+                                    (send (list-ref group-list i) update-invite-list))))]))
     
     (define cancel (new button% [parent friend-request-panel]
                         [label "Cancel"]
@@ -946,12 +994,27 @@ val is a value that corresponds to the value of the key
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
       (send editor insert
-            (string-append name " [" (get-time) "]: " message "\n"))
+            (string-append "[" (get-time) "] " name ": " message "\n"))
       ; make a noise
       (unless (false? make-noise)
         (play-sound (first sounds) #t))
       ; add message to the history database
       (add-history my-id-hex (send window get-key) message 0))))
+
+(define on-friend-action
+  (λ (mtox friendnumber action len userdata)
+    (let* ((window (list-ref friend-list friendnumber))
+           (editor (send window get-receive-editor))
+           (name (send window get-name)))
+      ; if the window isn't open, force it open
+      (cond [(not (send window is-shown?)) (send window show #t)])
+      (send editor insert
+            (string-append "** [" (get-time) "] " name ": " action "\n"))
+      ; make a noise
+      (unless (false? make-noise)
+        (play-sound (first sounds) #t))
+      ; add message to the history database
+      (add-history my-id-hex (send window get-key) (string-append "ACTION: " action) 0))))
 
 (define on-friend-name-change
   (λ (mtox friendnumber newname len userdata)
@@ -1085,16 +1148,31 @@ val is a value that corresponds to the value of the key
                               #f
                               (list 'ok-cancel 'caution))))
       (when (eq? mbox 'ok)
-        (define err (join-groupchat mtox friendnumber group-public-key))
-        (unless (= -1 err)
-          (set! group-list
-                (append (list (new group-window%
-                                   [this-label (format "Blight - Groupchat #~a" err)]
+        ; we're out of groupchat windows!
+        ; spawn a new one
+        (cond [(zero? (length group-list))
+               (set! group-list
+                     (setnode group-list
+                              (new group-window%
+                                   [this-label "Blight - Groupchat #0"]
                                    [this-height 600]
                                    [this-width 800]
                                    [this-tox my-tox]
-                                   [group-number err]))))
-          (update-list-box))))))
+                                   [group-number 0]) 0))])
+        (define err (join-groupchat mtox friendnumber group-public-key))
+        (cond [(> err 0)
+               (set! group-list
+                     (append (list (new group-window%
+                                        [this-label (format "Blight - Groupchat #~a" err)]
+                                        [this-height 600]
+                                        [this-width 800]
+                                        [this-tox my-tox]
+                                        [group-number err]))))
+               (update-list-box)]
+              ; we're calling the 0th groupchat window
+              [(and (zero? err)
+                    (= (length group-list) 1))
+               (update-list-box)])))))
 
 (define on-group-message
   (λ (mtox groupnumber friendgroupnumber message len userdata)
@@ -1103,7 +1181,20 @@ val is a value that corresponds to the value of the key
            (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
            (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
            (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
-      (send editor insert (string-append name " [" (get-time) "]: " message "\n")))))
+      ; if the window isn't open, force it open
+      (cond [(not (send window is-shown?)) (send window show #t)])
+      (send editor insert (string-append "[" (get-time) "] " name ": " message "\n")))))
+
+(define on-group-action
+  (λ (mtox groupnumber friendgroupnumber action len userdata)
+    (let* ((window (list-ref group-list groupnumber))
+           (editor (send window get-receive-editor))
+           (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
+           (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
+           (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
+      ; if the window isn't open, force it open
+      (cond [(not (send window is-shown?)) (send window show #t)])
+      (send editor insert (string-append "** [" (get-time) "] " name ": " action "\n")))))
 
 (define on-group-namelist-change
   (λ (mtox groupnumber peernumber change userdata)
@@ -1112,9 +1203,13 @@ val is a value that corresponds to the value of the key
              (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
              (define len (get-group-peername! mtox groupnumber peernumber name-buf))
              (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
-             (send lbox append name)]
+             (send lbox append name)
+             (send lbox set-label
+                   (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
             [(= change (_TOX_CHAT_CHANGE_PEER-index 'DEL))
-             (send lbox delete peernumber)]
+             (send lbox delete peernumber)
+             (send lbox set-label
+                   (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
             [(= change (_TOX_CHAT_CHANGE_PEER-index 'NAME))
              (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
              (define len (get-group-peername! mtox groupnumber peernumber name-buf))
@@ -1123,7 +1218,8 @@ val is a value that corresponds to the value of the key
 
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
-(callback-friend_message my-tox on-friend-message)
+(callback-friend-message my-tox on-friend-message)
+(callback-friend-action my-tox on-friend-action)
 (callback-name-change my-tox on-friend-name-change)
 (callback-user-status my-tox on-status-type-change)
 (callback-connection-status my-tox on-connection-status-change)
@@ -1132,6 +1228,7 @@ val is a value that corresponds to the value of the key
 (callback-file-data my-tox on-file-data)
 (callback-group-invite my-tox on-group-invite)
 (callback-group-message my-tox on-group-message)
+(callback-group-action my-tox on-group-action)
 (callback-group-namelist-change my-tox on-group-namelist-change)
 
 ; tox loop that only uses tox_do and sleeps for some amount of time
