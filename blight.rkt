@@ -121,25 +121,26 @@ val is a value that corresponds to the value of the key
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
   (λ ()
-    (thread
-     (λ ()
-       ; necessary for saving the messenger
-       (define size (tox-size my-tox))
-       (define data-bytes (make-bytes size))
-       ; place all tox info into data-ptr
-       (tox-save! my-tox data-bytes)
-       ; SAVE INFORMATION TO DATA
-       (let ((data-port-out (open-output-file data-file
-                                              #:mode 'binary
-                                              #:exists 'truncate/replace)))
-         (write-bytes data-bytes data-port-out)
-         (close-output-port data-port-out))))))
+    (displayln "Saving data...")
+    ; necessary for saving the messenger
+    (define size (tox-size my-tox))
+    (define data-bytes (make-bytes size))
+    ; place all tox info into data-bytes
+    (tox-save! my-tox data-bytes)
+    ; SAVE INFORMATION TO DATA
+    (let ((data-port-out (open-output-file data-file
+                                           #:mode 'binary
+                                           #:exists 'truncate/replace)))
+      (write-bytes data-bytes data-port-out)
+      (close-output-port data-port-out))
+    (displayln "Done!")))
 
 ; little procedure to wrap things up for us
 (define clean-up
   (λ ()
     ; save tox info to data-file
-    (define data-thread (blight-save-data))
+    ;(define data-thread (blight-save-data))
+    (blight-save-data)
     ; disconnect from the database
     (disconnect sqlc)
     ; close config file input port
@@ -152,7 +153,7 @@ val is a value that corresponds to the value of the key
     (unless (false? make-noise)
       (play-sound (fifth sounds) #f))
     ; make sure the data is completely saved
-    (thread-wait data-thread)))
+    #;(thread-wait data-thread)))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
@@ -794,7 +795,7 @@ val is a value that corresponds to the value of the key
                                           ; the groupchat windows that still exist
                                           (unless (zero? (length group-list))
                                             (do ((i 0 (+ i 1)))
-                                              ((= i (count-chatlist)))
+                                              ((= i (count-chatlist my-tox)))
                                               (send
                                                (list-ref group-list i)
                                                update-invite-list)))]))]
@@ -900,7 +901,7 @@ val is a value that corresponds to the value of the key
                        ; the groupchat windows that still exist
                        (unless (zero? (length group-list))
                          (do ((i 0 (+ i 1)))
-                           ((= i (count-chatlist)))
+                           ((= i (count-chatlist my-tox)))
                            (send (list-ref group-list i) update-invite-list))))))]))
 
 #| ############### START THE GUI, YO ############### |#
@@ -970,7 +971,7 @@ val is a value that corresponds to the value of the key
                                 ; the groupchat windows that still exist
                                 (unless (zero? (length group-list))
                                   (do ((i 0 (+ i 1)))
-                                    ((= i (count-chatlist)))
+                                    ((= i (count-chatlist my-tox)))
                                     (send (list-ref group-list i) update-invite-list))))]))
     
     (define cancel (new button% [parent friend-request-panel]
