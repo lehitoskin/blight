@@ -794,7 +794,7 @@ val is a value that corresponds to the value of the key
                                           ; the groupchat windows that still exist
                                           (unless (zero? (length group-list))
                                             (do ((i 0 (+ i 1)))
-                                              ((= i (count-chatlist)))
+                                              ((= i (count-chatlist my-tox)))
                                               (send
                                                (list-ref group-list i)
                                                update-invite-list)))]))]
@@ -900,7 +900,7 @@ val is a value that corresponds to the value of the key
                        ; the groupchat windows that still exist
                        (unless (zero? (length group-list))
                          (do ((i 0 (+ i 1)))
-                           ((= i (count-chatlist)))
+                             ((= i (count-chatlist my-tox)))
                            (send (list-ref group-list i) update-invite-list))))))]))
 
 #| ############### START THE GUI, YO ############### |#
@@ -970,7 +970,7 @@ val is a value that corresponds to the value of the key
                                 ; the groupchat windows that still exist
                                 (unless (zero? (length group-list))
                                   (do ((i 0 (+ i 1)))
-                                    ((= i (count-chatlist)))
+                                    ((= i (count-chatlist my-tox)))
                                     (send (list-ref group-list i) update-invite-list))))]))
     
     (define cancel (new button% [parent friend-request-panel]
