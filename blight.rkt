@@ -806,7 +806,7 @@ val is a value that corresponds to the value of the key
                                             (list 'ok-cancel))))
                      (when (eq? mbox 'ok)
                        ; delete from tox friend list
-                       (del-friend my-tox friend-num)
+                       (del-friend! my-tox friend-num)
                        ; save the blight data
                        (blight-save-data)
                        ; remove from list-box
@@ -1031,7 +1031,7 @@ val is a value that corresponds to the value of the key
 
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
-(callback-friend_message my-tox on-friend-message)
+(callback-friend-message my-tox on-friend-message)
 (callback-name-change my-tox on-friend-name-change)
 (callback-user-status my-tox on-status-type-change)
 (callback-connection-status my-tox on-connection-status-change)
