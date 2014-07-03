@@ -994,8 +994,17 @@ val is a value that corresponds to the value of the key
            (name (send window get-name)))
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      (send editor insert
-            (string-append "[" (get-time) "] " name ": " message "\n"))
+      ; if the current cursor position is not at the end, move there
+      (cond [(not (= (send editor get-start-position)
+                     (send editor get-end-position)))
+             (send editor move-position 'end)
+             (send editor insert
+                   (string-append "[" (get-time) "] " name ": " message "\n"))]
+            ; otherwise just insert the message
+            [(= (send editor get-start-position)
+                (send editor get-end-position))
+             (send editor insert
+                   (string-append "[" (get-time) "] " name ": " message "\n"))])
       ; make a noise
       (unless (false? make-noise)
         (play-sound (first sounds) #t))
@@ -1009,8 +1018,17 @@ val is a value that corresponds to the value of the key
            (name (send window get-name)))
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      (send editor insert
-            (string-append "** [" (get-time) "] " name ": " action "\n"))
+      ; if the current cursor position is not at the end, move there
+      (cond [(not (= (send editor get-start-position)
+                     (send editor get-end-position)))
+             (send editor move-position 'end)
+             (send editor insert
+                   (string-append "** [" (get-time) "] " name ": " action "\n"))]
+            ; otherwise just insert the message
+            [(= (send editor get-start-position)
+                (send editor get-end-position))
+             (send editor insert
+                   (string-append "** [" (get-time) "] " name ": " action "\n"))])
       ; make a noise
       (unless (false? make-noise)
         (play-sound (first sounds) #t))
@@ -1109,7 +1127,16 @@ val is a value that corresponds to the value of the key
                                                                    path
                                                                    #:mode 'binary
                                                                    #:exists 'replace)))))
-                    (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")))]))))))
+                    ; if the current cursor position is not at the end, move there
+                    (cond [(not (= (send receive-editor get-start-position)
+                                   (send receive-editor get-end-position)))
+                           (send receive-editor move-position 'end)
+                           (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")]
+                          ; otherwise just insert the message
+                          [(= (send receive-editor get-start-position)
+                              (send receive-editor get-end-position))
+                           (send receive-editor insert
+                                 "\n***FILE TRANSFER HAS BEGUN***\n\n")])))]))))))
 
 (define on-file-control
   (λ (mtox friendnumber sending? filenumber control-type data-ptr len userdata)
@@ -1125,11 +1152,29 @@ val is a value that corresponds to the value of the key
              ; remove transfer from list
              (set! rtransfers (delnode rtransfers filenumber))
              ; notify user transfer has completed
-             (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]
+             ; if the current cursor position is not at the end, move there
+             (cond [(not (= (send receive-editor get-start-position)
+                            (send receive-editor get-end-position)))
+                    (send receive-editor move-position 'end)
+                    (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]
+                   ; otherwise just insert the message
+                   [(= (send receive-editor get-start-position)
+                       (send receive-editor get-end-position))
+                    (send receive-editor insert
+                          "\n***FILE TRANSFER COMPLETED***\n\n")])]
             ; cue that we're going to be sending the data now
             [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))
                   (not (false? sending?)))
-             (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")
+             ; if the current cursor position is not at the end, move there
+             (cond [(not (= (send receive-editor get-start-position)
+                            (send receive-editor get-end-position)))
+                    (send receive-editor move-position 'end)
+                    (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")]
+                   ; otherwise just insert the message
+                   [(= (send receive-editor get-start-position)
+                       (send receive-editor get-end-position))
+                    (send receive-editor insert
+                          "\n***FILE TRANSFER HAS BEGUN***\n\n")])
              (send window send-data filenumber)]))))
 
 (define on-file-data
@@ -1184,7 +1229,17 @@ val is a value that corresponds to the value of the key
            (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      (send editor insert (string-append "[" (get-time) "] " name ": " message "\n")))))
+      ; if the current cursor position is not at the end, move there
+      (cond [(not (= (send editor get-start-position)
+                     (send editor get-end-position)))
+             (send editor move-position 'end)
+             (send editor insert
+                   (string-append "[" (get-time) "] " name ": " message "\n"))]
+            ; otherwise just insert the message
+            [(= (send editor get-start-position)
+                (send editor get-end-position))
+             (send editor insert
+                   (string-append "[" (get-time) "] " name ": " message "\n"))]))))
 
 (define on-group-action
   (λ (mtox groupnumber friendgroupnumber action len userdata)
@@ -1195,7 +1250,17 @@ val is a value that corresponds to the value of the key
            (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      (send editor insert (string-append "** [" (get-time) "] " name ": " action "\n")))))
+      ; if the current cursor position is not at the end, move there
+      (cond [(not (= (send editor get-start-position)
+                     (send editor get-end-position)))
+             (send editor move-position 'end)
+             (send editor insert
+                   (string-append "** [" (get-time) "] " name ": " action "\n"))]
+            ; otherwise just insert the message
+            [(= (send editor get-start-position)
+                (send editor get-end-position))
+             (send editor insert
+                   (string-append "** [" (get-time) "] " name ": " action "\n"))]))))
 
 (define on-group-namelist-change
   (λ (mtox groupnumber peernumber change userdata)
