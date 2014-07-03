@@ -509,9 +509,9 @@ val is a value that corresponds to the value of the key
                       [label ""]
                       [style (list  'single)]
                       [callback (λ (l e)
-                                  (let ((username (send l get-value)))
-                                    (when (eq? (send e get-event-type)
-                                               'text-field-enter)
+                                  (when (eq? (send e get-event-type)
+                                             'text-field-enter)
+                                    (let ((username (send l get-value)))
                                       ; refuse to set the status if it's empty
                                       (unless (string=? username "")
                                         ; set the new username
@@ -1023,12 +1023,12 @@ val is a value that corresponds to the value of the key
                      (send editor get-end-position)))
              (send editor move-position 'end)
              (send editor insert
-                   (string-append "** [" (get-time) "] " name ": " action "\n"))]
+                   (string-append "** [" (get-time) "] " name " " action "\n"))]
             ; otherwise just insert the message
             [(= (send editor get-start-position)
                 (send editor get-end-position))
              (send editor insert
-                   (string-append "** [" (get-time) "] " name ": " action "\n"))])
+                   (string-append "** [" (get-time) "] " name " " action "\n"))])
       ; make a noise
       (unless (false? make-noise)
         (play-sound (first sounds) #t))
@@ -1255,12 +1255,12 @@ val is a value that corresponds to the value of the key
                      (send editor get-end-position)))
              (send editor move-position 'end)
              (send editor insert
-                   (string-append "** [" (get-time) "] " name ": " action "\n"))]
+                   (string-append "** [" (get-time) "] " name " " action "\n"))]
             ; otherwise just insert the message
             [(= (send editor get-start-position)
                 (send editor get-end-position))
              (send editor insert
-                   (string-append "** [" (get-time) "] " name ": " action "\n"))]))))
+                   (string-append "** [" (get-time) "] " name " " action "\n"))]))))
 
 (define on-group-namelist-change
   (λ (mtox groupnumber peernumber change userdata)
