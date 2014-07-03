@@ -67,7 +67,7 @@
 
 (define (set-default-chatframe-bindings km)
   (send km map-function ":c:w" "close-chatframe")
-  (send km map-function ":c:ь" "close-chatframe") ; russian cyrillic
+  (send km map-function ":c:ц" "close-chatframe") ; russian cyrillic
   )
 
 (define chat-window%
@@ -210,6 +210,87 @@
                                    [line-spacing 1.0]
                                    [auto-wrap #t]))
     (send chat-text-receive change-style font-size-delta)
+
+
+(define (init-messages-keymap)
+  (let ([km (new keymap%)])
+    (send km add-function "copy"
+          (lambda (editor kev)
+            (send editor copy)))
+
+    (send km add-function "backward-char"
+          (lambda (editor kev)
+            (send editor move-position 'left)))
+
+    (send km add-function "select-all"
+          (lambda (editor kev)
+            (send editor move-position 'end)
+            (send editor extend-position 0)))
+
+    (send km add-function "backward-word"
+          (lambda (editor kev)
+            (send editor move-position 'left #f 'word)))
+    
+    (send km add-function "forward-char"
+          (lambda (editor kev)
+            (send editor move-position 'right)))
+
+    (send km add-function "forward-word"
+          (lambda (editor kev)
+            (send editor move-position 'right #f 'word)))
+
+    (send km add-function "previous-line"
+          (lambda (editor kev)
+            (send editor move-position 'up)))
+
+    (send km add-function "next-line"
+          (lambda (editor kev)
+            (send editor move-position 'down)))
+
+    (send km add-function "beginning-of-buffer"
+          (lambda (editor kev)
+            (send editor move-position 'home)))
+
+    (send km add-function "end-of-buffer"
+          (lambda (editor kev)
+            (send editor move-position 'end)))
+
+    (send km add-function "wheel-up"
+          (lambda (editor kev)
+            (repeat
+             (λ () (send editor move-position 'up))
+             (send (send editor get-canvas) wheel-step))))
+
+    (send km add-function "wheel-down"
+          (lambda (editor kev)
+            (repeat
+             (λ () (send editor move-position 'down))
+             (send (send editor get-canvas) wheel-step))))
+    km))
+
+(define messages-keymap (init-messages-keymap))
+
+(define (set-default-messages-bindings km)
+  (send km map-function ":c:c" "copy")
+  (send km map-function ":c:с" "copy") ;; russian cyrillic
+  
+  (send km map-function ":c:a" "select-all")
+  (send km map-function ":c:ф" "select-all") ;; russian cyrillic
+  
+  (send km map-function ":left" "backward-char")
+  (send km map-function ":right" "forward-char")
+  (send km map-function ":c:left" "backward-word")
+  (send km map-function ":c:right" "forward-word")
+  (send km map-function ":up" "previous-line")
+  (send km map-function ":down" "next-line")
+  (send km map-function ":home" "beginning-of-buffer")
+  (send km map-function ":end" "end-of-buffer")
+
+  (send km map-function ":wheelup" "wheel-up")
+  (send km map-function ":wheeldown" "wheel-down"))
+
+(set-default-messages-bindings messages-keymap)
+(send messages-keymap chain-to-keymap chatframe-keymap #t)
     
     (define custom-receive-canvas%
       (class editor-canvas%
@@ -221,19 +302,11 @@
                     wheel-step
                     min-height
                     vert-margin)
+        
         (define/override (on-char key-event)
-          (let ((key (send key-event get-key-code))
-                (control (send key-event get-control-down)))
-            (cond
-              ; ^c - copy selected text to clipboard
-              [(and (eqv? key #\c) (eq? control #t)) (send editor copy)]
-              ; scroll up/scroll down
-              [(eqv? key 'wheel-up) (repeat
-                                     (λ () (send editor move-position 'up))
-                                     wheel-step)]
-              [(eqv? key 'wheel-down) (repeat
-                                       (λ ()(send editor move-position 'down))
-                                       wheel-step)])))
+
+          (send messages-keymap handle-key-event editor key-event))
+        
         (super-new
          [parent parent]
          [label label]
@@ -482,10 +555,6 @@
 
     (define (init-editor-keymap)
       (let ([km (new keymap%)])
-        
-        (send km add-function "backward-word"
-              (lambda (editor kev)
-                (send editor move-position 'left)))
 
         (send km add-function "insert-clipboard"
               (lambda (editor kev)
@@ -523,7 +592,6 @@
         (send km add-function "delete-backward-char"
               (lambda (editor kev)
                 (send editor delete)))
-
 
         (send km add-function "delete-forward-char"
               (lambda (editor kev)
@@ -598,21 +666,15 @@
     (define (set-default-editor-bindings km)
       (send km map-function ":c:c" "copy")
       (send km map-function ":c:с" "copy") ;; russian cyrillic
-
       (send km map-function ":c:v" "insert-clipboard")
       (send km map-function ":c:м" "insert-clipboard") ;; russian cyrillic
-
       (send km map-function ":c:x" "cut")
       (send km map-function ":c:ч" "cut") ;; russian cyrillic
-
       (send km map-function ":c:a" "select-all")
       (send km map-function ":c:ф" "select-all") ;; russian cyrillic
-
-      (send km map-function ":~s:return" "send-and-clear")
-
+      (send km map-function "~s:return" "send-and-clear")
       (send km map-function ":s:return" "insert-newline")
       (send km map-function ":numpadenter" "insert-newline")
-
       (send km map-function ":backspace" "delete-backward-char")
       (send km map-function ":delete" "delete-forward-char")
       (send km map-function ":left" "backward-char")
@@ -623,16 +685,17 @@
       (send km map-function ":down" "next-line")
       (send km map-function ":home" "beginning-of-buffer")
       (send km map-function ":end" "end-of-buffer")
-
       (send km map-function ":wheelup" "wheel-up")
       (send km map-function ":wheeldown" "wheel-down")
       (send km map-function ":middlebutton" "insert-primary")
       (send km map-function ":s:insert" "insert-primary")
-      
       (send km map-function ":c:1" "special-insert-symbol")
       (send km map-function ":c:2" "special-insert-symbol")
       (send km map-function ":c:3" "special-insert-symbol")
       (send km map-function ":c:4" "special-insert-symbol"))
+
+(set-default-editor-bindings editor-keymap)
+(send editor-keymap chain-to-keymap chatframe-keymap #t)
 
     (define custom-editor-canvas%
       (class editor-canvas%
@@ -649,8 +712,6 @@
         ; wheel-up/wheel-down(?)
         (define/override (on-char key-event)
 
-          (set-default-editor-bindings editor-keymap)
-          (send editor-keymap chain-to-keymap chatframe-keymap #t)
           
           (when (not (send editor-keymap handle-key-event this-editor key-event))
               (let ((key (send key-event get-key-code)))
