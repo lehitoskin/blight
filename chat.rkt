@@ -52,6 +52,24 @@
                      (string (string-ref hexstr (+ j 1)))))))))
     bstr))
 
+(define (init-chatframe-keymap)
+  (let ([km (new keymap%)])
+    (send km add-function "close-chatframe"
+          (lambda (wdg kev)
+
+            (let ([chatframe (cond
+                    [(is-a? wdg text%) (send (send wdg get-canvas) get-parent)] ; key event from editor% 
+                    [(subclass? wdg frame%) wdg])]) ; key event from frame itself
+              (send chatframe show #f))))
+    km))
+
+(define chatframe-keymap (init-chatframe-keymap))
+
+(define (set-default-chatframe-bindings km)
+  (send km map-function ":c:w" "close-chatframe")
+  (send km map-function ":c:ь" "close-chatframe") ; russian cyrillic
+  )
+
 (define chat-window%
   (class frame%
     (inherit set-label)
@@ -59,6 +77,8 @@
                 this-width
                 this-height
                 this-tox)
+
+    (set-default-chatframe-bindings chatframe-keymap)
     
     (define friend-name "")
     (define friend-key "")
@@ -174,7 +194,6 @@
     ; close the current window
     (new menu-item% [parent menu-file]
          [label "&Close"]
-         [shortcut #\W]
          [help-string "Close Window"]
          [callback (λ (button event)
                      (send this show #f))])
@@ -459,6 +478,8 @@
     
     ; guess I need to override some shit to get the keys just right
 
+
+
     (define (init-editor-keymap)
       (let ([km (new keymap%)])
         
@@ -574,7 +595,7 @@
 
     (define editor-keymap (init-editor-keymap))
 
-    (define (set-default-keymap-bindings km)
+    (define (set-default-editor-bindings km)
       (send km map-function ":c:c" "copy")
       (send km map-function ":c:с" "copy") ;; russian cyrillic
 
@@ -628,7 +649,8 @@
         ; wheel-up/wheel-down(?)
         (define/override (on-char key-event)
 
-          (set-default-keymap-bindings editor-keymap)
+          (set-default-editor-bindings editor-keymap)
+          (send editor-keymap chain-to-keymap chatframe-keymap #t)
           
           (when (not (send editor-keymap handle-key-event this-editor key-event))
               (let ((key (send key-event get-key-code)))
