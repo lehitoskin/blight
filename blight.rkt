@@ -415,7 +415,7 @@ val is a value that corresponds to the value of the key
 (define help-get-text (new text%
                            [line-spacing 1.0]
                            [auto-wrap #t]))
-(send help-get-text change-style font-size-delta)
+(send help-get-text change-style black-style)
 (send help-get-text insert get-help-message)
 
 (define help-get-editor-canvas
@@ -443,7 +443,7 @@ val is a value that corresponds to the value of the key
 (define help-about-text (new text%
                              [line-spacing 1.0]
                              [auto-wrap #t]))
-(send help-about-text change-style font-size-delta)
+(send help-about-text change-style black-style)
 (send help-about-text insert license-message)
 
 ; canvas to print the license message
@@ -923,7 +923,7 @@ val is a value that corresponds to the value of the key
     (define friend-request-text (new text%
                                      [line-spacing 1.0]
                                      [auto-wrap #t]))
-    (send friend-request-text change-style font-size-delta)
+    (send friend-request-text change-style black-style)
     
     ; canvas to print the friend request message
     (define friend-request-editor-canvas (new editor-canvas%
@@ -980,7 +980,7 @@ val is a value that corresponds to the value of the key
                                     ; close and reset the friend request dialog
                                     (send friend-request-dialog show #f)
                                     (send friend-request-text clear)
-                                    (send friend-request-text change-style font-size-delta))]))
+                                    (send friend-request-text change-style black-style))]))
     (send friend-request-text insert (string-append
                                       id-hex
                                       "\nwould like to add you as a friend!\n"
