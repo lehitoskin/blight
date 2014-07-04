@@ -21,8 +21,18 @@
 (define chat-clipboard the-clipboard)
 (send chat-clipboard-client add-type "TEXT")
 
-(define font-size-delta
-  (make-object style-delta% 'change-size 10))
+; normal black
+(define color-black (make-object color% "black"))
+; a darker green than "green", which looks nicer on a white background
+(define color-green (make-object color% 35 135 0))
+
+(define black-style (make-object style-delta% 'change-size 10))
+; make this style black
+(void (send black-style set-delta-foreground color-black))
+
+(define green-style (make-object style-delta% 'change-size 10))
+; make this style green, for the greentext
+(void (send green-style set-delta-foreground color-green))
 
 ; TODO: make tail-recursive (start at (bytes-length bstr) and end at 0)
 (define bytes->hex-string
@@ -69,6 +79,13 @@
   (send km map-function ":c:w" "close-chatframe")
   (send km map-function ":c:ц" "close-chatframe") ; russian cyrillic
   )
+
+; procedure to imply things
+(define imply
+  (λ (editor msg)
+    (send editor change-style green-style)
+    (send editor insert (string-append msg "\n"))
+    (send editor change-style black-style)))
 
 (define chat-window%
   (class frame%
@@ -217,7 +234,7 @@
     (define chat-text-receive (new text%
                                    [line-spacing 1.0]
                                    [auto-wrap #t]))
-    (send chat-text-receive change-style font-size-delta)
+    (send chat-text-receive change-style black-style)
     
     
     (define (init-messages-keymap)
@@ -520,8 +537,11 @@
                   [(= (send chat-text-receive get-start-position)
                       (send chat-text-receive get-end-position))
                    (send chat-text-receive insert
-                         (string-append "[" (get-time) "] Me: "
-                                        (bytes->string/utf-8 byte-str) "\n"))])
+                         (string-append "[" (get-time) "] Me: "))
+                   (if (bytes=? (subbytes byte-str 0 1) #">")
+                       (imply chat-text-receive (bytes->string/utf-8 byte-str))
+                       (send chat-text-receive insert
+                             (string-append (bytes->string/utf-8 byte-str) "\n")))])
             (send-message this-tox friend-num msg-bytes (bytes-length byte-str))))
         (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
                ; if the message is greater than twice our max length, split it
@@ -566,7 +586,7 @@
     (define chat-text-send (new text%
                                 [line-spacing 1.0]
                                 [auto-wrap #t]))
-    (send chat-text-send change-style font-size-delta)
+    (send chat-text-send change-style black-style)
     
     ; guess I need to override some shit to get the keys just right
     
@@ -602,7 +622,7 @@
                   (let ((msg-bytes (string->bytes/utf-8 (send editor get-text))))
                     (do-send-message editor msg-bytes)
                     (send editor erase)
-                    (send editor change-style font-size-delta)))))
+                    (send editor change-style black-style)))))
         
         (send km add-function "insert-newline"
               (lambda (editor kev)

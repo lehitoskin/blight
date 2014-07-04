@@ -99,7 +99,7 @@
     (define group-text-receive (new text%
                                     [line-spacing 1.0]
                                     [auto-wrap #t]))
-    (send group-text-receive change-style font-size-delta)
+    (send group-text-receive change-style black-style)
     
     (define custom-receive-canvas%
       (class editor-canvas%
@@ -351,7 +351,7 @@
     (define group-text-send (new text%
                                  [line-spacing 1.0]
                                  [auto-wrap #t]))
-    (send group-text-send change-style font-size-delta)
+    (send group-text-send change-style black-style)
     
     ; guess I need to override some shit to get the keys just right
     (define custom-editor-canvas%
@@ -389,7 +389,7 @@
                  (let ((msg-bytes (string->bytes/utf-8 (send this-editor get-text))))
                    (do-send-message this-editor msg-bytes)
                    (send this-editor erase)
-                   (send this-editor change-style font-size-delta)))]
+                   (send this-editor change-style black-style)))]
               ; shift-enter adds a newline to the text area
               [(and (eqv? key #\return) (eq? shift #t)) (send this-editor insert "\n")]
               ; enter on the keypad adds a newline to the text area

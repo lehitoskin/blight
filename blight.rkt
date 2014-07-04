@@ -999,12 +999,20 @@ val is a value that corresponds to the value of the key
                      (send editor get-end-position)))
              (send editor move-position 'end)
              (send editor insert
-                   (string-append "[" (get-time) "] " name ": " message "\n"))]
+                   (string-append "[" (get-time) "] " name ": "))
+             ; implying
+             (if (string=? (substring message 0 1) ">")
+                 (imply editor message)
+                 (send editor insert (string-append message "\n")))]
             ; otherwise just insert the message
             [(= (send editor get-start-position)
                 (send editor get-end-position))
              (send editor insert
-                   (string-append "[" (get-time) "] " name ": " message "\n"))])
+                   (string-append "[" (get-time) "] " name ": "))
+             ; implying
+             (if (string=? (substring message 0 1) ">")
+                 (imply editor message)
+                 (send editor insert (string-append message "\n")))])
       ; make a noise
       (unless (false? make-noise)
         (play-sound (first sounds) #t))
@@ -1234,12 +1242,20 @@ val is a value that corresponds to the value of the key
                      (send editor get-end-position)))
              (send editor move-position 'end)
              (send editor insert
-                   (string-append "[" (get-time) "] " name ": " message "\n"))]
+                   (string-append "[" (get-time) "] " name ": "))
+             ; implying
+             (if (string=? (substring message 0 1) ">")
+                 (imply editor message)
+                 (send editor insert (string-append message "\n")))]
             ; otherwise just insert the message
             [(= (send editor get-start-position)
                 (send editor get-end-position))
              (send editor insert
-                   (string-append "[" (get-time) "] " name ": " message "\n"))]))))
+                   (string-append "[" (get-time) "] " name ": "))
+             ; implying
+             (if (string=? (substring message 0 1) ">")
+                 (imply editor message)
+                 (send editor insert (string-append message "\n")))]))))
 
 (define on-group-action
   (λ (mtox groupnumber friendgroupnumber action len userdata)
