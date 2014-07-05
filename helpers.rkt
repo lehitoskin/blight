@@ -68,13 +68,12 @@
 
 ; procedure to remove a specific node in a list
 (define/contract delnode
-  (-> list? integer? (or/c null? list?))
+  (-> list? (and/c integer? (negate negative?)) list?)
   (λ (lst num)
-    (cond [(null? lst) null]
-          [(or (< num 0) (>= num (length lst))) (raise-range-error 'delnode "list"
-                                                                   "given " num lst
-                                                                   0 (- (length lst) 1))]
-          [else (flatten (cons (take lst num) (drop lst (+ num 1))))])))
+    (when (>= num (length lst))
+      (raise-range-error 'delnode "list" "given " num lst 0 (sub1 (length lst))))
+    (append (take lst num)
+            (drop lst (add1 num)))))
 
 ; procedure to replace a specific node in a list
 (define/contract setnode
