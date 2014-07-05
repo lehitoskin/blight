@@ -69,8 +69,12 @@
 (check-equal? (delnode '(1) 0) '())
 (check-equal? (delnode '(1 2 3) 0) '(2 3))
 (check-equal? (delnode '(1 2 3) 2) '(1 2))
-;(check-equal? (delnode '() 0) '())
-;(check-equal? (delnode '() 10) '()) ; Is this behavior wanted?
+(check-exn exn:fail:contract?
+           (λ ()
+             (delnode '() 0) '()))
+(check-exn exn:fail:contract?
+           (λ ()
+             (delnode '() 10) '()))
 (check-exn exn:fail:contract?
            (λ ()
              (delnode '(1 2 3) 4)))
@@ -95,10 +99,9 @@
 (check-exn exn:fail:contract?
            (λ ()
              (setnode '(1 2 3) 10 10)))
-;(check-exn exn:fail:contract?
-;           (λ ()
-;             (setnode '() 0 0)))
-;(check-equal? (setnode '() 'weird 0)) ; Is this behavior wanted?
+(check-exn exn:fail:contract?
+           (λ ()
+             (setnode '() 0 0)))
 
 ; linky?
 ; need to understand GUI better before implementing or testing this
