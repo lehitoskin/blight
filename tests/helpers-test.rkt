@@ -69,9 +69,8 @@
 (check-equal? (delnode '(1) 0) '())
 (check-equal? (delnode '(1 2 3) 0) '(2 3))
 (check-equal? (delnode '(1 2 3) 2) '(1 2))
-(check-exn exn:fail:contract?
-           (λ ()
-             (delnode '() 0)))
+(check-equal? (delnode '() 0) '())
+(check-equal? (delnode '() 10) '()) ; Is this behavior wanted?
 (check-exn exn:fail:contract?
            (λ ()
              (delnode '(1 2 3) 4)))
