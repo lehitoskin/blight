@@ -1244,7 +1244,8 @@ val is a value that corresponds to the value of the key
              (send editor insert
                    (string-append "[" (get-time) "] " name ": "))
              ; implying
-             (if (string=? (substring message 0 1) ">")
+             (if (and (not (zero? (string-length message)))
+                      (string=? (substring message 0 1) ">"))
                  (imply editor message)
                  (send editor insert (string-append message "\n")))]
             ; otherwise just insert the message
@@ -1253,7 +1254,8 @@ val is a value that corresponds to the value of the key
              (send editor insert
                    (string-append "[" (get-time) "] " name ": "))
              ; implying
-             (if (string=? (substring message 0 1) ">")
+             (if (and (not (zero? (string-length message)))
+                      (string=? (substring message 0 1) ">"))
                  (imply editor message)
                  (send editor insert (string-append message "\n")))]))))
 
