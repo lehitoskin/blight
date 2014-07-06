@@ -225,15 +225,13 @@ val is a value that corresponds to the value of the key
 
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the list
-(unless (zero? initial-num-friends)
-  (do ((i 1 (+ i 1)))
-    ((= i initial-num-friends))
-    (let ((new-window (new chat-window%
-                           [this-label "a"]
-                           [this-width 400]
-                           [this-height 600]
-                           [this-tox my-tox])))
-      (set! friend-list (append friend-list (list new-window))))))
+(for ([i (in-range 1 initial-num-friends)])
+  (let ((new-window (new chat-window%
+                         [this-label "a"]
+                         [this-width 400]
+                         [this-height 600]
+                         [this-tox my-tox])))
+    (set! friend-list (append friend-list (list new-window)))))
 
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
