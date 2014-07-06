@@ -206,8 +206,6 @@ val is a value that corresponds to the value of the key
                           (set-user-status my-tox (_TOX_USERSTATUS-index 'BUSY))]))]))
 
 #| ################## BEGIN FRIEND LIST STUFF #################### |#
-; obtain number of friends
-(define initial-num-friends (friendlist-length my-tox))
 
 (define group-list (list (new group-window%
                               [this-label "Blight - Groupchat #0"]
@@ -218,7 +216,7 @@ val is a value that corresponds to the value of the key
 
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the list
-(define friend-list (for/list ([i (in-range initial-num-friends)])
+(define friend-list (for/list ([i (in-range (friendlist-length my-tox))])
                       (new chat-window%
                            [this-label "a"]
                            [this-width 400]
