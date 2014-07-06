@@ -197,13 +197,8 @@ val is a value that corresponds to the value of the key
                   "Away"
                   "Busy")]
        [selection (get-self-user-status my-tox)]
-       [callback (λ (l e)
-                   (cond [(= (send l get-selection) (_TOX_USERSTATUS-index 'NONE))
-                          (set-user-status my-tox (_TOX_USERSTATUS-index 'NONE))]
-                         [(= (send l get-selection) (_TOX_USERSTATUS-index 'AWAY))
-                          (set-user-status my-tox (_TOX_USERSTATUS-index 'AWAY))]
-                         [(= (send l get-selection) (_TOX_USERSTATUS-index 'BUSY))
-                          (set-user-status my-tox (_TOX_USERSTATUS-index 'BUSY))]))]))
+       [callback (λ (choice control-event)
+                   (set-user-status my-tox (send choice get-selection)))]))
 
 #| ################## BEGIN FRIEND LIST STUFF #################### |#
 
