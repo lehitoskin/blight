@@ -160,31 +160,25 @@ val is a value that corresponds to the value of the key
 ; make a frame by instantiating the frame% class
 (define frame (new frame%
                    [label "Blight - Friend List"]
-                   [width 400]
-                   [height 300]
-                   [x 0]
-                   [y 0]))
+                   [stretchable-width #t]
+                   [height 300]))
 
 ; make a static text message in the frame
 (define frame-msg (new message%
                        [parent frame]
-                       [label "Blight Friend List"]
-                       [min-width 40]))
+                       [label "Blight Friend List"]))
 
 (define username-frame-message (new message%
                                     [parent frame]
-                                    [label my-name]
-                                    [min-width
-                                     (bytes-length
-                                      (string->bytes/utf-8 my-name))]))
+                                    [label my-name]))
+
+
 (send username-frame-message auto-resize #t)
 
 (define status-frame-message (new message%
                                   [parent frame]
-                                  [label my-status-message]
-                                  [min-width
-                                   (bytes-length
-                                    (string->bytes/utf-8 my-status-message))]))
+                                  [label my-status-message]))
+
 (send status-frame-message auto-resize #t)
 
 ; choices for status type changes
@@ -192,7 +186,7 @@ val is a value that corresponds to the value of the key
   (new choice%
        [parent frame]
        [label ""]
-       [min-width 400]
+       [stretchable-width #t]
        [choices '("Available"
                   "Away"
                   "Busy")]
