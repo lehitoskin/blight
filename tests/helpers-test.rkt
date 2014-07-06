@@ -64,5 +64,44 @@
            (λ ()
              (tox-id? 0)))
 
+; delnode
+(check-equal? (delnode '(1 2 3 4 5) 2) '(1 2 4 5))
+(check-equal? (delnode '(1) 0) '())
+(check-equal? (delnode '(1 2 3) 0) '(2 3))
+(check-equal? (delnode '(1 2 3) 2) '(1 2))
+(check-exn exn:fail:contract?
+           (λ ()
+             (delnode '() 0) '()))
+(check-exn exn:fail:contract?
+           (λ ()
+             (delnode '() 10) '()))
+(check-exn exn:fail:contract?
+           (λ ()
+             (delnode '(1 2 3) 4)))
+(check-exn exn:fail:contract?
+           (λ ()
+             (delnode '(1 2 3 4) -1)))
+(check-exn exn:fail:contract?
+           (λ ()
+             (delnode '(1 2 3 4) 3/4)))
+
+; setnode
+(check-equal? (setnode '(1 2 3) 'one 0) '(one 2 3))
+(check-equal? (setnode '(1 2 3) 'two 1) '(1 two 3))
+(check-equal? (setnode '(1 2 3) 'three 2) '(1 2 three))
+(check-equal? (setnode '(0) 'alone 0) '(alone))
+(check-exn exn:fail:contract?
+           (λ ()
+             (setnode '(1 2 3) -1 'cons-me)))
+(check-exn exn:fail:contract?
+           (λ ()
+             (setnode '(1 2 3) 3/4 'hogwarts-express)))
+(check-exn exn:fail:contract?
+           (λ ()
+             (setnode '(1 2 3) 10 10)))
+(check-exn exn:fail:contract?
+           (λ ()
+             (setnode '() 0 0)))
+
 ; linky?
 ; need to understand GUI better before implementing or testing this

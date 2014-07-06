@@ -68,23 +68,38 @@
 
 ; procedure to remove a specific node in a list
 (define/contract delnode
-  (-> list? integer? (or/c null? list?))
+  (-> list? (and/c integer? (negate negative?)) list?)
   (λ (lst num)
-    (cond [(null? lst) null]
-          [(or (< num 0) (>= num (length lst))) (raise-range-error 'delnode "list"
-                                                                   "given " num lst
-                                                                   0 (- (length lst) 1))]
-          [else (flatten (cons (take lst num) (drop lst (+ num 1))))])))
+    (when (>= num (length lst))
+      (raise-range-error 'delnode "list" "given " num lst 0 (sub1 (length lst))))
+    (append (take lst num)
+            (drop lst (add1 num)))))
 
 ; procedure to replace a specific node in a list
 (define/contract setnode
-  (-> list? any/c integer? list?)
+  (-> list? any/c (and/c integer? (negate negative?)) list?)
   (λ (lst node num)
-    (cond [(null? lst) (flatten (append lst node))]
-          [(or (< num 0) (>= num (length lst))) (raise-range-error 'setnode "list"
-                                                                   "given " num lst
-                                                                   0 (- (length lst) 1))]
-          [else (flatten (cons (append (take lst num) node) (drop lst (+ num 1))))])))
+    (when (>= num (length lst))
+      (raise-range-error 'setnode "list" "given " num lst 0 (sub1 (length lst))))
+    ;; This will be a bit of a hack due to poor stdlib support. There is a
+    ;; third party library that can handle this, but lethoskin has to be
+    ;; convinced to use it first.
+    ;; http://planet.racket-lang.org/display.ss?package=ralist.plt&owner=dvanhorn
+    ;;
+    ;; There's also a list-set that can be found in the unsafe section of
+    ;; the stdlib, but that part of the library is unsafe.
+    ;;
+    ;; Anyway, lists don't have list-set because vectors are supposed to be
+    ;; used for random access lookup, but vectors don't have vector-set
+    ;; because they aren't supported very well. Lists are also immutable so
+    ;; they have to be converted into a vector before they can be mutated.
+    ;;
+    ;; Forgive me lisp alien, for I have sinned!
+    (define a-vector (list->vector lst))
+    (vector-set! a-vector num node)
+    (vector->list a-vector)))
+    
+                 
 
 ; get the current time formatted to HH:MM:SS
 (define get-time
