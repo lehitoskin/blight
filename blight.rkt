@@ -209,13 +209,6 @@ val is a value that corresponds to the value of the key
 ; obtain number of friends
 (define initial-num-friends (friendlist-length my-tox))
 
-; we want at least one chat window
-(define friend-list (list (new chat-window%
-                               [this-label "a"]
-                               [this-width 400]
-                               [this-height 600]
-                               [this-tox my-tox])))
-
 (define group-list (list (new group-window%
                               [this-label "Blight - Groupchat #0"]
                               [this-height 600]
@@ -225,13 +218,12 @@ val is a value that corresponds to the value of the key
 
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the list
-(for ([i (in-range 1 initial-num-friends)])
-  (let ((new-window (new chat-window%
-                         [this-label "a"]
-                         [this-width 400]
-                         [this-height 600]
-                         [this-tox my-tox])))
-    (set! friend-list (append friend-list (list new-window)))))
+(define friend-list (for/list ([i (in-range initial-num-friends)])
+                      (new chat-window%
+                           [this-label "a"]
+                           [this-width 400]
+                           [this-height 600]
+                           [this-tox my-tox])))
 
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
