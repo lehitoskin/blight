@@ -821,13 +821,14 @@ val is a value that corresponds to the value of the key
                    ; spawn a new one
                    (cond [(zero? (length group-list))
                           (set! group-list
-                                (setnode group-list
+                                (append group-list
+                                        (list
                                          (new group-window%
                                               [this-label "Blight - Groupchat #0"]
                                               [this-height 600]
                                               [this-width 800]
                                               [this-tox my-tox]
-                                              [group-number 0]) 0))])
+                                              [group-number 0]))))])
                    (let ((err (add-groupchat my-tox)))
                      (cond
                        ; there's more than one groupchat
@@ -1206,13 +1207,14 @@ val is a value that corresponds to the value of the key
         ; spawn a new one
         (cond [(zero? (length group-list))
                (set! group-list
-                     (setnode group-list
+                     (append group-list
+                             (list
                               (new group-window%
                                    [this-label "Blight - Groupchat #0"]
                                    [this-height 600]
                                    [this-width 800]
                                    [this-tox my-tox]
-                                   [group-number 0]) 0))])
+                                   [group-number 0]))))])
         (define err (join-groupchat mtox friendnumber group-public-key))
         (cond [(> err 0)
                (set! group-list
