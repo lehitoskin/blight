@@ -230,7 +230,7 @@ val is a value that corresponds to the value of the key
                       (define window (if (< selection (length friend-list))
                                          (findf (λ (friend)
                                                   (string=? (send list-box get-data selection)
-                                                            (send friend get-key) friend))
+                                                            (send friend get-key friend)))
                                                 friend-list)
                                          (findf (lambda (group)
                                                   (= (send group get-group-number) (- selection (length friend-list))))
