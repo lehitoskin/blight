@@ -230,10 +230,11 @@ val is a value that corresponds to the value of the key
                       (define window (if (< selection (length friend-list))
                                          (findf (λ (friend)
                                                   (string=? (send list-box get-data selection)
-                                                            (send friend get-key friend)))
+                                                            (send friend get-key)))
                                                 friend-list)
-                                         (findf (lambda (group)
-                                                  (= (send group get-group-number) (- selection (length friend-list))))
+                                         (findf (λ (group)
+                                                  (= (send group get-group-number)
+                                                     (- selection (length friend-list))))
                                                 group-list)))
                       (send window show #t)]
                      [_ (void)]))]))
@@ -625,11 +626,12 @@ val is a value that corresponds to the value of the key
                            [alignment '(center center)]))
 
 ; message to send as a friend request
-(define add-friend-message-tfield (new text-field%
-                                       [parent message-panel]
-                                       [label ""]
-                                       [min-width 38]
-                                       [init-value "Please let me add you to my contact list"]))
+(define add-friend-message-tfield
+  (new text-field%
+       [parent message-panel]
+       [label ""]
+       [min-width 38]
+       [init-value "Please let me add you to my contact list"]))
 
 ; panel for the buttons
 (define add-friend-panel (new horizontal-panel%
@@ -817,7 +819,8 @@ val is a value that corresponds to the value of the key
                        ; remove from list-box
                        (send list-box delete num)
                        ; remove from list
-                       (set! group-list (delnode group-list (- num (length friend-list)))))))]))
+                       (set! group-list (delnode group-list
+                                                 (- num (length friend-list)))))))]))
 #| ####################### END GROUP STUFF ########################## |#
 
 ; send friend request
