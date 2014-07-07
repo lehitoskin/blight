@@ -160,31 +160,25 @@ val is a value that corresponds to the value of the key
 ; make a frame by instantiating the frame% class
 (define frame (new frame%
                    [label "Blight - Friend List"]
-                   [width 400]
-                   [height 300]
-                   [x 0]
-                   [y 0]))
+                   [stretchable-width #t]
+                   [height 300]))
 
 ; make a static text message in the frame
 (define frame-msg (new message%
                        [parent frame]
-                       [label "Blight Friend List"]
-                       [min-width 40]))
+                       [label "Blight Friend List"]))
 
 (define username-frame-message (new message%
                                     [parent frame]
-                                    [label my-name]
-                                    [min-width
-                                     (bytes-length
-                                      (string->bytes/utf-8 my-name))]))
+                                    [label my-name]))
+
+
 (send username-frame-message auto-resize #t)
 
 (define status-frame-message (new message%
                                   [parent frame]
-                                  [label my-status-message]
-                                  [min-width
-                                   (bytes-length
-                                    (string->bytes/utf-8 my-status-message))]))
+                                  [label my-status-message]))
+
 (send status-frame-message auto-resize #t)
 
 ; choices for status type changes
@@ -192,29 +186,15 @@ val is a value that corresponds to the value of the key
   (new choice%
        [parent frame]
        [label ""]
-       [min-width 400]
+       [stretchable-width #t]
        [choices '("Available"
                   "Away"
                   "Busy")]
        [selection (get-self-user-status my-tox)]
-       [callback (λ (l e)
-                   (cond [(= (send l get-selection) (_TOX_USERSTATUS-index 'NONE))
-                          (set-user-status my-tox (_TOX_USERSTATUS-index 'NONE))]
-                         [(= (send l get-selection) (_TOX_USERSTATUS-index 'AWAY))
-                          (set-user-status my-tox (_TOX_USERSTATUS-index 'AWAY))]
-                         [(= (send l get-selection) (_TOX_USERSTATUS-index 'BUSY))
-                          (set-user-status my-tox (_TOX_USERSTATUS-index 'BUSY))]))]))
+       [callback (λ (choice control-event)
+                   (set-user-status my-tox (send choice get-selection)))]))
 
 #| ################## BEGIN FRIEND LIST STUFF #################### |#
-; obtain number of friends
-(define initial-num-friends (friendlist-length my-tox))
-
-; we want at least one chat window
-(define friend-list (list (new chat-window%
-                               [this-label "a"]
-                               [this-width 400]
-                               [this-height 600]
-                               [this-tox my-tox])))
 
 (define group-list (list (new group-window%
                               [this-label "Blight - Groupchat #0"]
@@ -225,15 +205,12 @@ val is a value that corresponds to the value of the key
 
 ; loop through and create as many chat-window%'s
 ; as there are friends and add them to the list
-(unless (zero? initial-num-friends)
-  (do ((i 1 (+ i 1)))
-    ((= i initial-num-friends))
-    (let ((new-window (new chat-window%
+(define friend-list (for/list ([i (in-range (friendlist-length my-tox))])
+                      (new chat-window%
                            [this-label "a"]
                            [this-width 400]
                            [this-height 600]
                            [this-tox my-tox])))
-      (set! friend-list (append friend-list (list new-window))))))
 
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
@@ -246,43 +223,20 @@ val is a value that corresponds to the value of the key
        [min-height 250]
        [style (list 'single 'vertical-label)]
        [choices (list "Test")]
-       [callback (λ (l e)
-                   ; when double click, open the window
-                   (when (eq? (send e get-event-type)
-                              'list-box-dclick)
-                     (let ((selection (send l get-selection)))
-                       ; look for the friend's key in the list
-                       ; and associate the open window with the friend's name
-                       (define friend-name-checker
-                         (λ (num)
-                           (define friend-key (send l get-data selection))
-                           (if (= num (length friend-list))
-                               (list-ref friend-list (- (length friend-list) 1))
-                               (cond [; check friend public key
-                                      (string=?
-                                       friend-key
-                                       (send (list-ref friend-list num) get-key))
-                                      ; return the chat window
-                                      (list-ref friend-list num)]
-                                     ; otherwise, keep looping
-                                     [else (friend-name-checker (+ num 1))]))))
-                       (define group-num-checker
-                         (λ (num)
-                           (define group-num (- selection (length friend-list)))
-                           (if (= num (length group-list))
-                               (list-ref group-list (- (length group-list) 1))
-                               (cond [(= group-num
-                                         (send
-                                          (list-ref group-list num)
-                                          get-group-number))
-                                      (list-ref group-list num)]
-                                     [else (group-num-checker (+ num 1))]))))
-                       (define window (if (<= selection (- (length friend-list) 1))
-                                          (friend-name-checker 0)
-                                          (group-num-checker 0)))
-                       ; check if we're already chatting
-                       (unless (send window is-shown?)
-                         (send window show #t)))))]))
+       [callback (λ (list-box control-event)
+                   (match (send control-event get-event-type)
+                     ['list-box-dclick
+                      (define selection (send list-box get-selection))
+                      (define window (if (< selection (length friend-list))
+                                         (findf (λ (friend)
+                                                  (string=? (send list-box get-data selection)
+                                                            (send friend get-key friend)))
+                                                friend-list)
+                                         (findf (lambda (group)
+                                                  (= (send group get-group-number) (- selection (length friend-list))))
+                                                group-list)))
+                      (send window show #t)]
+                     [_ (void)]))]))
 
 ; set data for each item in list-box
 ; data may be arbitrary, but a label will suffice
