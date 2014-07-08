@@ -298,6 +298,7 @@ val is a value that corresponds to the value of the key
 ; panel for choice and buttons
 (define panel (new horizontal-panel%
                    [parent frame]
+                   [stretchable-height #f]
                    [alignment (list 'right 'center)]))
 #| ################## END FRIEND LIST STUFF #################### |#
 
