@@ -353,6 +353,7 @@
     
     (define panel (new horizontal-panel%
                        [parent chat-frame]
+                       [stretchable-height #f]
                        [alignment '(right center)]))
     
     (define emoji-button (new button%
@@ -764,7 +765,8 @@
          [style this-style]
          [wheel-step this-wheel-step]
          [min-height this-min-height]
-         [vert-margin this-vert-margin])))
+         [vert-margin this-vert-margin]
+         [stretchable-height #f])))
     
     ; an editor canvas where text% messages will appear
     (define chat-editor-canvas-send (new custom-editor-canvas%
