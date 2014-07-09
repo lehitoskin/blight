@@ -338,7 +338,13 @@
         (define do-send
           (λ (byte-str)
             ; only need to send message through tox, will echo through callback
-            (group-message-send this-tox group-number msg-bytes (bytes-length byte-str))))
+            ; parse for /commands
+            (cond [(and (> (bytes-length byte-str) 4)
+                        (bytes=? (subbytes byte-str 0 4) #"/me "))
+                   (group-action-send this-tox group-number (subbytes byte-str 4)
+                                      (bytes-length byte-str))]
+                  [else (group-message-send this-tox group-number byte-str
+                                            (bytes-length byte-str))])))
         (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
                ; if the message is greater than twice our max length, split it
                ; into three chunks

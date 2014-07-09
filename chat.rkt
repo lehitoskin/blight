@@ -68,8 +68,10 @@
           (lambda (wdg kev)
             
             (let ([chatframe (cond
-                               [(is-a? wdg text%) (send (send wdg get-canvas) get-parent)] ; key event from editor% 
-                               [(subclass? wdg frame%) wdg])]) ; key event from frame itself
+                               ; key event from editor%
+                               [(is-a? wdg text%) (send (send wdg get-canvas) get-parent)]
+                               ; key event from frame itself
+                               [(subclass? wdg frame%) wdg])])
               (send chatframe show #f))))
     km))
 
@@ -531,19 +533,59 @@
             (cond [(not (= (send chat-text-receive get-start-position)
                            (send chat-text-receive get-end-position)))
                    (send chat-text-receive move-position 'end)
-                   (send chat-text-receive insert
-                         (string-append "[" (get-time) "] Me: "
-                                        (bytes->string/utf-8 byte-str) "\n"))]
+                   ; parse for /commands, >implying
+                   (cond
+                     ; we're >implying something
+                     [(bytes=? (subbytes byte-str 0 1) #">")
+                      (send chat-text-receive insert
+                            (string-append "[" (get-time) "] Me: "))
+                      (imply chat-text-receive (bytes->string/utf-8 byte-str))
+                      (send-message this-tox friend-num byte-str (bytes-length byte-str))]
+                     ; we're sending an action!
+                     [(and (> (bytes-length byte-str) 4)
+                           (bytes=? (subbytes byte-str 0 4) #"/me "))
+                      (send chat-text-receive insert
+                            (string-append "** [" (get-time) "] Me "))
+                      (send chat-text-receive insert
+                            (bytes->string/utf-8 (bytes-append
+                                                  (subbytes byte-str 4) #"\n")))
+                      (send-action this-tox friend-num
+                                   (subbytes byte-str 4) (bytes-length byte-str))]
+                     ; we're not doing anything special
+                     [else (send chat-text-receive insert
+                                 (string-append "[" (get-time) "] Me: "))
+                           (send chat-text-receive insert
+                                 (bytes->string/utf-8 (bytes-append byte-str #"\n")))
+                           (send-message this-tox friend-num byte-str
+                                         (bytes-length byte-str))])]
                   ; otherwise just insert the message
                   [(= (send chat-text-receive get-start-position)
                       (send chat-text-receive get-end-position))
-                   (send chat-text-receive insert
-                         (string-append "[" (get-time) "] Me: "))
-                   (if (bytes=? (subbytes byte-str 0 1) #">")
-                       (imply chat-text-receive (bytes->string/utf-8 byte-str))
-                       (send chat-text-receive insert
-                             (string-append (bytes->string/utf-8 byte-str) "\n")))])
-            (send-message this-tox friend-num msg-bytes (bytes-length byte-str))))
+                   ; parse for /commands, >greentext
+                   (cond
+                     ; we're >implying something
+                     [(bytes=? (subbytes byte-str 0 1) #">")
+                      (send chat-text-receive insert
+                            (string-append "[" (get-time) "] Me: "))
+                      (imply chat-text-receive (bytes->string/utf-8 byte-str))
+                      (send-message this-tox friend-num byte-str (bytes-length byte-str))]
+                     ; we're sending an action!
+                     [(and (> (bytes-length byte-str) 4)
+                           (bytes=? (subbytes byte-str 0 4) #"/me "))
+                      (send chat-text-receive insert
+                            (string-append "** [" (get-time) "] Me "))
+                      (send chat-text-receive insert
+                            (bytes->string/utf-8 (bytes-append
+                                                  (subbytes byte-str 4) #"\n")))
+                      (send-action this-tox friend-num
+                                   (subbytes byte-str 4) (bytes-length byte-str))]
+                     ; we're not doing anything special
+                     [else (send chat-text-receive insert
+                                 (string-append "[" (get-time) "] Me: "))
+                           (send chat-text-receive insert
+                                 (bytes->string/utf-8 (bytes-append byte-str #"\n")))
+                           (send-message this-tox friend-num byte-str
+                                         (bytes-length byte-str))])])))
         (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
                ; if the message is greater than twice our max length, split it
                ; into three chunks
