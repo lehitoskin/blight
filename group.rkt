@@ -149,9 +149,17 @@
     
     (define group-list-box (new list-box%
                                 [parent topside-panel]
-                                [label "0 Peers"]
+                                [label "0 Peers   "]
                                 [style (list 'single 'vertical-label)]
-                                [choices (list "Me")]))
+                                [choices (list "Me")]
+                                [callback (λ (list-box control-event)
+                                            (match (send control-event get-event-type)
+                                              ['list-box-dclick
+                                               (define selection (send list-box get-selection))
+                                               (define nick
+                                                 (send list-box get-string selection))
+                                               (send group-text-send insert nick)]
+                                              [_ (void)]))]))
     
     (define panel (new horizontal-panel%
                        [parent group-frame]
