@@ -141,16 +141,17 @@
                                              [label "Messages received"]
                                              [editor group-text-receive]
                                              [min-height 400]
+                                             [min-width (- this-width 100)]
                                              [vert-margin 5]
                                              [style (list 'control-border 'no-hscroll
                                                           'auto-vscroll)]
-                                             [wheel-step 3]
-                                             [min-width (- this-width 100)]))
+                                             [wheel-step 3]))
     
     (define group-list-box (new list-box%
                                 [parent topside-panel]
                                 [label "0 Peers   "]
                                 [style (list 'single 'vertical-label)]
+                                [stretchable-width 200]
                                 [choices (list "Me")]
                                 [callback (λ (list-box control-event)
                                             (match (send control-event get-event-type)

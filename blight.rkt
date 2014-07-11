@@ -97,7 +97,10 @@ val is a value that corresponds to the value of the key
        (define size (file-size data-file))
        ; no conversions necessary because bytes-ref reports a decimal value
        (define my-bytes (file->bytes data-file #:mode 'binary))
-       (printf "Loading from data file... ~a\n" (tox-load my-tox my-bytes size))])
+       (display "Loading from data file... ")
+       (if (zero? (tox-load my-tox my-bytes size))
+           (displayln "Done!")
+           (displayln "Loading failed!"))])
 
 ; obtain our tox id
 (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
@@ -116,12 +119,12 @@ val is a value that corresponds to the value of the key
        (displayln "Connected!")]
       [else (unless (false? make-noise)
               (play-sound (last sounds) #t))
-            (displayln "Did not connect!")])
+            (displayln "Connection failed!")])
 
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
   (λ ()
-    (displayln "Saving data...")
+    (display "Saving data... ")
     ; necessary for saving the messenger
     (define size (tox-size my-tox))
     (define data-bytes (make-bytes size))
@@ -265,7 +268,7 @@ val is a value that corresponds to the value of the key
     (define num-groups (count-chatlist my-tox))
     (unless (zero? num-friends)
       (send list-box clear)
-      (define friend-name-buf (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+      (define friend-name-buf (make-bytes TOX_MAX_NAME_LENGTH))
       (define friend-key-buf (make-bytes TOX_CLIENT_ID_SIZE))
       ; loop until we get all our friends
       (do ((window-num 0 (+ window-num 1)))
@@ -277,6 +280,10 @@ val is a value that corresponds to the value of the key
           (get-client-id my-tox window-num friend-key-buf)
           (define friend-key-text (bytes->hex-string friend-key-buf TOX_CLIENT_ID_SIZE))
           (define friend-num (get-friend-number my-tox friend-key-buf))
+          ; get our friend's status
+          (define len (get-status-message-size my-tox window-num))
+          (define friend-status-buf (make-bytes len))
+          (get-status-message my-tox window-num friend-status-buf len)
           ; add to the friend list
           (send list-box append (string-append "(X) " friend-name-text) friend-key-text)
           ; make sure friend numbering is correct
@@ -284,8 +291,12 @@ val is a value that corresponds to the value of the key
           ; add to the list
           (send (list-ref friend-list window-num) set-name friend-name-text)
           (send (list-ref friend-list window-num) set-key friend-key-text)
+          ; modify the window's frame message and add username
           (send (list-ref friend-list window-num) set-new-label
                 (string-append "Blight - " friend-name-text))
+          ; modify window's secondary frame message and add status
+          (send (list-ref friend-list window-num) set-status-msg
+                (bytes->string/utf-8 friend-status-buf))
           ; update our friends' status icon
           (status-checker window-num (get-friend-connection-status my-tox window-num)))))
     ; add the current groupchats to the bottom of the list

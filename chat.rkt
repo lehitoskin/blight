@@ -218,12 +218,19 @@
                      (send this show #f))])
     
     ; make a static text message in the frame
-    ; replaced immediately by list-box from buddy list
+    ; replaced immediately by update-list-box
     (define chat-frame-msg (new message%
                                 [parent chat-frame]
                                 [label this-label]
                                 [min-width 40]))
     (send chat-frame-msg auto-resize #t)
+    
+    ; secondary frame message containing friend's status
+    ; replaced by update-list-box
+    (define chat-frame-status-msg (new message%
+                                       [parent chat-frame]
+                                       [label ""]
+                                       [auto-resize #t]))
     
     (define chat-text-receive (new text%
                                    [line-spacing 1.0]
@@ -861,6 +868,9 @@
     
     (define/public (set-gauge-pos num)
       (send transfer-gauge set-value num))
+    
+    (define/public (set-status-msg msg)
+      (send chat-frame-status-msg set-label msg))
     
     (super-new
      [label this-label]
