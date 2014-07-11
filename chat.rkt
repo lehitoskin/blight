@@ -170,11 +170,15 @@
         (cond [(not (= (send chat-text-receive get-start-position)
                        (send chat-text-receive get-end-position)))
                (send chat-text-receive move-position 'end)
-               (send chat-text-receive insert "\n***FILE TRANSFER COMPLETED***\n\n")]
+               (send chat-text-receive insert "\n***FILE TRANSFER COMPLETED***\n\n")
+               (unless (false? make-noise)
+                 (play-sound (eighth sounds) #t))]
               ; otherwise just insert the message
               [(= (send chat-text-receive get-start-position)
                   (send chat-text-receive get-end-position))
-               (send chat-text-receive insert "\n***FILE TRANSFER COMPLETED***\n\n")])))
+               (send chat-text-receive insert "\n***FILE TRANSFER COMPLETED***\n\n")
+               (unless (false? make-noise)
+                 (play-sound (eighth sounds) #t))])))
     
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
@@ -871,6 +875,9 @@
     
     (define/public (set-status-msg msg)
       (send chat-frame-status-msg set-label msg))
+    
+    (define/public (get-status-msg)
+      (send chat-frame-status-msg get-label))
     
     (super-new
      [label this-label]

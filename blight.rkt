@@ -42,17 +42,6 @@ if people have a similar problem.")
 ; instantiate Tox session
 (define my-tox (tox-new TOX_ENABLE_IPV6_DEFAULT))
 
-#| ############ BEGIN JSON STUFF ############ |#
-; read from blight-config.json
-(define json-info (read-json config-port-in))
-; set variables to values those contained in blight-config.json
-(define dht-address (hash-ref json-info 'dht-address))
-(define dht-port (hash-ref json-info 'dht-port))
-(define dht-public-key (hash-ref json-info 'dht-public-key))
-(define my-name (hash-ref json-info 'my-name-last))
-(define my-status-message (hash-ref json-info 'my-status-last))
-(define make-noise (hash-ref json-info 'make-noise-last))
-
 #|
 reusable procedure to save information to blight-config.json
 
@@ -142,7 +131,6 @@ val is a value that corresponds to the value of the key
 (define clean-up
   (λ ()
     ; save tox info to data-file
-    ;(define data-thread (blight-save-data))
     (blight-save-data)
     ; disconnect from the database
     (disconnect sqlc)
@@ -154,9 +142,7 @@ val is a value that corresponds to the value of the key
     (tox-kill! my-tox)
     ; log out sound
     (unless (false? make-noise)
-      (play-sound (fifth sounds) #f))
-    ; make sure the data is completely saved
-    #;(thread-wait data-thread)))
+      (play-sound (fifth sounds) #f))))
 
 #| ############### BEGIN GUI STUFF ################## |#
 ; create a new top-level window
@@ -255,7 +241,9 @@ val is a value that corresponds to the value of the key
              (send list-box set-string friendnumber
                    (string-append
                     "(X) "
-                    (send (list-ref friend-list friendnumber) get-name)))]
+                    (send (list-ref friend-list friendnumber) get-name)
+                    "\n"
+                    (send (list-ref friend-list friendnumber) get-status-msg)))]
             ; user is online, check his status type
             [else (on-status-type-change my-tox friendnumber type #f)]))))
 
@@ -285,7 +273,9 @@ val is a value that corresponds to the value of the key
           (define friend-status-buf (make-bytes len))
           (get-status-message my-tox window-num friend-status-buf len)
           ; add to the friend list
-          (send list-box append (string-append "(X) " friend-name-text) friend-key-text)
+          (send list-box append (string-append "(X) " friend-name-text "\n"
+                                               (bytes->string/utf-8 friend-status-buf))
+                friend-key-text)
           ; make sure friend numbering is correct
           (send (list-ref friend-list window-num) set-friend-num friend-num)
           ; add to the list
@@ -571,7 +561,7 @@ val is a value that corresponds to the value of the key
        [value (not (false? make-noise))]
        [callback (λ (l e)
                    (let ((noise (send l get-value)))
-                     (set! make-noise noise)
+                     (toggle-noise)
                      (blight-save-config 'make-noise-last noise)))]))
 
 ; Close button for preferences dialog box
@@ -878,7 +868,7 @@ val is a value that corresponds to the value of the key
 ; show the frame by calling its show method
 (send frame show #t)
 
-#| ########### START CALLBACK PROCEDURE DEFINITIONS ########## |#
+#| ################# START CALLBACK PROCEDURE DEFINITIONS ################# |#
 ; set all the callback functions
 (define on-friend-request
   (λ (mtox public-key data len userdata)
@@ -1016,8 +1006,6 @@ val is a value that corresponds to the value of the key
 (define on-friend-name-change
   (λ (mtox friendnumber newname len userdata)
     (let ((window (list-ref friend-list friendnumber)))
-      ; update the name in the list-box
-      (send list-box set-string friendnumber newname)
       ; update the name in the list
       (send window set-name newname)
       ; update the name in the window
@@ -1032,21 +1020,21 @@ val is a value that corresponds to the value of the key
            (send list-box set-string friendnumber
                  (string-append
                   "(✓) "
-                  (send (list-ref friend-list friendnumber) get-name)))]
+                  (send (list-ref friend-list friendnumber) get-name)
+                  "\n"
+                  (send (list-ref friend-list friendnumber) get-status-msg)))]
           ; if user is away, add a dash inside a circle
           [(= status (_TOX_USERSTATUS-index 'AWAY))
-           (send list-box set-string friendnumber (string-append
-                                                   "(⊖) "
-                                                   (send
-                                                    (list-ref friend-list friendnumber)
-                                                    get-name)))]
+           (send list-box set-string friendnumber
+                 (string-append "(⊖) " (send (list-ref friend-list friendnumber) get-name)
+                                "\n"
+                                (send (list-ref friend-list friendnumber) get-status-msg)))]
           ; if user is busy, add an X inside a circle
           [(= status (_TOX_USERSTATUS-index 'BUSY))
-           (send list-box set-string friendnumber (string-append
-                                                   "(⊗) "
-                                                   (send
-                                                    (list-ref friend-list friendnumber)
-                                                    get-name)))])))
+           (send list-box set-string friendnumber
+                 (string-append "(⊗) " (send (list-ref friend-list friendnumber) get-name)
+                                "\n"
+                                (send (list-ref friend-list friendnumber) get-status-msg)))])))
 
 (define on-connection-status-change
   (λ (mtox friendnumber status userdata)
@@ -1054,24 +1042,27 @@ val is a value that corresponds to the value of the key
     (cond [(zero? status)
            ; if the user is offline, append his name with (X)
            (send list-box set-string friendnumber
-                 (string-append
-                  "(X) "
-                  (send (list-ref friend-list friendnumber) get-name)))
+                 (string-append "(X) " (send (list-ref friend-list friendnumber) get-name)
+                                "\n"
+                                (send (list-ref friend-list friendnumber) get-status-msg)))
            (unless (false? make-noise)
              (play-sound (third sounds) #t))]
           ; user is online, add a checkmark
-          [else (send list-box set-string friendnumber
-                      (string-append
-                       "(✓) "
-                       (send (list-ref friend-list friendnumber) get-name)))
-                (unless (false? make-noise)
-                  (play-sound (second sounds) #t))])))
+          [else
+           (send list-box set-string friendnumber
+                 (string-append "(✓) " (send (list-ref friend-list friendnumber) get-name)
+                                "\n"
+                                (send (list-ref friend-list friendnumber) get-status-msg)))
+           (unless (false? make-noise)
+             (play-sound (second sounds) #t))])))
 
 ; needs to be in its own thread, otherwise we'll d/c(?)
 (define on-file-send-request
   (λ (mtox friendnumber filenumber filesize filename len userdata)
     (thread
      (λ ()
+       (unless (false? make-noise)
+         (play-sound (seventh sounds) #t))
        (let ((mbox (message-box "Blight - File Send Request"
                                 (string-append
                                  (send (list-ref friend-list friendnumber) get-name)
@@ -1106,7 +1097,9 @@ val is a value that corresponds to the value of the key
                           [(= (send receive-editor get-start-position)
                               (send receive-editor get-end-position))
                            (send receive-editor insert
-                                 "\n***FILE TRANSFER HAS BEGUN***\n\n")])))]))))))
+                                 "\n***FILE TRANSFER HAS BEGUN***\n\n")
+                           (unless (false? make-noise)
+                             (play-sound (eighth sounds) #t))])))]))))))
 
 (define on-file-control
   (λ (mtox friendnumber sending? filenumber control-type data-ptr len userdata)
@@ -1198,8 +1191,6 @@ val is a value that corresponds to the value of the key
            (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
            (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
            (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
-      ; if the window isn't open, force it open
-      (cond [(not (send window is-shown?)) (send window show #t)])
       ; if the current cursor position is not at the end, move there
       (cond [(not (= (send editor get-start-position)
                      (send editor get-end-position)))
@@ -1229,8 +1220,6 @@ val is a value that corresponds to the value of the key
            (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
            (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
            (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
-      ; if the window isn't open, force it open
-      (cond [(not (send window is-shown?)) (send window show #t)])
       ; if the current cursor position is not at the end, move there
       (cond [(not (= (send editor get-start-position)
                      (send editor get-end-position)))

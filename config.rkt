@@ -106,6 +106,17 @@
     (write-json (json-null) config-port-out)
     (close-output-port config-port-out)))
 
+; read from blight-config.json
+(define json-info (read-json config-port-in))
+; set variables to values those contained in blight-config.json
+(define dht-address (hash-ref json-info 'dht-address))
+(define dht-port (hash-ref json-info 'dht-port))
+(define dht-public-key (hash-ref json-info 'dht-public-key))
+(define my-name (hash-ref json-info 'my-name-last))
+(define my-status-message (hash-ref json-info 'my-status-last))
+(define make-noise (hash-ref json-info 'make-noise-last))
+(define toggle-noise (λ () (set! make-noise (not make-noise))))
+
 ; list of unicode emoticons
 (define emojis (list "😁" "😂" "😃" "😄" "😅" "😇"
                      "😈" "😉" "😊" "😋" "😌" "😍"
