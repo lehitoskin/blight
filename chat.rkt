@@ -116,11 +116,7 @@
       (λ (path filenumber)
         (define filename (path->string path))
         (send transfer-gauge set-value 0)
-        (if (zero? filenumber)
-            ; our first sending transfer, replace the null
-            (set! stransfers (setnode stransfers (file->bytes path) filenumber))
-            ; not our first, append to the list
-            (set! stransfers (append stransfers (list (file->bytes path)))))))
+        (set! stransfers (append stransfers (list (file->bytes path))))))
     
     (define/public send-data
       (λ (filenumber)
@@ -212,11 +208,7 @@
                             (define filename (path->string (last (explode-path path))))
                             (define filenumber
                               (new-file-sender this-tox friend-num size filename))
-                            (if (zero? filenumber)
-                                ; our first sending transfer, replace the null
-                                (set! paths (setnode paths path filenumber))
-                                ; not our first, append to the list
-                                (set! paths (append paths (list path)))))))))])
+                            (set! paths (append paths (list path))))))))])
     
     ; close the current window
     (new menu-item% [parent menu-file]

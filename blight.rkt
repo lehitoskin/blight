@@ -1082,18 +1082,10 @@ val is a value that corresponds to the value of the key
                     (set! total-len filesize)
                     (set! percent 0)
                     (send (list-ref friend-list friendnumber) set-gauge-pos percent)
-                    (if (zero? filenumber)
-                        ; our first receiving transfer, replace the null
-                        (set! rtransfers (setnode rtransfers (open-output-file
-                                                              path
-                                                              #:mode 'binary
-                                                              #:exists 'replace)
-                                                  filenumber))
-                        ; not our first, append to the list
-                        (set! rtransfers (append rtransfers (list (open-output-file
-                                                                   path
-                                                                   #:mode 'binary
-                                                                   #:exists 'replace)))))
+                    (set! rtransfers (append rtransfers (list (open-output-file
+                                                               path
+                                                               #:mode 'binary
+                                                               #:exists 'replace))))
                     ; if the current cursor position is not at the end, move there
                     (cond [(not (= (send receive-editor get-start-position)
                                    (send receive-editor get-end-position)))
