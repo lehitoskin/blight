@@ -1157,22 +1157,30 @@ val is a value that corresponds to the value of the key
                               #f
                               (list 'ok-cancel 'caution))))
       (when (eq? mbox 'ok)
-        ; we're out of groupchat windows!
-        ; spawn a new one
-        (cond [(zero? (length group-list))
+        (unless (not (= (+ (count-chatlist mtox) 1)
+                        (length group-list)))
+          (set! group-list
+                (append group-list
+                        (list
+                         (new group-window%
+                              [this-label (format "Blight - Groupchat #~a"
+                                                  (length group-list))]
+                              
+                              [this-height 600]
+                              [this-width 800]
+                              [this-tox my-tox]
+                              [group-number (length group-list)])))))
+        (define err (join-groupchat mtox friendnumber group-public-key))
+        (cond [(= err -1)
+               (message-box "Blight - Groupchat Failure"
+                            "Failed to add groupchat!"
+                            #f
+                            (list 'ok 'caution))])
+        (update-list-box)
+        #|(cond [(> err 0)
                (set! group-list
                      (append group-list
-                             (list
-                              (new group-window%
-                                   [this-label "Blight - Groupchat #0"]
-                                   [this-height 600]
-                                   [this-width 800]
-                                   [this-tox my-tox]
-                                   [group-number 0]))))])
-        (define err (join-groupchat mtox friendnumber group-public-key))
-        (cond [(> err 0)
-               (set! group-list
-                     (append (list (new group-window%
+                             (list (new group-window%
                                         [this-label (format "Blight - Groupchat #~a" err)]
                                         [this-height 600]
                                         [this-width 800]
@@ -1182,7 +1190,7 @@ val is a value that corresponds to the value of the key
               ; we're calling the 0th groupchat window
               [(and (zero? err)
                     (= (length group-list) 1))
-               (update-list-box)])))))
+               (update-list-box)])|#))))
 
 (define on-group-message
   (λ (mtox groupnumber friendgroupnumber message len userdata)

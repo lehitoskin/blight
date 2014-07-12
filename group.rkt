@@ -486,6 +486,9 @@
     (define/public (get-group-number)
       group-number)
     
+    (define/public (set-group-number num)
+      (set! group-number num))
+    
     (define/public (get-list-box)
       group-list-box)
     
