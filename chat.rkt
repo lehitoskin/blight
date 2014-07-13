@@ -823,6 +823,8 @@
                                          [this-wheel-step 3]
                                          [this-min-height 100]
                                          [this-vert-margin 5]))
+
+    (send chat-editor-canvas-send focus)
     
     (define transfer-gauge (new gauge%
                                 [label "Transfers "]
