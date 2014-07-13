@@ -255,43 +255,43 @@ val is a value that corresponds to the value of the key
             ; user is online, check his status type
             [else (on-status-type-change my-tox friendnumber type #f)]))))
 
+
+;; helper to get friend name as return value
+(define (friend-name tox num)
+  (define buffer (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+  (define name-length (get-name tox num buffer))
+  (subbytes buffer 0 name-length))
+
+;; helper to get friend key as return value
+(define (friend-key tox num)
+  (define buffer (make-bytes TOX_CLIENT_ID_SIZE))
+  (get-client-id tox num buffer)
+  (bytes->hex-string buffer TOX_CLIENT_ID_SIZE))
+
+;; helper to get friend number without ->bytes conversion
+(define (friend-number tox key)
+  (get-friend-number tox (hex-string->bytes key)))
+
+
 ; nuke list-box and repopulate it
 (define update-list-box
   (λ ()
-    ; get current number of friends
-    (define num-friends (friendlist-length my-tox))
-    ; get number of groupchats
-    (define num-groups (count-chatlist my-tox))
-    (unless (zero? num-friends)
-      (send list-box clear)
-      (define friend-name-buf (make-bytes TOX_FRIEND_ADDRESS_SIZE))
-      (define friend-key-buf (make-bytes TOX_CLIENT_ID_SIZE))
-      ; loop until we get all our friends
-      (do ((window-num 0 (+ window-num 1)))
-        ((= window-num num-friends))
-        (let* ((friend-name-length (get-name my-tox window-num friend-name-buf))
-               (friend-name-text (bytes->string/utf-8
-                                  (subbytes friend-name-buf 0 friend-name-length))))
-          ; grab our friend's public key
-          (get-client-id my-tox window-num friend-key-buf)
-          (define friend-key-text (bytes->hex-string friend-key-buf TOX_CLIENT_ID_SIZE))
-          (define friend-num (get-friend-number my-tox friend-key-buf))
-          ; add to the friend list
-          (send list-box append (string-append "(X) " friend-name-text) friend-key-text)
-          ; make sure friend numbering is correct
-          (send (list-ref friend-list window-num) set-friend-num friend-num)
-          ; add to the list
-          (send (list-ref friend-list window-num) set-name friend-name-text)
-          (send (list-ref friend-list window-num) set-key friend-key-text)
-          (send (list-ref friend-list window-num) set-new-label
-                (string-append "Blight - " friend-name-text))
-          ; update our friends' status icon
-          (status-checker window-num (get-friend-connection-status my-tox window-num)))))
-    ; add the current groupchats to the bottom of the list
-    (unless (zero? num-groups)
-      (do ((i 0 (+ i 1)))
-        ((= i num-groups))
-        (send list-box append (format "Group Chat #~a" i) i)))))
+    (send list-box clear)
+    ;; friends
+    (for ([friend-num (friendlist-length my-tox)])
+      (define name (friend-name my-tox friend-num))
+      (define key (friend-key my-tox friend-num))
+      (define friend-item (list-ref friend-list friend-num))
+      (send list-box append (string-append "(X) " name) key)
+      (send friend-item set-name name)
+      (send friend-item set-key friend-key)
+      (send friend-item set-new-label
+            (string-append "Blight - " name))
+      (status-checker friend-num (get-friend-connection-status my-tox friend-num)))
+    ;; groups
+    (for ([i (count-chatlist my-tox)])
+      (send list-box append (format "Group Chat #~a" i) i))))
+
 (update-list-box)
 
 ; panel for choice and buttons
