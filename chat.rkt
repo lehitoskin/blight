@@ -73,6 +73,13 @@
                                ; key event from frame itself
                                [(subclass? wdg frame%) wdg])])
               (send chatframe show #f))))
+
+    (send km add-function "switch-focus"
+          (lambda (wdg kev)
+            (let ([chat-window
+                   (cond [(is-a? wdg text%)
+                          (send (send wdg get-canvas) get-chat-window)])])
+              (send chat-window cycle-focus #t))))
     km))
 
 (define chatframe-keymap (init-chatframe-keymap))
@@ -80,7 +87,7 @@
 (define (set-default-chatframe-bindings km)
   (send km map-function ":c:w" "close-chatframe")
   (send km map-function ":c:ц" "close-chatframe") ; russian cyrillic
-  )
+  (send km map-function ":c:tab" "switch-focus"))
 
 ; procedure to imply things
 (define imply
@@ -106,7 +113,7 @@
     ; easier to have two lists than deal with a list of pairs
     (define stransfers null)
     (define paths null)
-    
+
     (define/private repeat
       (λ (proc times)
         (cond [(zero? times) #t]
@@ -331,7 +338,10 @@
                     style
                     wheel-step
                     min-height
-                    vert-margin)
+                    vert-margin
+                    this-chat-window)
+
+        (define/public (get-chat-window) this-chat-window)
         
         (define/override (on-char key-event)
           
@@ -354,7 +364,20 @@
                                             [vert-margin 5]
                                             [style (list 'control-border 'no-hscroll
                                                          'auto-vscroll)]
-                                            [wheel-step 3]))
+                                            [wheel-step 3]
+                                            [this-chat-window this]))
+
+    (define cur-focused-wdg chat-editor-canvas-send)
+    
+    (define/public cycle-focus
+      (λ (forward)
+         (cond 
+          [(eq? cur-focused-wdg chat-editor-canvas-receive)
+           (set! cur-focused-wdg chat-editor-canvas-send)]
+          [else (set! cur-focused-wdg chat-editor-canvas-receive)])
+         (send cur-focused-wdg focus)))
+    
+
     
     (define panel (new horizontal-panel%
                        [parent chat-frame]
@@ -636,8 +659,7 @@
     
     ; guess I need to override some shit to get the keys just right
     
-    
-    
+
     (define (init-editor-keymap)
       (let ([km (new keymap%)])
         
@@ -735,15 +757,15 @@
                       (shift (send kev get-shift-down))
                       (alt (send kev get-alt-down)))
                   (cond
-                    [(and (eqv? key #\\) (eq? control #t))
-                     (send editor insert "\u03BB")] ; λ
-                    [(and (eqv? key #\1) (eq? control #t))
-                     (send editor insert "\u00A9")] ; copyright
-                    [(and (eqv? key #\2) (eq? control #t))
-                     (send editor insert "\u00AE")] ; registered-trademark
-                    [(and (eqv? key #\3) (eq? control #t))
-                     (send editor insert "\u2122")] ; trademark
-                    ))))
+                   [(and (eqv? key #\\) (eq? control #t))
+                    (send editor insert "\u03BB")] ; λ
+                   [(and (eqv? key #\1) (eq? control #t))
+                    (send editor insert "\u00A9")] ; copyright
+                   [(and (eqv? key #\2) (eq? control #t))
+                    (send editor insert "\u00AE")] ; registered-trademark
+                   [(and (eqv? key #\3) (eq? control #t))
+                    (send editor insert "\u2122")] ; trademark
+                   ))))
         km))
     
     (define editor-keymap (init-editor-keymap))
@@ -791,13 +813,16 @@
                     this-style
                     this-wheel-step
                     this-min-height
-                    this-vert-margin)
+                    this-vert-margin
+                    this-chat-window)
+
+        (define/public (get-chat-window) this-chat-window)
+        
         ; TODO:
         ; unicode?
         ; wheel-up/wheel-down(?)
         (define/override (on-char key-event)
-          
-          
+
           (when (not (send editor-keymap handle-key-event this-editor key-event))
             (let ((key (send key-event get-key-code)))
               (when (char? (send key-event get-key-code))
@@ -822,7 +847,8 @@
                                                            'auto-vscroll)]
                                          [this-wheel-step 3]
                                          [this-min-height 100]
-                                         [this-vert-margin 5]))
+                                         [this-vert-margin 5]
+                                         [this-chat-window this]))
 
     (send chat-editor-canvas-send focus)
     
