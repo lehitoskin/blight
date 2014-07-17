@@ -17,6 +17,8 @@
                 this-tox
                 group-number)
     
+    (set-default-chatframe-bindings chatframe-keymap)
+    
     (define/private repeat
       (λ (proc times)
         (cond [(zero? times) #t]
@@ -101,6 +103,86 @@
                                     [auto-wrap #t]))
     (send group-text-receive change-style black-style)
     
+    (define (init-messages-keymap)
+      (let ([km (new keymap%)])
+        (send km add-function "copy"
+              (lambda (editor kev)
+                (send editor copy)))
+        
+        (send km add-function "backward-char"
+              (lambda (editor kev)
+                (send editor move-position 'left)))
+        
+        (send km add-function "select-all"
+              (lambda (editor kev)
+                (send editor move-position 'end)
+                (send editor extend-position 0)))
+        
+        (send km add-function "backward-word"
+              (lambda (editor kev)
+                (send editor move-position 'left #f 'word)))
+        
+        (send km add-function "forward-char"
+              (lambda (editor kev)
+                (send editor move-position 'right)))
+        
+        (send km add-function "forward-word"
+              (lambda (editor kev)
+                (send editor move-position 'right #f 'word)))
+        
+        (send km add-function "previous-line"
+              (lambda (editor kev)
+                (send editor move-position 'up)))
+        
+        (send km add-function "next-line"
+              (lambda (editor kev)
+                (send editor move-position 'down)))
+        
+        (send km add-function "beginning-of-buffer"
+              (lambda (editor kev)
+                (send editor move-position 'home)))
+        
+        (send km add-function "end-of-buffer"
+              (lambda (editor kev)
+                (send editor move-position 'end)))
+        
+        (send km add-function "wheel-up"
+              (lambda (editor kev)
+                (repeat
+                 (λ () (send editor move-position 'up))
+                 (send (send editor get-canvas) wheel-step))))
+        
+        (send km add-function "wheel-down"
+              (lambda (editor kev)
+                (repeat
+                 (λ () (send editor move-position 'down))
+                 (send (send editor get-canvas) wheel-step))))
+        km))
+    
+    (define messages-keymap (init-messages-keymap))
+    
+    (define (set-default-messages-bindings km)
+      (send km map-function ":c:c" "copy")
+      (send km map-function ":c:с" "copy") ;; russian cyrillic
+      
+      (send km map-function ":c:a" "select-all")
+      (send km map-function ":c:ф" "select-all") ;; russian cyrillic
+      
+      (send km map-function ":left" "backward-char")
+      (send km map-function ":right" "forward-char")
+      (send km map-function ":c:left" "backward-word")
+      (send km map-function ":c:right" "forward-word")
+      (send km map-function ":up" "previous-line")
+      (send km map-function ":down" "next-line")
+      (send km map-function ":home" "beginning-of-buffer")
+      (send km map-function ":end" "end-of-buffer")
+      
+      (send km map-function ":wheelup" "wheel-up")
+      (send km map-function ":wheeldown" "wheel-down"))
+    
+    (set-default-messages-bindings messages-keymap)
+    (send messages-keymap chain-to-keymap chatframe-keymap #t)
+    
     (define custom-receive-canvas%
       (class editor-canvas%
         (inherit refresh get-dc get-size)
@@ -110,20 +192,15 @@
                     style
                     wheel-step
                     min-height
-                    vert-margin)
+                    vert-margin
+                    this-chat-window)
+        
+        (define/public (get-chat-window) this-chat-window)
+        
         (define/override (on-char key-event)
-          (let ((key (send key-event get-key-code))
-                (control (send key-event get-control-down)))
-            (cond
-              ; ^c - copy selected text to clipboard
-              [(and (eqv? key #\c) (eq? control #t)) (send editor copy)]
-              ; scroll up/scroll down
-              [(eqv? key 'wheel-up) (repeat
-                                     (λ () (send editor move-position 'up))
-                                     wheel-step)]
-              [(eqv? key 'wheel-down) (repeat
-                                       (λ ()(send editor move-position 'down))
-                                       wheel-step)])))
+          
+          (send messages-keymap handle-key-event editor key-event))
+        
         (super-new
          [parent parent]
          [label label]
@@ -145,7 +222,18 @@
                                              [vert-margin 5]
                                              [style (list 'control-border 'no-hscroll
                                                           'auto-vscroll)]
-                                             [wheel-step 3]))
+                                             [wheel-step 3]
+                                             [this-chat-window this]))
+    
+    (define cur-focused-wdg group-editor-canvas-send)
+    
+    (define/public cycle-focus
+      (λ (forward)
+         (cond 
+          [(eq? cur-focused-wdg group-editor-canvas-receive)
+           (set! cur-focused-wdg group-editor-canvas-send)]
+          [else (set! cur-focused-wdg group-editor-canvas-receive)])
+         (send cur-focused-wdg focus)))
     
     (define group-list-box (new list-box%
                                 [parent topside-panel]
@@ -370,6 +458,151 @@
     (send group-text-send change-style black-style)
     
     ; guess I need to override some shit to get the keys just right
+    
+    (define (init-editor-keymap)
+      (let ([km (new keymap%)])
+        
+        (send km add-function "insert-clipboard"
+              (lambda (editor kev)
+                (send editor paste)))
+        
+        (send km add-function "insert-primary"
+              (lambda (editor kev)
+                (send editor paste-x-selection)))
+        
+        (send km add-function "cut"
+              (lambda (editor kev)
+                (send editor cut)))
+        
+        (send km add-function "copy"
+              (lambda (editor kev)
+                (send editor copy)))
+        
+        (send km add-function "select-all"
+              (lambda (editor kev)
+                (send editor move-position 'end)
+                (send editor extend-position 0)))
+        
+        (send km add-function "send-and-clear"
+              (lambda (editor kev)
+                (unless (string=? (send editor get-text) "")
+                  (let ((msg-bytes (string->bytes/utf-8 (send editor get-text))))
+                    (do-send-message editor msg-bytes)
+                    (send editor erase)
+                    (send editor change-style black-style)))))
+        
+        (send km add-function "insert-newline"
+              (lambda (editor kev)
+                (send editor insert "\n")))
+        
+        (send km add-function "delete-backward-char"
+              (lambda (editor kev)
+                (send editor delete)))
+        
+        (send km add-function "delete-forward-char"
+              (lambda (editor kev)
+                (send editor delete
+                      (send editor get-start-position)
+                      (+ (send editor get-end-position) 1))))
+        
+        (send km add-function "backward-char"
+              (lambda (editor kev)
+                (send editor move-position 'left)))
+        
+        (send km add-function "backward-word"
+              (lambda (editor kev)
+                (send editor move-position 'left #f 'word)))
+        
+        (send km add-function "forward-char"
+              (lambda (editor kev)
+                (send editor move-position 'right)))
+        
+        (send km add-function "forward-word"
+              (lambda (editor kev)
+                (send editor move-position 'right #f 'word)))
+        
+        (send km add-function "previous-line"
+              (lambda (editor kev)
+                (send editor move-position 'up)))
+        
+        (send km add-function "next-line"
+              (lambda (editor kev)
+                (send editor move-position 'down)))
+        
+        (send km add-function "beginning-of-buffer"
+              (lambda (editor kev)
+                (send editor move-position 'home)))
+        
+        (send km add-function "end-of-buffer"
+              (lambda (editor kev)
+                (send editor move-position 'end)))
+        
+        (send km add-function "wheel-up"
+              (lambda (editor kev)
+                (repeat
+                 (λ () (send editor move-position 'up))
+                 (send (send editor get-canvas) wheel-step))))
+        
+        (send km add-function "wheel-down"
+              (lambda (editor kev)
+                (repeat
+                 (λ () (send editor move-position 'down))
+                 (send (send editor get-canvas) wheel-step))))
+        
+        (send km add-function "special-insert-symbol"
+              (lambda (editor kev)
+                (let ((key (send kev get-key-code))
+                      (control (send kev get-control-down))
+                      (shift (send kev get-shift-down))
+                      (alt (send kev get-alt-down)))
+                  (cond
+                   [(and (eqv? key #\\) (eq? control #t))
+                    (send editor insert "\u03BB")] ; λ
+                   [(and (eqv? key #\1) (eq? control #t))
+                    (send editor insert "\u00A9")] ; copyright
+                   [(and (eqv? key #\2) (eq? control #t))
+                    (send editor insert "\u00AE")] ; registered-trademark
+                   [(and (eqv? key #\3) (eq? control #t))
+                    (send editor insert "\u2122")] ; trademark
+                   ))))
+        km))
+    
+    (define editor-keymap (init-editor-keymap))
+    
+    (define (set-default-editor-bindings km)
+      (send km map-function ":c:c" "copy")
+      (send km map-function ":c:с" "copy") ;; russian cyrillic
+      (send km map-function ":c:v" "insert-clipboard")
+      (send km map-function ":c:м" "insert-clipboard") ;; russian cyrillic
+      (send km map-function ":c:x" "cut")
+      (send km map-function ":c:ч" "cut") ;; russian cyrillic
+      (send km map-function ":c:a" "select-all")
+      (send km map-function ":c:ф" "select-all") ;; russian cyrillic
+      (send km map-function "~s:return" "send-and-clear")
+      (send km map-function ":s:return" "insert-newline")
+      (send km map-function ":numpadenter" "insert-newline")
+      (send km map-function ":backspace" "delete-backward-char")
+      (send km map-function ":delete" "delete-forward-char")
+      (send km map-function ":left" "backward-char")
+      (send km map-function ":right" "forward-char")
+      (send km map-function ":c:left" "backward-word")
+      (send km map-function ":c:right" "forward-word")
+      (send km map-function ":up" "previous-line")
+      (send km map-function ":down" "next-line")
+      (send km map-function ":home" "beginning-of-buffer")
+      (send km map-function ":end" "end-of-buffer")
+      (send km map-function ":wheelup" "wheel-up")
+      (send km map-function ":wheeldown" "wheel-down")
+      (send km map-function ":middlebutton" "insert-primary")
+      (send km map-function ":s:insert" "insert-primary")
+      (send km map-function ":c:1" "special-insert-symbol")
+      (send km map-function ":c:2" "special-insert-symbol")
+      (send km map-function ":c:3" "special-insert-symbol")
+      (send km map-function ":c:\\" "special-insert-symbol"))
+    
+    (set-default-editor-bindings editor-keymap)
+    (send editor-keymap chain-to-keymap chatframe-keymap #t)
+    
     (define custom-editor-canvas%
       (class editor-canvas%
         (inherit get-dc)
@@ -379,70 +612,18 @@
                     this-style
                     this-wheel-step
                     this-min-height
-                    this-vert-margin)
+                    this-vert-margin
+                    this-chat-window)
         ; TODO:
         ; unicode?
         ; wheel-up/wheel-down(?)
         (define/override (on-char key-event)
-          (let ((key (send key-event get-key-code))
-                (control (send key-event get-control-down))
-                (shift (send key-event get-shift-down))
-                (alt (send key-event get-alt-down)))
-            (cond
-              ; keyboard shortcuts
-              ; ^c - copy selected text to clipboard
-              [(and (eqv? key #\c) (eq? control #t)) (send this-editor copy)]
-              ; ^v - paste text to text area
-              [(and (eqv? key #\v) (eq? control #t)) (send this-editor paste)]
-              ; ^x - cut selected text
-              [(and (eqv? key #\x) (eq? control #t)) (send this-editor cut)]
-              ; ^a - select all text in text area
-              [(and (eqv? key #\a) (eq? control #t)) (send this-editor move-position 'end)
-                                                     (send this-editor extend-position 0)]
-              ; press enter - send the message/clear text area
-              [(and (eqv? key #\return) (eq? shift #f))
-               (unless (string=? (send this-editor get-text) "")
-                 (let ((msg-bytes (string->bytes/utf-8 (send this-editor get-text))))
-                   (do-send-message this-editor msg-bytes)
-                   (send this-editor erase)
-                   (send this-editor change-style black-style)))]
-              ; shift-enter adds a newline to the text area
-              [(and (eqv? key #\return) (eq? shift #t)) (send this-editor insert "\n")]
-              ; enter on the keypad adds a newline to the text area
-              [(eqv? key #\u0003) (send this-editor insert "\n")]
-              ; press backspace, delete previous character or selected text
-              [(eqv? key #\backspace) (send this-editor delete)]
-              ; press delete, delete proceding character or selected text
-              [(eqv? key #\rubout) (send this-editor delete
-                                         (send this-editor get-start-position)
-                                         (+ (send this-editor get-end-position) 1))]
-              ; other keyboard shortcuts
-              [(and (eqv? key #\\) (eq? control #t))
-               (send this-editor insert "\u03BB")] ; λ
-              [(and (eqv? key #\1) (eq? control #t))
-               (send this-editor insert "\u00A9")] ; copyright
-              [(and (eqv? key #\2) (eq? control #t))
-               (send this-editor insert "\u00AE")] ; registered-trademark
-              [(and (eqv? key #\3) (eq? control #t))
-               (send this-editor insert "\u2122")] ; trademark
-              ; press enter key on numpad - newline is added to text area
-              [(eqv? key 'numpad-enter) (send this-editor insert "\n")]
-              ; navigate through text area
-              [(eqv? key 'left) (send this-editor move-position 'left)]
-              [(eqv? key 'right) (send this-editor move-position 'right)]
-              [(eqv? key 'up) (send this-editor move-position 'up)]
-              [(eqv? key 'down) (send this-editor move-position 'down)]
-              [(eqv? key 'home) (send this-editor move-position 'home)]
-              [(eqv? key 'end) (send this-editor move-position 'end)]
-              ; janky workaround because implementing wheel scrolling is a PITA
-              [(eqv? key 'wheel-up) (repeat
-                                     (λ () (send this-editor move-position 'up))
-                                     this-wheel-step)]
-              [(eqv? key 'wheel-down) (repeat
-                                       (λ ()(send this-editor move-position 'down))
-                                       this-wheel-step)]
-              ; regular key pressed, add to text area
-              [(char? key) (send this-editor insert key)])))
+
+          (when (not (send editor-keymap handle-key-event this-editor key-event))
+            (let ((key (send key-event get-key-code)))
+              (when (char? (send key-event get-key-code))
+                (send this-editor insert key)))))
+        
         (super-new
          [parent this-parent]
          [label this-label]
@@ -462,7 +643,8 @@
                                                             'auto-vscroll)]
                                           [this-wheel-step 3]
                                           [this-min-height 100]
-                                          [this-vert-margin 5]))
+                                          [this-vert-margin 5]
+                                          [this-chat-window this]))
     
     (define/public (set-new-label x)
       (send group-frame set-label x)
