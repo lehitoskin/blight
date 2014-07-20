@@ -614,6 +614,8 @@
                     this-min-height
                     this-vert-margin
                     this-chat-window)
+
+        (define/public (get-chat-window) this-chat-window)
         ; TODO:
         ; unicode?
         ; wheel-up/wheel-down(?)
