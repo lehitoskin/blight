@@ -34,17 +34,12 @@
 ; make this style green, for the greentext
 (void (send green-style set-delta-foreground color-green))
 
-; TODO: make tail-recursive (start at (bytes-length bstr) and end at 0)
 (define bytes->hex-string
-  (λ (bstr len)
-    (define hex "")
-    (do ((i 0 (+ i 1)))
-      ((= i (bytes-length bstr)))
-      (set! hex (string-append
-                 hex
-                 (string-upcase
-                  (dec->hex (bytes-ref bstr i))))))
-    hex))
+  (λ (bstr)
+    (define blist (bytes->list bstr))
+    (define stuff (λ (item)
+                    (string->list (string-upcase (dec->hex item)))))
+    (list->string (flatten (map stuff blist)))))
 
 ; TODO: make tail-recursive (start at (bytes-length bstr) and end at 0)
 (define hex-string->bytes
@@ -73,7 +68,7 @@
                                ; key event from frame itself
                                [(subclass? wdg frame%) wdg])])
               (send chatframe show #f))))
-
+    
     (send km add-function "switch-focus"
           (lambda (wdg kev)
             (let ([chat-window
@@ -113,7 +108,7 @@
     ; easier to have two lists than deal with a list of pairs
     (define stransfers null)
     (define paths null)
-
+    
     (define/private repeat
       (λ (proc times)
         (cond [(zero? times) #t]
@@ -340,7 +335,7 @@
                     min-height
                     vert-margin
                     this-chat-window)
-
+        
         (define/public (get-chat-window) this-chat-window)
         
         (define/override (on-char key-event)
@@ -366,18 +361,18 @@
                                                          'auto-vscroll)]
                                             [wheel-step 3]
                                             [this-chat-window this]))
-
+    
     (define cur-focused-wdg chat-editor-canvas-send)
     
     (define/public cycle-focus
       (λ (forward)
-         (cond 
+        (cond 
           [(eq? cur-focused-wdg chat-editor-canvas-receive)
            (set! cur-focused-wdg chat-editor-canvas-send)]
           [else (set! cur-focused-wdg chat-editor-canvas-receive)])
-         (send cur-focused-wdg focus)))
+        (send cur-focused-wdg focus)))
     
-
+    
     
     (define panel (new horizontal-panel%
                        [parent chat-frame]
@@ -626,7 +621,7 @@
                (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
                (get-address this-tox my-id-bytes)
                (define my-id-hex
-                 (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+                 (bytes->hex-string my-id-bytes))
                (add-history my-id-hex friend-key (send editor get-text) 1)]
               [(and (> (bytes-length msg-bytes) TOX_MAX_MESSAGE_LENGTH)
                     (<= (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2)))
@@ -640,7 +635,7 @@
                (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
                (get-address this-tox my-id-bytes)
                (define my-id-hex
-                 (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+                 (bytes->hex-string my-id-bytes))
                (add-history my-id-hex friend-key (send editor get-text) 1)]
               [else
                (do-send msg-bytes)
@@ -649,7 +644,7 @@
                (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
                (get-address this-tox my-id-bytes)
                (define my-id-hex
-                 (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+                 (bytes->hex-string my-id-bytes))
                (add-history my-id-hex friend-key (send editor get-text) 1)])))
     
     (define chat-text-send (new text%
@@ -659,7 +654,7 @@
     
     ; guess I need to override some shit to get the keys just right
     
-
+    
     (define (init-editor-keymap)
       (let ([km (new keymap%)])
         
@@ -757,15 +752,15 @@
                       (shift (send kev get-shift-down))
                       (alt (send kev get-alt-down)))
                   (cond
-                   [(and (eqv? key #\\) (eq? control #t))
-                    (send editor insert "\u03BB")] ; λ
-                   [(and (eqv? key #\1) (eq? control #t))
-                    (send editor insert "\u00A9")] ; copyright
-                   [(and (eqv? key #\2) (eq? control #t))
-                    (send editor insert "\u00AE")] ; registered-trademark
-                   [(and (eqv? key #\3) (eq? control #t))
-                    (send editor insert "\u2122")] ; trademark
-                   ))))
+                    [(and (eqv? key #\\) (eq? control #t))
+                     (send editor insert "\u03BB")] ; λ
+                    [(and (eqv? key #\1) (eq? control #t))
+                     (send editor insert "\u00A9")] ; copyright
+                    [(and (eqv? key #\2) (eq? control #t))
+                     (send editor insert "\u00AE")] ; registered-trademark
+                    [(and (eqv? key #\3) (eq? control #t))
+                     (send editor insert "\u2122")] ; trademark
+                    ))))
         km))
     
     (define editor-keymap (init-editor-keymap))
@@ -815,14 +810,14 @@
                     this-min-height
                     this-vert-margin
                     this-chat-window)
-
+        
         (define/public (get-chat-window) this-chat-window)
         
         ; TODO:
         ; unicode?
         ; wheel-up/wheel-down(?)
         (define/override (on-char key-event)
-
+          
           (when (not (send editor-keymap handle-key-event this-editor key-event))
             (let ((key (send key-event get-key-code)))
               (when (char? (send key-event get-key-code))
@@ -849,7 +844,7 @@
                                          [this-min-height 100]
                                          [this-vert-margin 5]
                                          [this-chat-window this]))
-
+    
     (send chat-editor-canvas-send focus)
     
     (define transfer-gauge (new gauge%

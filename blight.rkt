@@ -94,7 +94,7 @@ val is a value that corresponds to the value of the key
 ; obtain our tox id
 (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
 (get-address my-tox my-id-bytes)
-(define my-id-hex (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE))
+(define my-id-hex (bytes->hex-string my-id-bytes))
 
 ; connect to DHT
 (display "Connecting to network... ")
@@ -264,7 +264,7 @@ val is a value that corresponds to the value of the key
 (define (friend-key tox num)
   (define buffer (make-bytes TOX_CLIENT_ID_SIZE))
   (get-client-id tox num buffer)
-  (bytes->hex-string buffer TOX_CLIENT_ID_SIZE))
+  (bytes->hex-string buffer))
 
 ;; helper to get friend number without ->bytes conversion
 (define (friend-number tox key)
@@ -555,7 +555,7 @@ val is a value that corresponds to the value of the key
                        ; set new tox id
                        (get-address my-tox my-id-bytes)
                        (set! my-id-hex
-                             (bytes->hex-string my-id-bytes TOX_FRIEND_ADDRESS_SIZE)))))]))
+                             (bytes->hex-string my-id-bytes)))))]))
 
 (define make-sounds-button
   (new check-box%
@@ -876,7 +876,7 @@ val is a value that corresponds to the value of the key
 (define on-friend-request
   (λ (mtox public-key data len userdata)
     ; convert public-key from bytes to string so we can display it
-    (define id-hex (bytes->hex-string public-key TOX_CLIENT_ID_SIZE))
+    (define id-hex (bytes->hex-string public-key))
     ; friend request dialog
     (define friend-request-dialog (new dialog%
                                        [label "Blight - Friend Request"]
