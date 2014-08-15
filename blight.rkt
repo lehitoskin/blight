@@ -40,7 +40,7 @@ and bug the dev! Alternatively, you could join #tox-dev on freenode and see
 if people have a similar problem.")
 
 ; instantiate Tox session
-(define my-tox (tox-new TOX_ENABLE_IPV6_DEFAULT))
+(define my-tox (tox-new #f))
 
 #|
 reusable procedure to save information to blight-config.json
@@ -68,11 +68,12 @@ val is a value that corresponds to the value of the key
       (close-output-port config-port-out))))
 
 #| ############ BEGIN TOX STUFF ############ |#
+; these here are for keeping track of file transfers
 ; we have 0 transfers right now
 (define rtransfers null)
-(define total-len 0)
-(define sent 0)
-(define percent 0)
+(define total-len 0) ; total length of file
+(define sent 0) ; number of bytes sent
+(define percent 0) ; percent of bytes sent
 
 ; data-file is empty, use default settings
 (cond [(zero? (file-size data-file))
@@ -100,7 +101,6 @@ val is a value that corresponds to the value of the key
 (display "Connecting to network... ")
 (cond [(not (false? (bootstrap-from-address my-tox
                                             dht-address
-                                            TOX_ENABLE_IPV6_DEFAULT
                                             dht-port
                                             dht-public-key)))
        (unless (false? make-noise)
