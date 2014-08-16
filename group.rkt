@@ -212,7 +212,44 @@
     
     (define topside-panel (new horizontal-panel%
                                [parent group-frame]))
-    
+
+    (define custom-editor-canvas%
+      (class editor-canvas%
+        (inherit get-dc)
+        (init-field this-parent
+                    this-label
+                    this-editor
+                    this-style
+                    this-wheel-step
+                    this-min-height
+                    this-vert-margin
+                    this-chat-window)
+
+        (define/public (get-chat-window) this-chat-window)
+        ; TODO:
+        ; unicode?
+        ; wheel-up/wheel-down(?)
+        (define/override (on-char key-event)
+
+          (when (not (send editor-keymap handle-key-event this-editor key-event))
+            (let ((key (send key-event get-key-code)))
+              (when (char? (send key-event get-key-code))
+                (send this-editor insert key)))))
+
+        (super-new
+         [parent this-parent]
+         [label this-label]
+         [editor this-editor]
+         [style this-style]
+         [wheel-step this-wheel-step]
+         [min-height this-min-height]
+         [vert-margin this-vert-margin]
+         [stretchable-height #f])))
+
+    (define group-text-send (new text%
+                                 [line-spacing 1.0]
+                                 [auto-wrap #t]))
+
     (define group-editor-canvas-receive (new custom-receive-canvas%
                                              [parent topside-panel]
                                              [label "Messages received"]
@@ -224,6 +261,18 @@
                                                           'auto-vscroll)]
                                              [wheel-step 3]
                                              [this-chat-window this]))
+
+    ; an editor canvas where text% messages will appear
+    (define group-editor-canvas-send (new custom-editor-canvas%
+                                          [this-parent group-frame]
+                                          [this-label "Your message goes here"]
+                                          [this-editor group-text-send]
+                                          [this-style (list 'control-border 'no-hscroll
+                                                            'auto-vscroll)]
+                                          [this-wheel-step 3]
+                                          [this-min-height 100]
+                                          [this-vert-margin 5]
+                                          [this-chat-window this]))
     
     (define cur-focused-wdg group-editor-canvas-send)
     
@@ -452,9 +501,6 @@
                (do-send second-half)]
               [else (do-send msg-bytes)])))
     
-    (define group-text-send (new text%
-                                 [line-spacing 1.0]
-                                 [auto-wrap #t]))
     (send group-text-send change-style black-style)
     
     ; guess I need to override some shit to get the keys just right
@@ -603,51 +649,7 @@
     (set-default-editor-bindings editor-keymap)
     (send editor-keymap chain-to-keymap chatframe-keymap #t)
     
-    (define custom-editor-canvas%
-      (class editor-canvas%
-        (inherit get-dc)
-        (init-field this-parent
-                    this-label
-                    this-editor
-                    this-style
-                    this-wheel-step
-                    this-min-height
-                    this-vert-margin
-                    this-chat-window)
 
-        (define/public (get-chat-window) this-chat-window)
-        ; TODO:
-        ; unicode?
-        ; wheel-up/wheel-down(?)
-        (define/override (on-char key-event)
-
-          (when (not (send editor-keymap handle-key-event this-editor key-event))
-            (let ((key (send key-event get-key-code)))
-              (when (char? (send key-event get-key-code))
-                (send this-editor insert key)))))
-        
-        (super-new
-         [parent this-parent]
-         [label this-label]
-         [editor this-editor]
-         [style this-style]
-         [wheel-step this-wheel-step]
-         [min-height this-min-height]
-         [vert-margin this-vert-margin]
-         [stretchable-height #f])))
-    
-    ; an editor canvas where text% messages will appear
-    (define group-editor-canvas-send (new custom-editor-canvas%
-                                          [this-parent group-frame]
-                                          [this-label "Your message goes here"]
-                                          [this-editor group-text-send]
-                                          [this-style (list 'control-border 'no-hscroll
-                                                            'auto-vscroll)]
-                                          [this-wheel-step 3]
-                                          [this-min-height 100]
-                                          [this-vert-margin 5]
-                                          [this-chat-window this]))
-    
     (define/public (set-new-label x)
       (send group-frame set-label x)
       (send group-frame-msg set-label x))
