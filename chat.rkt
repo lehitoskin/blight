@@ -756,6 +756,22 @@
         (send km add-function "backward-word"
               (lambda (editor kev)
                 (send editor move-position 'left #f 'word)))
+
+        (send km add-function "backward-kill-word"
+              (lambda (editor kev)
+                (let ([to (send editor get-start-position)])
+                  (send editor move-position 'left #f 'word)
+                  (let ([from (send editor get-start-position)])
+                    (send editor delete
+                          from to)))))
+
+        (send km add-function "forward-kill-word"
+              (lambda (editor kev)
+                (let ([from (send editor get-start-position)])
+                  (send editor move-position 'right #f 'word)
+                  (let ([to (send editor get-start-position)])
+                    (send editor delete
+                          from to)))))
         
         (send km add-function "forward-char"
               (lambda (editor kev)
@@ -831,6 +847,8 @@
       (send km map-function ":right" "forward-char")
       (send km map-function ":c:left" "backward-word")
       (send km map-function ":c:right" "forward-word")
+      (send km map-function ":c:backspace" "backward-kill-word")
+      (send km map-function ":c:delete" "forward-kill-word")
       (send km map-function ":up" "previous-line")
       (send km map-function ":down" "next-line")
       (send km map-function ":home" "beginning-of-buffer")
