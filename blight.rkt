@@ -11,6 +11,7 @@
          ffi/unsafe         ; needed for neat pointer shenanigans
          json               ; for reading and writing to config file
          "history.rkt"      ; access sqlite db for stored history
+         "utils.rkt"
          "toxdns.rkt")      ; for toxdns lookups
 
 (define license-message
@@ -1289,20 +1290,22 @@ if people have a similar problem.")
      (λ ()
        (let loop ()
          (call-with-exception-handler
-          (lambda (exn) (message-box "Unknown error"
-                                     (format "This is unknown error: ~a" exn))
-                  (printf "Unknown exception: ~a\n" exn))
+          (lambda (exn)
+            (blight-handle-exception exn)
+                  )
           (lambda () (tox-do my-tox)))
 
          (sleep (/ (tox-do-interval my-tox) 1000))
          (loop)))))
-  null
+  (void)
+  )
+
+(define (blight-handle-exception unexn)
+  (show-error-unhandled-exn exn)
   )
 
 (call-with-exception-handler
  (lambda (exn)
-   (message-box "Unknown error"
-                (format "This is unknown error: ~a" exn))
-   (printf "Unknown exception: ~a\n" exn))
+   (show-error-unhandled-exn exn))
  (lambda () (blight-run)))
 
