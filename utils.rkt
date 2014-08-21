@@ -4,6 +4,9 @@
 
 (require racket/gui)
 
+;;; TODO: use structure type properties here
+(define-struct tox-ctx (my-tox my-id-bytes f-loopthread f-cleanup)
+  #:transparent)
 
 (define (repeat proc times)
   (cond [(zero? times) #t]
@@ -27,25 +30,26 @@
        [style (list 'control-border 'no-hscroll
                     'auto-vscroll 'no-focus)]))
 
-(define error-ok
-  (new button%
-       [parent error-dialog]
-       [label "&Continue"]
-       [callback (λ (button event)
-                    (send error-dialog show #f)
-                    'continue
-                    )]))
 
-(define error-quit
-  (new button%
-       [parent error-dialog]
-       [label "&Quit Blight"]
-       [callback (λ (button event)
-                    (send error-dialog show #f)
-                    'quit
-                    )]))
+(define (show-error-unhandled-exn unexn ctx)
+  (define error-ok
+    (new button%
+         [parent error-dialog]
+         [label "&Continue"]
+         [callback (λ (button event)
+                      (send error-dialog show #f)
+                      )]))
 
-(define (show-error-unhandled-exn unexn)
+  (define error-quit
+    (new button%
+         [parent error-dialog]
+         [label "&Quit Blight"]
+         [callback (λ (button event)
+                      (send error-dialog show #f)
+                      ((tox-ctx-f-cleanup ctx))
+                      (exit)
+                      )]))
+  
   (send error-text clear)
   (send error-text insert "This is a bug. Please report.\n\n")
 

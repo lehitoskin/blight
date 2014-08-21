@@ -1283,7 +1283,7 @@ if people have a similar problem.")
   (callback-group-message my-tox on-group-message)
   (callback-group-action my-tox on-group-action)
   (callback-group-namelist-change my-tox on-group-namelist-change)
-  
+
   ; tox loop that only uses tox_do and sleeps for some amount of time
   (define tox-loop-thread
     (thread
@@ -1296,14 +1296,17 @@ if people have a similar problem.")
 
          (sleep (/ (tox-do-interval my-tox) 1000))
          (loop)))))
-  (void)
-  )
 
-(define (blight-handle-exception unexn)
-  (show-error-unhandled-exn unexn))
+  (define cur-ctx (tox-ctx my-tox my-id-bytes tox-loop-thread clean-up))
 
-(call-with-exception-handler
- (lambda (exn)
-   (show-error-unhandled-exn exn))
- (lambda () (blight-run)))
+  (define (blight-handle-exception unexn)
+    (let ([res (show-error-unhandled-exn unexn cur-ctx)])
+      (printf "res = ~a" res)
+      (when (eq?  res 'quit)
+        (clean-up)
+        (exit))))
+
+  (void))
+
+(blight-run)
 
