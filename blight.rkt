@@ -11,6 +11,7 @@
          ffi/unsafe         ; needed for neat pointer shenanigans
          json               ; for reading and writing to config file
          "history.rkt"      ; access sqlite db for stored history
+         "utils.rkt"
          "toxdns.rkt")      ; for toxdns lookups
 
 (define license-message
@@ -74,6 +75,8 @@ val is a value that corresponds to the value of the key
 (define total-len 0) ; total length of file
 (define sent 0) ; number of bytes sent
 (define percent 0) ; percent of bytes sent
+
+
 
 ; data-file is empty, use default settings
 (cond [(zero? (file-size data-file))
@@ -1181,19 +1184,19 @@ val is a value that corresponds to the value of the key
                             (list 'ok 'caution))])
         (update-list-box)
         #|(cond [(> err 0)
-               (set! group-list
-                     (append group-list
-                             (list (new group-window%
-                                        [this-label (format "Blight - Groupchat #~a" err)]
-                                        [this-height 600]
-                                        [this-width 800]
-                                        [this-tox my-tox]
-                                        [group-number err]))))
-               (update-list-box)]
-              ; we're calling the 0th groupchat window
-              [(and (zero? err)
-                    (= (length group-list) 1))
-               (update-list-box)])|#))))
+         (set! group-list
+         (append group-list
+         (list (new group-window%
+         [this-label (format "Blight - Groupchat #~a" err)]
+         [this-height 600]
+         [this-width 800]
+         [this-tox my-tox]
+         [group-number err]))))
+         (update-list-box)]
+                                        ; we're calling the 0th groupchat window
+         [(and (zero? err)
+         (= (length group-list) 1))
+         (update-list-box)])|#))))
 
 (define on-group-message
   (λ (mtox groupnumber friendgroupnumber message len userdata)
@@ -1283,6 +1286,18 @@ val is a value that corresponds to the value of the key
   (thread
    (λ ()
      (let loop ()
-       (tox-do my-tox)
+       (call-with-exception-handler
+        (lambda (exn)
+          (blight-handle-exception exn))
+        (lambda () (tox-do my-tox)))
+       
        (sleep (/ (tox-do-interval my-tox) 1000))
        (loop)))))
+
+(define cur-ctx (tox-ctx my-tox my-id-bytes tox-loop-thread clean-up))
+
+(define (blight-handle-exception unexn)
+  (let ([res (show-error-unhandled-exn unexn cur-ctx)])
+    (when (eq?  res 'quit)
+      (clean-up)
+      (exit))))
