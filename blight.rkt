@@ -1291,8 +1291,7 @@ if people have a similar problem.")
        (let loop ()
          (call-with-exception-handler
           (lambda (exn)
-            (blight-handle-exception exn)
-                  )
+            (blight-handle-exception exn))
           (lambda () (tox-do my-tox)))
 
          (sleep (/ (tox-do-interval my-tox) 1000))
@@ -1301,8 +1300,7 @@ if people have a similar problem.")
   )
 
 (define (blight-handle-exception unexn)
-  (show-error-unhandled-exn exn)
-  )
+  (show-error-unhandled-exn unexn))
 
 (call-with-exception-handler
  (lambda (exn)

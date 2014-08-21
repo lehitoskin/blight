@@ -47,16 +47,16 @@
 
 (define (show-error-unhandled-exn unexn)
   (send error-text clear)
-  (send error-text insert "This is a bug!\n\n")
+  (send error-text insert "This is a bug. Please report.\n\n")
 
   (let ([ostr (open-output-string)])
     
     (parameterize ([current-error-port ostr])
-      ((error-display-handler) "Unhandled exception in blight:" unexn)
+      ((error-display-handler) (exn-message unexn) unexn)
       (send error-text insert
           (format "~a\n" (get-output-string ostr))))
 
-    ((error-display-handler) "Unhandled exception in blight:" unexn))
+    ((error-display-handler) (exn-message unexn) unexn))
 
   (send error-dialog show #t))
 
