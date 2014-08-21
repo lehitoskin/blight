@@ -1281,6 +1281,14 @@ val is a value that corresponds to the value of the key
 (callback-group-action my-tox on-group-action)
 (callback-group-namelist-change my-tox on-group-namelist-change)
 
+(define cur-ctx (tox-ctx my-tox my-id-bytes clean-up))
+
+(define (blight-handle-exception unexn)
+  (let ([res (show-error-unhandled-exn unexn cur-ctx)])
+    (when (eq?  res 'quit)
+      (clean-up)
+      (exit))))
+
 ; tox loop that only uses tox_do and sleeps for some amount of time
 (define tox-loop-thread
   (thread
@@ -1294,10 +1302,3 @@ val is a value that corresponds to the value of the key
        (sleep (/ (tox-do-interval my-tox) 1000))
        (loop)))))
 
-(define cur-ctx (tox-ctx my-tox my-id-bytes tox-loop-thread clean-up))
-
-(define (blight-handle-exception unexn)
-  (let ([res (show-error-unhandled-exn unexn cur-ctx)])
-    (when (eq?  res 'quit)
-      (clean-up)
-      (exit))))

@@ -5,7 +5,7 @@
 (require racket/gui)
 
 ;;; TODO: use structure type properties here
-(define-struct tox-ctx (my-tox my-id-bytes f-loopthread f-cleanup)
+(define-struct tox-ctx (my-tox my-id-bytes  f-cleanup)
   #:transparent)
 
 (define (repeat proc times)
