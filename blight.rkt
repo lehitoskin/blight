@@ -40,7 +40,6 @@ Unported\", all credit attributed to Adam Reid.")
 and bug the dev! Alternatively, you could join #tox-dev on freenode and see
 if people have a similar problem.")
 
-
 ; instantiate Tox session
 (define my-tox (tox-new #f))
 
@@ -1299,7 +1298,6 @@ val is a value that corresponds to the value of the key
 
 (define (blight-handle-exception unexn)
   (let ([res (show-error-unhandled-exn unexn cur-ctx)])
-    (printf "res = ~a" res)
     (when (eq?  res 'quit)
       (clean-up)
       (exit))))
