@@ -49,18 +49,29 @@
                       ((tox-ctx-f-cleanup ctx))
                       (exit)
                       )]))
+
+  (let loop ()
+      (when (send error-text locked-for-write?)
+        (eprintf "Exception handler: waiting for error-text to unlock...\n")
+        (sleep 1)
+        (loop)))
+
+  (send error-text begin-edit-sequence #f #f)
   
   (send error-text clear)
   (send error-text insert "This is a bug. Please report.\n\n")
 
   (let ([ostr (open-output-string)])
-    
+
+    ((error-display-handler) (exn-message unexn) unexn)
+    (flush-output (current-error-port))
+
     (parameterize ([current-error-port ostr])
       ((error-display-handler) (exn-message unexn) unexn)
       (send error-text insert
-          (format "~a\n" (get-output-string ostr))))
+          (format "~a\n" (get-output-string ostr)))))
 
-    ((error-display-handler) (exn-message unexn) unexn))
+  (send error-text end-edit-sequence)
 
   (send error-dialog show #t))
 
