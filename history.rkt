@@ -46,11 +46,18 @@ sent is 0: they sent; 1: we sent
 |#
 (define add-history
   (λ (user contact message sent)
-    (query-exec
-     sqlc
-     "INSERT INTO History (userHash, contactHash, message, timestamp, issent)
+     (let ([timestamp
+            (inexact->exact
+             (floor (current-inexact-milliseconds)))])
+
+       (with-handlers ([exn?
+                        (lambda (ex)
+                          (eprintf "Exception in add-history\n. Args: ~a ~a ~a ~a ~a: ~a\n" user contact message timestamp sent ex))])
+         (query-exec
+          sqlc
+          "INSERT INTO History (userHash, contactHash, message, timestamp, issent)
      VALUES ($1,$2,$3,$4,$5);"
-     user contact message (current-seconds) sent)))
+          user contact message timestamp sent)))))
 
 ; get history
 ; maybe this will be useful for something like
