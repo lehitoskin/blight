@@ -120,15 +120,15 @@
 
     (define/public (end-send-file path time)
       (save-move-cursor editor)
-      (send editor insert (format "\n*** ~a sent ***\n\n" path)))
+      (send editor insert (format "\n*** ~a Sent ***\n\n" path)))
 
     (define/public (begin-recv-file path time)
       (save-move-cursor editor)
-      (send editor insert (format "\n*** Receiving ~a ***\n\n" path)))
+      (send editor insert (format "\n*** Downloading to ~a ***\n\n" path)))
     
     (define/public (end-recv-file path time)
       (save-move-cursor editor)
-      (send editor insert (format "\n*** ~a received ***\n\n" path)))
+      (send editor insert (format "\n*** Received ~a ***\n\n" path)))
     
     (define/public (add-recv-action action from time)
       (save-move-cursor editor)

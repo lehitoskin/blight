@@ -153,19 +153,12 @@
                            #f filenumber
                            (_TOX_FILECONTROL-index 'FINISHED)
                            #f 0)
-        ; if the current cursor position is not at the end, move there
-        (cond [(not (= (send chat-text-receive get-start-position)
-                       (send chat-text-receive get-end-position)))
-               (send chat-text-receive move-position 'end)
-               (send chat-text-receive insert "\n***FILE TRANSFER COMPLETED***\n\n")
-               (unless (false? make-noise)
-                 (play-sound (eighth sounds) #t))]
-              ; otherwise just insert the message
-              [(= (send chat-text-receive get-start-position)
-                  (send chat-text-receive get-end-position))
-               (send chat-text-receive insert "\n***FILE TRANSFER COMPLETED***\n\n")
-               (unless (false? make-noise)
-                 (play-sound (eighth sounds) #t))])))
+
+             (send message-history
+                   end-send-file "" (get-time))
+
+             (unless (false? make-noise)
+                 (play-sound (eighth sounds) #t))))
     
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
