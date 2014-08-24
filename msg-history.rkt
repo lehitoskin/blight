@@ -80,3 +80,73 @@
       (send km map-function ":wheelup" "wheel-up")
       (send km map-function ":wheeldown" "wheel-down"))
 
+; normal black
+(define color-black (make-object color% "black"))
+; a darker green than "green", which looks nicer on a white background
+(define color-green (make-object color% 35 135 0))
+
+(define black-style (make-object style-delta% 'change-size 10))
+; make this style black
+(void (send black-style set-delta-foreground color-black))
+
+(define green-style (make-object style-delta% 'change-size 10))
+; make this style green, for the greentext
+(void (send green-style set-delta-foreground color-green))
+
+
+; procedure to imply things
+(define imply
+  (λ (editor msg)
+    (send editor change-style green-style)
+    (send editor insert (string-append msg "\n"))
+    (send editor change-style black-style)))
+
+; if the current cursor position is not at the end, move there
+(define (save-move-cursor editor)
+  (when (not (= (send editor get-start-position)
+                (send editor get-end-position)))
+    (send editor move-position 'end)))
+
+; procedure to imply things
+(define message-history%
+  (class object%
+    (init-field editor)
+
+    (super-new)
+
+    (define/public (send-file-recv-error msg)
+      (save-move-cursor editor)
+      (send editor insert (format "\n*** File transfer error: ~a ***\n\n" msg)))
+
+    (define/public (begin-send-file path time)
+      (save-move-cursor editor)
+      (send editor insert (format "\n*** Starting transfer: ~a ***\n\n" path)))
+
+    (define/public (end-send-file path time)
+      (save-move-cursor editor)
+      (send editor insert (format "\n*** Sent: ~a ***\n\n" path)))
+
+    (define/public (begin-recv-file path time)
+      (save-move-cursor editor)
+      (send editor insert (format "\n*** Starting download to ~a ***\n\n" path)))
+    
+    (define/public (end-recv-file time)
+      (save-move-cursor editor)
+      (send editor insert (format "\n*** Download complete ***\n\n")))
+    
+    (define/public (add-recv-action action from time)
+      (save-move-cursor editor)
+      
+      (send editor insert
+            (string-append "** [" time "] " from " " action "\n")))
+    
+    (define/public (add-recv-message message from time)
+      (save-move-cursor editor)
+      
+      (send editor insert
+            (string-append "[" time "] " from ": "))
+      
+      (if (string=? (substring message 0 1) ">")
+          (imply editor message)
+          (send editor insert (string-append message "\n"))))))
+
