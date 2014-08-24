@@ -114,21 +114,25 @@
 
     (super-new)
 
+    (define/public (send-file-recv-error msg)
+      (save-move-cursor editor)
+      (send editor insert (format "\n*** File transfer error: ~a ***\n\n" msg)))
+
     (define/public (begin-send-file path time)
       (save-move-cursor editor)
-      (send editor insert (format "\n*** Sending ~a ***\n\n" path)))
+      (send editor insert (format "\n*** Starting transfer: ~a ***\n\n" path)))
 
     (define/public (end-send-file path time)
       (save-move-cursor editor)
-      (send editor insert (format "\n*** ~a Sent ***\n\n" path)))
+      (send editor insert (format "\n*** Sent: ~a ***\n\n" path)))
 
     (define/public (begin-recv-file path time)
       (save-move-cursor editor)
-      (send editor insert (format "\n*** Downloading to ~a ***\n\n" path)))
+      (send editor insert (format "\n*** Starting download to ~a ***\n\n" path)))
     
-    (define/public (end-recv-file path time)
+    (define/public (end-recv-file time)
       (save-move-cursor editor)
-      (send editor insert (format "\n*** Received ~a ***\n\n" path)))
+      (send editor insert (format "\n*** Download complete ***\n\n")))
     
     (define/public (add-recv-action action from time)
       (save-move-cursor editor)

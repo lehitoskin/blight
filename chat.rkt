@@ -108,6 +108,10 @@
     (define/public send-data
       (λ (filenumber)
         (define path (list-ref paths filenumber))
+        
+        (send message-history
+                   begin-send-file path (get-time))
+        
         (define size (file-size path))
         (define sent 0)
         (define percent 0)
@@ -155,7 +159,7 @@
                            #f 0)
 
              (send message-history
-                   end-send-file "" (get-time))
+                   end-send-file path (get-time))
 
              (unless (false? make-noise)
                  (play-sound (eighth sounds) #t))))

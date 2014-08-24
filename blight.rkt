@@ -73,12 +73,10 @@ val is a value that corresponds to the value of the key
 #| ############ BEGIN TOX STUFF ############ |#
 ; these here are for keeping track of file transfers
 ; we have 0 transfers right now
-(define rtransfers null)
+
 (define total-len 0) ; total length of file
 (define sent 0) ; number of bytes sent
 (define percent 0) ; percent of bytes sent
-
-
 
 ; data-file is empty, use default settings
 (cond [(zero? (file-size data-file))
@@ -1060,6 +1058,7 @@ val is a value that corresponds to the value of the key
              [window (list-ref friend-list friendnumber)]
              [msg-history (send window get-msg-history)])
          (cond [(eq? mbox 'ok)
+                
                 (let ((path (put-file "Select a file"
                                       #f
                                       download-path
@@ -1073,11 +1072,7 @@ val is a value that corresponds to the value of the key
                     (set! total-len filesize)
                     (set! percent 0)
                     (send (list-ref friend-list friendnumber) set-gauge-pos percent)
-                    (set! rtransfers (append rtransfers
-                                             (list (open-output-file
-                                                    path
-                                                    #:mode 'binary
-                                                    #:exists 'replace))))
+                    (rt-add! path)
                     
                     (send msg-history
                           begin-recv-file path (get-time))
@@ -1091,32 +1086,39 @@ val is a value that corresponds to the value of the key
            (receive-editor (send window get-receive-editor))
            [msg-history (send window get-msg-history)]
            )
+      
+      ;; with-handlers
+      ;; ([exn:blight:rtransfer?
+      ;;   (lambda (ex)
+      ;;     (send msg-history send-file-recv-error (exn-message ex)))])
+
       ; we've finished receiving the file
       (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
                   (false? sending?))
              (define data-bytes (make-sized-byte-string data-ptr len))
-             (write-bytes data-bytes (list-ref rtransfers filenumber))
+             (write-bytes data-bytes (rt-ref filenumber))
              ; close receive transfer
-             (close-output-port (list-ref rtransfers filenumber))
+             (close-output-port (rt-ref filenumber))
              ; notify user transfer has completed
              (send msg-history
-                   end-recv-file (list-ref rtransfers filenumber) (get-time))
+                   end-recv-file (get-time))
              ; remove transfer from list
-             (set! rtransfers (delnode rtransfers filenumber))]
-           
-            ; cue that we're going to be sending the data now
+             (rt-del! filenumber)]
+            
+           ; cue that we're going to be sending the data now
             [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))
                   (not (false? sending?)))
 
-             (send msg-history
-                   begin-send-file "" (get-time))
-             
              (send window send-data filenumber)]))))
 
 (define on-file-data
   (λ (mtox friendnumber filenumber data-ptr len userdata)
     (define data-bytes (make-sized-byte-string data-ptr len))
-    (write-bytes data-bytes (list-ref rtransfers filenumber))
+    (define window (list-ref friend-list friendnumber))
+    (define msg-history (send window get-msg-history))
+    
+    (write-bytes data-bytes (rt-ref filenumber))
+    
     (set! sent (+ sent len))
     (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
     (send (list-ref friend-list friendnumber) set-gauge-pos percent)))
