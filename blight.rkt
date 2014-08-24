@@ -1070,7 +1070,7 @@ val is a value that corresponds to the value of the key
                     (set! total-len filesize)
                     (set! percent 0)
                     (send (list-ref friend-list friendnumber) set-gauge-pos percent)
-                    (rt-add! path)
+                    (rt-add! path filenumber)
                     
                     (send msg-history
                           begin-recv-file path (get-time))

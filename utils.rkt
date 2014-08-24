@@ -78,7 +78,7 @@
   (send error-dialog show #t))
 
 ;; FILE TRANSFERS
-(define rt null)
+(define rt (make-hash))
 
 (struct	 exn:blight:rtransfer exn ()
          #:extra-constructor-name make-exn:blight:rtransfer
@@ -89,23 +89,20 @@
           msg (current-continuation-marks))))
 
 (define (rt-ref num)
-  (when (<= (length rt) num)
-    (rt-raise (format "Incorrect file transfer id: ~a (total: ~a)" num (length rt))))
-
-  (car (list-ref rt num)))
+  (hash-ref rt num
+            (lambda ()
+              (rt-raise (format "Incorrect file transfer id: ~a" num )))))
 
 (define (rt-del! num)
-  (when (<= (length rt) num)
-    (rt-raise (format "Incorrect file transfer id: ~a (total: ~a)" num (length rt))))
-  
-  (set! rt (delnode rt num)))
+  (unless (hash-has-key? rt num)
+    (rt-raise (format "Incorrect file transfer id: ~a" num)))
 
-(define (rt-add! path)
-  (set! rt
-        (append rt
-                (list (cons (open-output-file
-                             path
-                             #:mode 'binary
-                             #:exists 'replace)
-                            'placeholder)))))
+  (hash-remove! rt num))
+
+(define (rt-add! path id)
+  (hash-set! rt id
+             (open-output-file
+              path
+              #:mode 'binary
+              #:exists 'replace)))
 
