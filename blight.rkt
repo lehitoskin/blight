@@ -955,13 +955,12 @@ val is a value that corresponds to the value of the key
 
 (define on-friend-message
   (λ (mtox friendnumber message len userdata)
-     (let* ([window (list-ref friend-list friendnumber)]
-            [msg-history (send window get-msg-history)]
-            [name (send window get-name)])
+    (let* ([window (list-ref friend-list friendnumber)]
+           [msg-history (send window get-msg-history)]
+           [name (send window get-name)])
       
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-
       (send msg-history add-recv-message message name (get-time))
       
       ; make a noise
@@ -978,7 +977,6 @@ val is a value that corresponds to the value of the key
            (name (send window get-name)))
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      ; if the current cursor position is not at the end, move there
 
       (send msg-history add-recv-action action name (get-time))
       
@@ -1049,14 +1047,14 @@ val is a value that corresponds to the value of the key
        (unless (false? make-noise)
          (play-sound (seventh sounds) #t))
        (let* ((mbox (message-box "Blight - File Send Request"
-                                (string-append
-                                 (send (list-ref friend-list friendnumber) get-name)
-                                 " wants to send you "
-                                 "\"" filename "\"")
-                                #f
-                                (list 'ok-cancel 'caution)))
-             [window (list-ref friend-list friendnumber)]
-             [msg-history (send window get-msg-history)])
+                                 (string-append
+                                  (send (list-ref friend-list friendnumber) get-name)
+                                  " wants to send you "
+                                  "\"" filename "\"")
+                                 #f
+                                 (list 'ok-cancel 'caution)))
+              [window (list-ref friend-list friendnumber)]
+              [msg-history (send window get-msg-history)])
          (cond [(eq? mbox 'ok)
                 
                 (let ((path (put-file "Select a file"
@@ -1086,42 +1084,45 @@ val is a value that corresponds to the value of the key
            (receive-editor (send window get-receive-editor))
            [msg-history (send window get-msg-history)]
            )
-      
-      ;; with-handlers
-      ;; ([exn:blight:rtransfer?
-      ;;   (lambda (ex)
-      ;;     (send msg-history send-file-recv-error (exn-message ex)))])
+      (with-handlers
+          ([exn:blight:rtransfer?
+            (lambda (ex)
+              (send msg-history send-file-recv-error (exn-message ex)))])
 
-      ; we've finished receiving the file
-      (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
-                  (false? sending?))
-             (define data-bytes (make-sized-byte-string data-ptr len))
-             (write-bytes data-bytes (rt-ref filenumber))
-             ; close receive transfer
-             (close-output-port (rt-ref filenumber))
-             ; notify user transfer has completed
-             (send msg-history
-                   end-recv-file (get-time))
-             ; remove transfer from list
-             (rt-del! filenumber)]
-            
-           ; cue that we're going to be sending the data now
-            [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))
-                  (not (false? sending?)))
+        ; we've finished receiving the file
+        (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
+                    (false? sending?))
+               (define data-bytes (make-sized-byte-string data-ptr len))
+               (write-bytes data-bytes (rt-ref filenumber))
+               ; close receive transfer
+               (close-output-port (rt-ref filenumber))
+               ; notify user transfer has completed
+               (send msg-history
+                     end-recv-file (get-time))
+               ; remove transfer from list
+               (rt-del! filenumber)]
 
-             (send window send-data filenumber)]))))
+              ; cue that we're going to be sending the data now
+              [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))
+                    (not (false? sending?)))
+
+               (send window send-data filenumber)])))))
 
 (define on-file-data
   (λ (mtox friendnumber filenumber data-ptr len userdata)
+
     (define data-bytes (make-sized-byte-string data-ptr len))
     (define window (list-ref friend-list friendnumber))
     (define msg-history (send window get-msg-history))
     
-    (write-bytes data-bytes (rt-ref filenumber))
-    
-    (set! sent (+ sent len))
-    (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
-    (send (list-ref friend-list friendnumber) set-gauge-pos percent)))
+    (with-handlers
+        ([exn:blight:rtransfer?
+          (lambda (ex)
+            (send msg-history send-file-recv-error (exn-message ex)))])
+
+      (set! sent (+ sent len))
+      (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
+      (send (list-ref friend-list friendnumber) set-gauge-pos percent))))
 
 (define on-group-invite
   (λ (mtox friendnumber group-public-key userdata)

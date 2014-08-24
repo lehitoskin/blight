@@ -90,13 +90,13 @@
 
 (define (rt-ref num)
   (when (<= (length rt) num)
-    (rt-raise (format "Incorrect file transfer id: ~a (total: ~a)\n" num (length rt))))
+    (rt-raise (format "Incorrect file transfer id: ~a (total: ~a)" num (length rt))))
 
   (car (list-ref rt num)))
 
 (define (rt-del! num)
   (when (<= (length rt) num)
-    (rt-raise (format "Incorrect file transfer id: ~a (total: ~a)\n" num (length rt))))
+    (rt-raise (format "Incorrect file transfer id: ~a (total: ~a)" num (length rt))))
   
   (set! rt (delnode rt num)))
 
