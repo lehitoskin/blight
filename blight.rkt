@@ -12,7 +12,9 @@
          json               ; for reading and writing to config file
          "history.rkt"      ; access sqlite db for stored history
          "utils.rkt"
-         "toxdns.rkt")      ; for toxdns lookups
+         "toxdns.rkt"
+         "msg-history.rkt"
+         )      ; for toxdns lookups
 
 (define license-message
   "Blight - a Tox client written in Racket.
@@ -71,12 +73,10 @@ val is a value that corresponds to the value of the key
 #| ############ BEGIN TOX STUFF ############ |#
 ; these here are for keeping track of file transfers
 ; we have 0 transfers right now
-(define rtransfers null)
+
 (define total-len 0) ; total length of file
 (define sent 0) ; number of bytes sent
 (define percent 0) ; percent of bytes sent
-
-
 
 ; data-file is empty, use default settings
 (cond [(zero? (file-size data-file))
@@ -955,30 +955,14 @@ val is a value that corresponds to the value of the key
 
 (define on-friend-message
   (λ (mtox friendnumber message len userdata)
-    (let* ((window (list-ref friend-list friendnumber))
-           (editor (send window get-receive-editor))
-           (name (send window get-name)))
+    (let* ([window (list-ref friend-list friendnumber)]
+           [msg-history (send window get-msg-history)]
+           [name (send window get-name)])
+      
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      ; if the current cursor position is not at the end, move there
-      (cond [(not (= (send editor get-start-position)
-                     (send editor get-end-position)))
-             (send editor move-position 'end)
-             (send editor insert
-                   (string-append "[" (get-time) "] " name ": "))
-             ; implying
-             (if (string=? (substring message 0 1) ">")
-                 (imply editor message)
-                 (send editor insert (string-append message "\n")))]
-            ; otherwise just insert the message
-            [(= (send editor get-start-position)
-                (send editor get-end-position))
-             (send editor insert
-                   (string-append "[" (get-time) "] " name ": "))
-             ; implying
-             (if (string=? (substring message 0 1) ">")
-                 (imply editor message)
-                 (send editor insert (string-append message "\n")))])
+      (send msg-history add-recv-message message name (get-time))
+      
       ; make a noise
       (unless (false? make-noise)
         (play-sound (first sounds) #t))
@@ -989,20 +973,13 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber action len userdata)
     (let* ((window (list-ref friend-list friendnumber))
            (editor (send window get-receive-editor))
+           [msg-history (send window get-msg-history)]
            (name (send window get-name)))
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      ; if the current cursor position is not at the end, move there
-      (cond [(not (= (send editor get-start-position)
-                     (send editor get-end-position)))
-             (send editor move-position 'end)
-             (send editor insert
-                   (string-append "** [" (get-time) "] " name " " action "\n"))]
-            ; otherwise just insert the message
-            [(= (send editor get-start-position)
-                (send editor get-end-position))
-             (send editor insert
-                   (string-append "** [" (get-time) "] " name " " action "\n"))])
+
+      (send msg-history add-recv-action action name (get-time))
+      
       ; make a noise
       (unless (false? make-noise)
         (play-sound (first sounds) #t))
@@ -1069,14 +1046,17 @@ val is a value that corresponds to the value of the key
      (λ ()
        (unless (false? make-noise)
          (play-sound (seventh sounds) #t))
-       (let ((mbox (message-box "Blight - File Send Request"
-                                (string-append
-                                 (send (list-ref friend-list friendnumber) get-name)
-                                 " wants to send you "
-                                 "\"" filename "\"")
-                                #f
-                                (list 'ok-cancel 'caution))))
+       (let* ((mbox (message-box "Blight - File Send Request"
+                                 (string-append
+                                  (send (list-ref friend-list friendnumber) get-name)
+                                  " wants to send you "
+                                  "\"" filename "\"")
+                                 #f
+                                 (list 'ok-cancel 'caution)))
+              [window (list-ref friend-list friendnumber)]
+              [msg-history (send window get-msg-history)])
          (cond [(eq? mbox 'ok)
+                
                 (let ((path (put-file "Select a file"
                                       #f
                                       download-path
@@ -1090,69 +1070,59 @@ val is a value that corresponds to the value of the key
                     (set! total-len filesize)
                     (set! percent 0)
                     (send (list-ref friend-list friendnumber) set-gauge-pos percent)
-                    (set! rtransfers (append rtransfers (list (open-output-file
-                                                               path
-                                                               #:mode 'binary
-                                                               #:exists 'replace))))
-                    ; if the current cursor position is not at the end, move there
-                    (cond [(not (= (send receive-editor get-start-position)
-                                   (send receive-editor get-end-position)))
-                           (send receive-editor move-position 'end)
-                           (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")]
-                          ; otherwise just insert the message
-                          [(= (send receive-editor get-start-position)
-                              (send receive-editor get-end-position))
-                           (send receive-editor insert
-                                 "\n***FILE TRANSFER HAS BEGUN***\n\n")
-                           (unless (false? make-noise)
-                             (play-sound (eighth sounds) #t))])))]))))))
+                    (rt-add! path filenumber)
+                    
+                    (send msg-history
+                          begin-recv-file path (get-time))
+                    
+                    (unless (false? make-noise)
+                      (play-sound (eighth sounds) #t))))]))))))
 
 (define on-file-control
   (λ (mtox friendnumber sending? filenumber control-type data-ptr len userdata)
     (let* ((window (list-ref friend-list friendnumber))
-           (receive-editor (send window get-receive-editor)))
-      ; we've finished receiving the file
-      (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
-                  (false? sending?))
-             (define data-bytes (make-sized-byte-string data-ptr len))
-             (write-bytes data-bytes (list-ref rtransfers filenumber))
-             ; close receive transfer
-             (close-output-port (list-ref rtransfers filenumber))
-             ; remove transfer from list
-             (set! rtransfers (delnode rtransfers filenumber))
-             ; notify user transfer has completed
-             ; if the current cursor position is not at the end, move there
-             (cond [(not (= (send receive-editor get-start-position)
-                            (send receive-editor get-end-position)))
-                    (send receive-editor move-position 'end)
-                    (send receive-editor insert "\n***FILE TRANSFER COMPLETED***\n\n")]
-                   ; otherwise just insert the message
-                   [(= (send receive-editor get-start-position)
-                       (send receive-editor get-end-position))
-                    (send receive-editor insert
-                          "\n***FILE TRANSFER COMPLETED***\n\n")])]
-            ; cue that we're going to be sending the data now
-            [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))
-                  (not (false? sending?)))
-             ; if the current cursor position is not at the end, move there
-             (cond [(not (= (send receive-editor get-start-position)
-                            (send receive-editor get-end-position)))
-                    (send receive-editor move-position 'end)
-                    (send receive-editor insert "\n***FILE TRANSFER HAS BEGUN***\n\n")]
-                   ; otherwise just insert the message
-                   [(= (send receive-editor get-start-position)
-                       (send receive-editor get-end-position))
-                    (send receive-editor insert
-                          "\n***FILE TRANSFER HAS BEGUN***\n\n")])
-             (send window send-data filenumber)]))))
+           (receive-editor (send window get-receive-editor))
+           [msg-history (send window get-msg-history)]
+           )
+      (with-handlers
+          ([exn:blight:rtransfer?
+            (lambda (ex)
+              (send msg-history send-file-recv-error (exn-message ex)))])
+
+        ; we've finished receiving the file
+        (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
+                    (false? sending?))
+               (define data-bytes (make-sized-byte-string data-ptr len))
+               (write-bytes data-bytes (rt-ref filenumber))
+               ; close receive transfer
+               (close-output-port (rt-ref filenumber))
+               ; notify user transfer has completed
+               (send msg-history
+                     end-recv-file (get-time))
+               ; remove transfer from list
+               (rt-del! filenumber)]
+
+              ; cue that we're going to be sending the data now
+              [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))
+                    (not (false? sending?)))
+
+               (send window send-data filenumber)])))))
 
 (define on-file-data
   (λ (mtox friendnumber filenumber data-ptr len userdata)
+
     (define data-bytes (make-sized-byte-string data-ptr len))
-    (write-bytes data-bytes (list-ref rtransfers filenumber))
-    (set! sent (+ sent len))
-    (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
-    (send (list-ref friend-list friendnumber) set-gauge-pos percent)))
+    (define window (list-ref friend-list friendnumber))
+    (define msg-history (send window get-msg-history))
+    
+    (with-handlers
+        ([exn:blight:rtransfer?
+          (lambda (ex)
+            (send msg-history send-file-recv-error (exn-message ex)))])
+
+      (set! sent (+ sent len))
+      (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
+      (send (list-ref friend-list friendnumber) set-gauge-pos percent))))
 
 (define on-group-invite
   (λ (mtox friendnumber group-public-key userdata)

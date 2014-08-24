@@ -190,6 +190,10 @@
                                              [wheel-step 3]
                                              [this-chat-window this]))
 
+    (define message-history (new message-history%
+                                 [editor group-text-receive]))
+
+
     ; an editor canvas where text% messages will appear
     (define group-editor-canvas-send (new custom-editor-canvas%
                                           [this-parent group-frame]
@@ -460,6 +464,9 @@
     
     (define/public (get-receive-editor)
       (send group-editor-canvas-receive get-editor))
+
+    (define/public (get-msg-history)
+      message-history)
     
     (define/public (get-send-editor)
       (send group-editor-canvas-send get-editor))

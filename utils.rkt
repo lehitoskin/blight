@@ -2,7 +2,9 @@
 
 (provide (all-defined-out))
 
-(require racket/gui)
+(require racket/gui
+         "helpers.rkt")
+
 
 ;;; TODO: use structure type properties here
 (define-struct tox-ctx (my-tox my-id-bytes  f-cleanup)
@@ -74,4 +76,33 @@
   (send error-text end-edit-sequence)
 
   (send error-dialog show #t))
+
+;; FILE TRANSFERS
+(define rt (make-hash))
+
+(struct	 exn:blight:rtransfer exn ()
+         #:extra-constructor-name make-exn:blight:rtransfer
+         #:transparent)
+
+(define (rt-raise msg)
+  (raise (make-exn:blight:rtransfer
+          msg (current-continuation-marks))))
+
+(define (rt-ref num)
+  (hash-ref rt num
+            (lambda ()
+              (rt-raise (format "Incorrect file transfer id: ~a" num )))))
+
+(define (rt-del! num)
+  (unless (hash-has-key? rt num)
+    (rt-raise (format "Incorrect file transfer id: ~a" num)))
+
+  (hash-remove! rt num))
+
+(define (rt-add! path id)
+  (hash-set! rt id
+             (open-output-file
+              path
+              #:mode 'binary
+              #:exists 'replace)))
 
