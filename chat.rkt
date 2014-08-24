@@ -25,19 +25,6 @@
 (define chat-clipboard the-clipboard)
 (send chat-clipboard-client add-type "TEXT")
 
-; normal black
-(define color-black (make-object color% "black"))
-; a darker green than "green", which looks nicer on a white background
-(define color-green (make-object color% 35 135 0))
-
-(define black-style (make-object style-delta% 'change-size 10))
-; make this style black
-(void (send black-style set-delta-foreground color-black))
-
-(define green-style (make-object style-delta% 'change-size 10))
-; make this style green, for the greentext
-(void (send green-style set-delta-foreground color-green))
-
 (define bytes->hex-string
   (λ (bstr)
     (define blist (bytes->list bstr))
@@ -88,12 +75,6 @@
   (send km map-function ":c:ц" "close-chatframe") ; russian cyrillic
   (send km map-function ":c:tab" "switch-focus"))
 
-; procedure to imply things
-(define imply
-  (λ (editor msg)
-    (send editor change-style green-style)
-    (send editor insert (string-append msg "\n"))
-    (send editor change-style black-style)))
 
 (define chat-window%
   (class frame%
@@ -324,6 +305,9 @@
                                                          'auto-vscroll)]
                                             [wheel-step 3]
                                             [this-chat-window this]))
+
+    (define message-history (new message-history%
+                                 [editor chat-text-receive]))
 
     (define/public set-editor-black-style
       (λ (editor)
@@ -669,6 +653,9 @@
     
     (define/public (get-receive-editor)
       (send chat-editor-canvas-receive get-editor))
+
+    (define/public (get-msg-history)
+      message-history)
     
     (define/public (get-send-editor)
       (send chat-editor-canvas-send get-editor))

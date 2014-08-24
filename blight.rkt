@@ -12,7 +12,9 @@
          json               ; for reading and writing to config file
          "history.rkt"      ; access sqlite db for stored history
          "utils.rkt"
-         "toxdns.rkt")      ; for toxdns lookups
+         "toxdns.rkt"
+         "msg-history.rkt"
+         )      ; for toxdns lookups
 
 (define license-message
   "Blight - a Tox client written in Racket.
@@ -955,30 +957,15 @@ val is a value that corresponds to the value of the key
 
 (define on-friend-message
   (λ (mtox friendnumber message len userdata)
-    (let* ((window (list-ref friend-list friendnumber))
-           (editor (send window get-receive-editor))
-           (name (send window get-name)))
+     (let* ([window (list-ref friend-list friendnumber)]
+            [msg-history (send window get-msg-history)]
+            [name (send window get-name)])
+      
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      ; if the current cursor position is not at the end, move there
-      (cond [(not (= (send editor get-start-position)
-                     (send editor get-end-position)))
-             (send editor move-position 'end)
-             (send editor insert
-                   (string-append "[" (get-time) "] " name ": "))
-             ; implying
-             (if (string=? (substring message 0 1) ">")
-                 (imply editor message)
-                 (send editor insert (string-append message "\n")))]
-            ; otherwise just insert the message
-            [(= (send editor get-start-position)
-                (send editor get-end-position))
-             (send editor insert
-                   (string-append "[" (get-time) "] " name ": "))
-             ; implying
-             (if (string=? (substring message 0 1) ">")
-                 (imply editor message)
-                 (send editor insert (string-append message "\n")))])
+
+      (send msg-history add-recv-message message name (get-time))
+      
       ; make a noise
       (unless (false? make-noise)
         (play-sound (first sounds) #t))
@@ -989,20 +976,14 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber action len userdata)
     (let* ((window (list-ref friend-list friendnumber))
            (editor (send window get-receive-editor))
+           [msg-history (send window get-msg-history)]
            (name (send window get-name)))
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
       ; if the current cursor position is not at the end, move there
-      (cond [(not (= (send editor get-start-position)
-                     (send editor get-end-position)))
-             (send editor move-position 'end)
-             (send editor insert
-                   (string-append "** [" (get-time) "] " name " " action "\n"))]
-            ; otherwise just insert the message
-            [(= (send editor get-start-position)
-                (send editor get-end-position))
-             (send editor insert
-                   (string-append "** [" (get-time) "] " name " " action "\n"))])
+
+      (send msg-history add-recv-action action name (get-time))
+      
       ; make a noise
       (unless (false? make-noise)
         (play-sound (first sounds) #t))
