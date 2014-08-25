@@ -1174,28 +1174,11 @@ val is a value that corresponds to the value of the key
            (editor (send window get-receive-editor))
            (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
            (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
-           (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
-      ; if the current cursor position is not at the end, move there
-      (cond [(not (= (send editor get-start-position)
-                     (send editor get-end-position)))
-             (send editor move-position 'end)
-             (send editor insert
-                   (string-append "[" (get-time) "] " name ": "))
-             ; implying
-             (if (and (not (zero? (string-length message)))
-                      (string=? (substring message 0 1) ">"))
-                 (imply editor message)
-                 (send editor insert (string-append message "\n")))]
-            ; otherwise just insert the message
-            [(= (send editor get-start-position)
-                (send editor get-end-position))
-             (send editor insert
-                   (string-append "[" (get-time) "] " name ": "))
-             ; implying
-             (if (and (not (zero? (string-length message)))
-                      (string=? (substring message 0 1) ">"))
-                 (imply editor message)
-                 (send editor insert (string-append message "\n")))]))))
+           (name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+           [msg-history (send window get-msg-history)])
+      (send msg-history add-recv-message message name (get-time))
+      
+      )))
 
 (define on-group-action
   (λ (mtox groupnumber friendgroupnumber action len userdata)
@@ -1203,18 +1186,10 @@ val is a value that corresponds to the value of the key
            (editor (send window get-receive-editor))
            (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
            (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
+           [msg-history (send window get-msg-history)]
            (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
-      ; if the current cursor position is not at the end, move there
-      (cond [(not (= (send editor get-start-position)
-                     (send editor get-end-position)))
-             (send editor move-position 'end)
-             (send editor insert
-                   (string-append "** [" (get-time) "] " name " " action "\n"))]
-            ; otherwise just insert the message
-            [(= (send editor get-start-position)
-                (send editor get-end-position))
-             (send editor insert
-                   (string-append "** [" (get-time) "] " name " " action "\n"))]))))
+
+      (send msg-history add-recv-action action name (get-time)))))
 
 (define on-group-namelist-change
   (λ (mtox groupnumber peernumber change userdata)
