@@ -151,5 +151,27 @@
       (let ([rstr (string-append "[" time "] " from ": " message "\n")])
         (if (string=? (substring message 0 1) ">")
             (async-insert rstr set-imply-style unset-imply-style)
-            (async-insert rstr))))))
+            (async-insert rstr))))
+
+    (define/public (add-send-message message time)
+      (define msg-type 'regular)
+      (define pfx "")
+      (define resmsg message)
+
+      (if (and (>= (string-length message) 3)
+               (string=? (substring message 0 3) "/me"))
+          (begin
+            (set! msg-type 'action)
+            (set! pfx (string-append "** [" time "] Me: "))
+            (set! resmsg (substring message 3)))
+
+          (set! pfx (string-append "[" time "] Me: ")))
+
+      (if (string=? (substring message 0 1) ">")
+          (insert (string-append pfx resmsg "\n") set-imply-style unset-imply-style)
+          (begin (when (eq? msg-type 'action)
+                   (printf "action EBA:~a\n" message))
+                 (insert (string-append pfx resmsg "\n"))))
+
+      msg-type)))
 
