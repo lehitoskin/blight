@@ -510,70 +510,28 @@
                                   (peek-bytes (remainder (bytes-length msg-bytes) max-length)
                                               max-length port)))]))))
     
-    ; send the message to chat-text-receive and then through tox
-    ; assumes msg is already a byte-string. the editor parameter refers to chat-text-send
+    ; send the message to msg-history and then through tox
     (define/public do-send-message
-      (λ (editor msg-bytes)
+      (λ (editor message)
         ; procedure to send to the editor and to tox
+
+      ; add message to message history and get it's type
+      (define msg-type
+        (send message-history add-send-message message (get-time)))
+
+      (define msg-bytes (string->bytes/utf-8 message))      
+
         (define do-send
           (λ (byte-str)
-            ; if the current cursor position is not at the end, move there
-            (cond [(not (= (send chat-text-receive get-start-position)
-                           (send chat-text-receive get-end-position)))
-                   (send chat-text-receive move-position 'end)
-                   ; parse for /commands, >implying
-                   (cond
-                     ; we're >implying something
-                     [(bytes=? (subbytes byte-str 0 1) #">")
-                      (send chat-text-receive insert
-                            (string-append "[" (get-time) "] Me: "))
-                      (imply chat-text-receive (bytes->string/utf-8 byte-str))
-                      (send-message this-tox friend-num byte-str (bytes-length byte-str))]
-                     ; we're sending an action!
-                     [(and (> (bytes-length byte-str) 4)
-                           (bytes=? (subbytes byte-str 0 4) #"/me "))
-                      (send chat-text-receive insert
-                            (string-append "** [" (get-time) "] Me "))
-                      (send chat-text-receive insert
-                            (bytes->string/utf-8 (bytes-append
-                                                  (subbytes byte-str 4) #"\n")))
-                      (send-action this-tox friend-num
-                                   (subbytes byte-str 4) (bytes-length byte-str))]
-                     ; we're not doing anything special
-                     [else (send chat-text-receive insert
-                                 (string-append "[" (get-time) "] Me: "))
-                           (send chat-text-receive insert
-                                 (bytes->string/utf-8 (bytes-append byte-str #"\n")))
-                           (send-message this-tox friend-num byte-str
-                                         (bytes-length byte-str))])]
-                  ; otherwise just insert the message
-                  [(= (send chat-text-receive get-start-position)
-                      (send chat-text-receive get-end-position))
-                   ; parse for /commands, >greentext
-                   (cond
-                     ; we're >implying something
-                     [(bytes=? (subbytes byte-str 0 1) #">")
-                      (send chat-text-receive insert
-                            (string-append "[" (get-time) "] Me: "))
-                      (imply chat-text-receive (bytes->string/utf-8 byte-str))
-                      (send-message this-tox friend-num byte-str (bytes-length byte-str))]
-                     ; we're sending an action!
-                     [(and (> (bytes-length byte-str) 4)
-                           (bytes=? (subbytes byte-str 0 4) #"/me "))
-                      (send chat-text-receive insert
-                            (string-append "** [" (get-time) "] Me "))
-                      (send chat-text-receive insert
-                            (bytes->string/utf-8 (bytes-append
-                                                  (subbytes byte-str 4) #"\n")))
-                      (send-action this-tox friend-num
-                                   (subbytes byte-str 4) (bytes-length byte-str))]
-                     ; we're not doing anything special
-                     [else (send chat-text-receive insert
-                                 (string-append "[" (get-time) "] Me: "))
-                           (send chat-text-receive insert
-                                 (bytes->string/utf-8 (bytes-append byte-str #"\n")))
-                           (send-message this-tox friend-num byte-str
-                                         (bytes-length byte-str))])])))
+            (cond
+             ; we're sending an action!
+             [(eq? msg-type 'action)
+              (send-action this-tox friend-num
+                           (subbytes byte-str 4) (bytes-length byte-str))]
+             ; we're not doing anything special
+             [else (send-message this-tox friend-num byte-str
+                                 (bytes-length byte-str))])))
+        
         (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
                ; if the message is greater than twice our max length, split it
                ; into three chunks

@@ -409,18 +409,25 @@
     ; send the message to the editor and then through tox
     ; assumes msg is already a byte-string
     (define/public do-send-message
-      (λ (editor msg-bytes)
+      (λ (editor message)
+      ; get message type
+      (define msg-type
+        (send message-history get-msg-type message))
+
+      (define msg-bytes (string->bytes/utf-8 message))      
+         
         ; procedure to send to the editor and to tox
         (define do-send
           (λ (byte-str)
-            ; only need to send message through tox, will echo through callback
-            ; parse for /commands
-            (cond [(and (> (bytes-length byte-str) 4)
-                        (bytes=? (subbytes byte-str 0 4) #"/me "))
-                   (group-action-send this-tox group-number (subbytes byte-str 4)
+             (cond
+             ; we're sending an action!
+             [(eq? msg-type 'action)
+              (group-action-send this-tox group-number (subbytes byte-str 4)
                                       (bytes-length byte-str))]
-                  [else (group-message-send this-tox group-number byte-str
-                                            (bytes-length byte-str))])))
+             ; we're not doing anything special
+             [else (group-message-send this-tox group-number byte-str
+                                            (bytes-length byte-str))]))
+          )
         (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
                ; if the message is greater than twice our max length, split it
                ; into three chunks

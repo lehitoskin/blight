@@ -32,10 +32,9 @@
         (send km add-function "send-and-clear"
               (lambda (editor kev)
                 (unless (string=? (send editor get-text) "")
-                  (let ((msg-bytes (string->bytes/utf-8 (send editor get-text))))
-                    (send cw do-send-message editor msg-bytes)
-                    (send editor erase)
-                    (send cw set-editor-black-style editor)))))
+                  (send cw do-send-message editor (send editor get-text))
+                  (send editor erase)
+                  (send cw set-editor-black-style editor))))
         
         (send km add-function "insert-newline"
               (lambda (editor kev)
