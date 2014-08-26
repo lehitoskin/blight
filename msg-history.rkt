@@ -153,6 +153,12 @@
             (async-insert rstr set-imply-style unset-imply-style)
             (async-insert rstr))))
 
+    (define/public (get-msg-type message)
+      (if (and (>= (string-length message) 3)
+               (string=? (substring message 0 3) "/me"))
+          'action
+          'regular))
+    
     (define/public (add-send-message message time)
       (define msg-type 'regular)
       (define pfx "")
