@@ -93,7 +93,6 @@
 ; make this style green, for the greentext
 (void (send green-style set-delta-foreground color-green))
 
-
 ; procedure to imply things
 (define imply
   (λ (editor msg)
@@ -103,9 +102,7 @@
 
 ; if the current cursor position is not at the end, move there
 (define (save-move-cursor editor)
-  (when (not (= (send editor get-start-position)
-                (send editor get-end-position)))
-    (send editor move-position 'end)))
+  (send editor move-position 'end))
 
 ; procedure to imply things
 (define message-history%
@@ -114,39 +111,45 @@
 
     (super-new)
 
-    (define/public (send-file-recv-error msg)
+    (define (async-insert message [before-insert void] [after-insert void])
+      (let ([ecan (send editor get-canvas)])
+        (send ecan enable #f)
+        (insert message before-insert after-insert)
+        (send ecan enable #t)))
+
+    (define (set-imply-style)
+      (send editor change-style green-style))
+
+    (define (unset-imply-style)
+      (send editor change-style black-style))
+
+    (define (insert message [before-insert void] [after-insert void])
+      (before-insert)
       (save-move-cursor editor)
-      (send editor insert (format "\n*** File transfer error: ~a ***\n\n" msg)))
+      (send editor insert message)
+      (after-insert))
+    
+    (define/public (send-file-recv-error msg)
+      (insert (format "\n*** File transfer error: ~a ***\n\n" msg)))
 
     (define/public (begin-send-file path time)
-      (save-move-cursor editor)
       (send editor insert (format "\n*** Starting transfer: ~a ***\n\n" path)))
 
     (define/public (end-send-file path time)
-      (save-move-cursor editor)
       (send editor insert (format "\n*** Sent: ~a ***\n\n" path)))
 
     (define/public (begin-recv-file path time)
-      (save-move-cursor editor)
       (send editor insert (format "\n*** Starting download to ~a ***\n\n" path)))
     
     (define/public (end-recv-file time)
-      (save-move-cursor editor)
       (send editor insert (format "\n*** Download complete ***\n\n")))
     
     (define/public (add-recv-action action from time)
-      (save-move-cursor editor)
-      
-      (send editor insert
-            (string-append "** [" time "] " from " " action "\n")))
-    
+      (insert (string-append "** [" time "] " from " " action "\n")))
+
     (define/public (add-recv-message message from time)
-      (save-move-cursor editor)
-      
-      (send editor insert
-            (string-append "[" time "] " from ": "))
-      
-      (if (string=? (substring message 0 1) ">")
-          (imply editor message)
-          (send editor insert (string-append message "\n"))))))
+      (let ([rstr (string-append "[" time "] " from ": " message "\n")])
+        (if (string=? (substring message 0 1) ">")
+            (async-insert rstr set-imply-style unset-imply-style)
+            (async-insert rstr))))))
 
