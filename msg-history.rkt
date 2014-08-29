@@ -112,10 +112,10 @@
     (super-new)
 
     (define (async-insert message [before-insert void] [after-insert void])
-      (let ([ecan (send editor get-canvas)])
-        (send ecan enable #f)
-        (insert message before-insert after-insert)
-        (send ecan enable #t)))
+      (queue-callback
+       (lambda () (send editor begin-edit-sequence)
+               (insert message before-insert after-insert)
+               (send editor end-edit-sequence))))
 
     (define (set-imply-style)
       (send editor change-style green-style))
@@ -175,9 +175,7 @@
 
       (if (string=? (substring message 0 1) ">")
           (insert (string-append pfx resmsg "\n") set-imply-style unset-imply-style)
-          (begin (when (eq? msg-type 'action)
-                   (printf "action EBA:~a\n" message))
-                 (insert (string-append pfx resmsg "\n"))))
+          (insert (string-append pfx resmsg "\n")))
 
       msg-type)))
 
