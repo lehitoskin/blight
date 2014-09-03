@@ -141,8 +141,8 @@
     (define/public (begin-recv-file path time)
       (send editor insert (format "\n*** Starting download to ~a ***\n\n" path)))
     
-    (define/public (end-recv-file time)
-      (send editor insert (format "\n*** Download complete ***\n\n")))
+    (define/public (end-recv-file time size)
+      (send editor insert (format "\n*** Download complete (~a KB) ***\n\n" (real->decimal-string (/ size 1024) 1))))
     
     (define/public (add-recv-action action from time)
       (insert (string-append "** [" time "] " from " " action "\n")))

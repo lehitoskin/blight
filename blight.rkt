@@ -1098,7 +1098,7 @@ val is a value that corresponds to the value of the key
                (close-output-port (rt-ref filenumber))
                ; notify user transfer has completed
                (send msg-history
-                     end-recv-file (get-time))
+                     end-recv-file (get-time) sent)
                ; remove transfer from list
                (rt-del! filenumber)]
 
@@ -1119,7 +1119,7 @@ val is a value that corresponds to the value of the key
         ([exn:blight:rtransfer?
           (lambda (ex)
             (send msg-history send-file-recv-error (exn-message ex)))])
-
+      (write-bytes data-bytes (rt-ref filenumber))
       (set! sent (+ sent len))
       (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
       (send (list-ref friend-list friendnumber) set-gauge-pos percent))))
