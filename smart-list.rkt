@@ -24,7 +24,7 @@
      (sml-stream (send (sml-stream-cs sr) next)))])
 
 (define smart-snip<%>
-  (interface () get-key ss>? set-data get-data))
+  (interface () get-key ss>? set-data get-data set-selected get-selected))
 
 (struct cs-data (name status glyph status-msg))
 
@@ -33,10 +33,13 @@
     (super-new)
     (send this set-snipclass (make-object ssc%))
     
-    (init-field snip-data)
+    (init-field smart-list snip-data)
 
     (define snip-text (cs-data-name snip-data))
     (define snip-glyph (cs-data-glyph snip-data))
+    
+    ;; selected status
+    (define selected #f)
 
     ;; glyph 
     (define glyphw (send snip-glyph get-width))
@@ -44,7 +47,13 @@
 
     (define hgap 10) ;; horizontal gap
     (define selected? #f) ;; is selected
+    (define selection-changed? #f)
 
+    (define (get-snip-extent dc)
+      (let-values ([(text-width text-height dist evert) (send dc get-text-extent snip-text)])
+        (values (+ glyphw text-width hgap)
+                (+ glyphh text-height))))
+    
     (define/override (get-extent dc x y
                                  w h descent space lspace rspace)
       (let-values ([(tw th dist evert) (send dc get-text-extent snip-text)])
@@ -61,6 +70,13 @@
         (when rspace
           (set-box! rspace 0)))
       (void))
+
+    (define/public (set-selected s?)
+      (printf "selection changed for ~a: ~a\n" snip-text s?)
+      (set! selected? s?))
+
+    (define/public (get-selected)
+      selected?)
 
     (define/public (get-key)
       snip-text)
@@ -82,9 +98,26 @@
          [(eq? status1 status2) (string<? name1 name2)]
          [else #f])))
 
+    (define snip-text-fg-sel (send the-color-database find-color "White"))
+    (define snip-text-bg-sel (send the-color-database find-color "DarkBlue"))
+
+    (define snip-text-fg (send the-color-database find-color "Black"))
+    (define snip-text-bg (send the-color-database find-color "White"))
+    
     (define/override (draw dc x y left top right bottom dx dy draw-caret)
-      (send dc draw-bitmap snip-glyph x y)
-      (send dc draw-text snip-text (+ x glyphw hgap) y))
+      (let-values ([(snip-width snip-height) (get-snip-extent dc)])
+        
+        (if selected?
+            (begin
+              (send dc set-text-foreground snip-text-fg-sel)
+              (let-values ([(snip-width snip-height) (get-snip-extent dc)])
+                (send dc set-brush snip-text-bg-sel 'solid)
+                (send dc draw-rectangle x y snip-width snip-height)))
+            
+            (send dc set-text-foreground snip-text-fg))
+
+        (send dc draw-bitmap snip-glyph x y)
+        (send dc draw-text snip-text (+ x glyphw hgap) y)))
     
     (define/override (get-flags)
       (list 'handles-events 'handles-all-mouse-events))
@@ -93,8 +126,9 @@
       (printf "on char: ~a\n" event))
 
     (define/override (on-event dc x y editorx editory event)
-      (printf "on event: ~a\n" event))))
-
+      (when (send event button-up? 'left)
+        (send smart-list set-selected this)
+              (printf "on event: ~a\n" event)))))
 
   (define smart-list%
     (class vertical-pasteboard%
@@ -103,6 +137,7 @@
       (define snip-hash (make-hash))
 
       (super-new)
+      (send this set-selection-visible #f)
 
       ; TODO
       (define/public (find-string)
@@ -125,6 +160,9 @@
       (define/public (get-entry key)
         (hash-ref snip-hash key))
 
+      (define/augment (on-select snip on?)
+        (send snip set-selected on?))
+
       ;; (define/public (sort)
         
       ;;   )
@@ -135,6 +173,9 @@
       ;;       (func ns)  
       ;;       (loop (send ns next)))))
 
+      ;; (define/public (set-selected entry)
+      ;;   (printf "setting selected: ~a\n" (send entry get-ky)))
+      
       (define/public (insert-entry ns)
         
         (let ([key (send ns get-key)])
@@ -181,10 +222,10 @@
         [ss2 (new string-snip%)]
         [bmp (make-object bitmap% "online.png")]
 
-        [ss4 (new contact-snip% [snip-data (cs-data "foo" 1 bmp "status1")])]
-        [ss5 (new contact-snip% [snip-data (cs-data "bar" 1 bmp "status2")])]
-        [ss6 (new contact-snip% [snip-data (cs-data "baz" 1 bmp "status3")])]
-        [ss7 (new contact-snip% [snip-data (cs-data "qux" 5 bmp "status4")])]
+        [ss4 (new contact-snip% [smart-list pb] [snip-data (cs-data "foo" 1 bmp "status1")])]
+        [ss5 (new contact-snip% [smart-list pb] [snip-data (cs-data "bar" 1 bmp "status2")])]
+        [ss6 (new contact-snip% [smart-list pb] [snip-data (cs-data "baz" 1 bmp "status3")])]
+        [ss7 (new contact-snip% [smart-list pb] [snip-data (cs-data "qux" 5 bmp "status4")])]
         [km (init-smart-list-keymap)])
 
    (send pb insert-entry ss4)
