@@ -27,10 +27,13 @@
 (define smart-snip<%>
   (interface () get-key ss>? set-data get-data set-selected get-selected set-style-manager get-style-manager))
 
-(struct cs-data (name status glyph status-msg))
+(struct cs-data (name status-msg))
 
 (define smart-snip-style-manager<%>
   (interface () get-bg-color get-bg-color-sel get-text-color get-text-color-sel))
+
+(define status/c
+  (symbols 'available 'offline 'away 'busy))
 
 (define cs-style-manager
   (class* object% (smart-snip-style-manager<%>)
@@ -60,7 +63,8 @@
       (send the-color-database find-color "White"))))
 
 (define/contract contact-snip%
-  (class/c [set-status (->m (symbols 'available 'offline 'away 'busy)  any)])
+  (class/c [set-status (->m status/c  any)]
+           [get-status (->m status/c)])
 
   (class* snip% (smart-snip<%>)
     (super-new)
@@ -89,7 +93,11 @@
       (set! snip-glyph (send style-manager get-glyph new-status))
       (set! glyphw (send snip-glyph get-width))
       (set! glyphh (send snip-glyph get-height))
-      (set! contact-status new-status))
+      (set! contact-status new-status)
+      (printf "set status for ~a: ~a\n" snip-text contact-status))
+
+    (define/public (get-status)
+      contact-status)
 
     (define (get-snip-extent dc)
       (let-values ([(text-width text-height dist evert) (send dc get-text-extent snip-text)])
@@ -139,15 +147,30 @@
     (define/public (get-data)
       snip-data)
 
+    ;; status priority table
+    (define sp (make-hash
+                (list (cons 'offline 1)
+                      (cons 'busy 2)
+                      (cons 'away 3)
+                      (cons 'available 4))))
+
+    (define/contract (status>? st1 st2)
+      (-> status/c status/c boolean?)
+      (printf "status> ~a ~a : ~a\n" st1 st2 (> (hash-ref sp st1) (hash-ref sp st2)))
+      (> (hash-ref sp st1) (hash-ref sp st2)))
+
+    (define/contract (status=? st1 st2)
+      (-> status/c status/c boolean?)
+      (eq? (hash-ref sp st1) (hash-ref sp st2)))
+    
     (define/public (ss>? sn)
       (let* ([sd (send sn get-data)]
-             [status1 (cs-data-status snip-data)]
-             [status2 (cs-data-status sd)]
+             [sn-status (send sn get-status) ]
              [name1 (cs-data-name snip-data)]
              [name2 (cs-data-name sd)])
         (cond
-         [(> status1 status2) #t]
-         [(eq? status1 status2) (string<? name1 name2)]
+         [(status>? contact-status sn-status) #t]
+         [(status=? contact-status sn-status) (string<? name1 name2)]
          [else #f])))
 
     (define snip-text-fg-sel (send style-manager get-text-color-sel))
@@ -276,10 +299,10 @@
         [bmp (make-object bitmap% "icons/available.png")]
         [cs-style (new cs-style-manager)]
 
-        [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "foo" 1 bmp "status1")])]
-        [ss5 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "bar" 1 bmp "status2")])]
-        [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz" 1 bmp "status3")])]
-        [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux" 5 bmp "status4")])]
+        [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "foo"  "status1")])]
+        [ss5 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "bar"  "status2")])]
+        [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz"  "status3")])]
+        [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux"  "status4")])]
         [km (init-smart-list-keymap)])
 
    (send pb insert-entry ss4)
@@ -287,7 +310,8 @@
    (send pb insert-entry ss6)
    (send pb insert-entry ss7)
 
-   (send ss5 set-status 'available)
+   (send ss7 set-status 'available)
+   (send ss6 set-status 'busy)
    ;; (send pb set-caret-owner ss4)
 
    (init-default-smartlist-keymap km)
