@@ -24,16 +24,36 @@
      (sml-stream (send (sml-stream-cs sr) next)))])
 
 (define smart-snip<%>
-  (interface () get-key ss>? set-data get-data set-selected get-selected))
+  (interface () get-key ss>? set-data get-data set-selected get-selected set-style-manager get-style-manager))
 
 (struct cs-data (name status glyph status-msg))
+
+(define smart-snip-style-manager<%>
+  (interface () get-bg-color get-bg-color-sel get-text-color get-text-color-sel))
+
+(define cs-style-manager
+  (class* object% (smart-snip-style-manager<%>)
+
+    (super-new)
+    
+    (define/public (get-bg-color)
+      (send the-color-database find-color "White"))
+    
+    (define/public (get-bg-color-sel)
+      (send the-color-database find-color "DarkBlue"))
+    
+    (define/public (get-text-color)
+      (send the-color-database find-color "Black"))
+    
+    (define/public (get-text-color-sel)
+      (send the-color-database find-color "White"))))
 
 (define contact-snip%
   (class* snip% (smart-snip<%>)
     (super-new)
     (send this set-snipclass (make-object ssc%))
     
-    (init-field smart-list snip-data)
+    (init-field smart-list style-manager snip-data)
 
     (define snip-text (cs-data-name snip-data))
     (define snip-glyph (cs-data-glyph snip-data))
@@ -53,6 +73,10 @@
       (let-values ([(text-width text-height dist evert) (send dc get-text-extent snip-text)])
         (values (+ glyphw text-width hgap)
                 (+ glyphh text-height))))
+
+    (define (get-text-extent dc)
+      (let-values ([(text-width text-height dist evert) (send dc get-text-extent snip-text)])
+        (values text-width text-height)))
     
     (define/override (get-extent dc x y
                                  w h descent space lspace rspace)
@@ -70,6 +94,12 @@
         (when rspace
           (set-box! rspace 0)))
       (void))
+
+    (define/public (get-style-manager)
+      style-manager)
+
+    (define/public (set-style-manager mgr)
+      (set! style-manager mgr))
 
     (define/public (set-selected s?)
       (printf "selection changed for ~a: ~a\n" snip-text s?)
@@ -98,25 +128,26 @@
          [(eq? status1 status2) (string<? name1 name2)]
          [else #f])))
 
-    (define snip-text-fg-sel (send the-color-database find-color "White"))
-    (define snip-text-bg-sel (send the-color-database find-color "DarkBlue"))
+    (define snip-text-fg-sel (send style-manager get-text-color-sel))
+    (define snip-text-bg-sel (send style-manager get-bg-color-sel))
 
-    (define snip-text-fg (send the-color-database find-color "Black"))
-    (define snip-text-bg (send the-color-database find-color "White"))
+    (define snip-text-fg (send style-manager get-text-color))
+    (define snip-text-bg (send style-manager get-bg-color))
     
     (define/override (draw dc x y left top right bottom dx dy draw-caret)
-      (let-values ([(snip-width snip-height) (get-snip-extent dc)])
+      (let-values ([(snip-width snip-height) (get-snip-extent dc)]
+                   [(text-width text-height) (get-text-extent dc)])
         
         (if selected?
             (begin
               (send dc set-text-foreground snip-text-fg-sel)
               (let-values ([(snip-width snip-height) (get-snip-extent dc)])
                 (send dc set-brush snip-text-bg-sel 'solid)
-                (send dc draw-rectangle x y snip-width snip-height)))
+                (send dc draw-rectangle (+ x glyphw hgap) y text-width text-height)))
             
             (send dc set-text-foreground snip-text-fg))
 
-        (send dc draw-bitmap snip-glyph x y)
+        (send dc draw-bitmap snip-glyph x y 'xor)
         (send dc draw-text snip-text (+ x glyphw hgap) y)))
     
     (define/override (get-flags)
@@ -220,12 +251,13 @@
         [ec (new aligned-editor-canvas% [parent frame] [editor pb])]
         [ss1 (new string-snip%)]
         [ss2 (new string-snip%)]
-        [bmp (make-object bitmap% "online.png")]
+        [bmp (make-object bitmap% "icons/available.png")]
+        [cs-style (new cs-style-manager)]
 
-        [ss4 (new contact-snip% [smart-list pb] [snip-data (cs-data "foo" 1 bmp "status1")])]
-        [ss5 (new contact-snip% [smart-list pb] [snip-data (cs-data "bar" 1 bmp "status2")])]
-        [ss6 (new contact-snip% [smart-list pb] [snip-data (cs-data "baz" 1 bmp "status3")])]
-        [ss7 (new contact-snip% [smart-list pb] [snip-data (cs-data "qux" 5 bmp "status4")])]
+        [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "foo" 1 bmp "status1")])]
+        [ss5 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "bar" 1 bmp "status2")])]
+        [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz" 1 bmp "status3")])]
+        [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux" 5 bmp "status4")])]
         [km (init-smart-list-keymap)])
 
    (send pb insert-entry ss4)
