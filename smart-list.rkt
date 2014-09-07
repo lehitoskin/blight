@@ -303,11 +303,24 @@
   (let ([km (new keymap%)])
     (send km add-function "select-next"
               (lambda (pb kev)
+                (let* ([sel (send pb find-next-selected-snip #f)]
+                       [nsel (if sel (send sel next) #f)])
+                  (when nsel
+                    (send pb set-selected nsel)))
                 (printf "next: ~a\n" kev)))
+
+    (send km add-function "select-previous"
+          (lambda (pb kev)
+            (let* ([sel (send pb find-next-selected-snip #f)]
+                   [nsel (if sel (send sel previous) #f)])
+              (when nsel
+                (send pb set-selected nsel)))
+            (printf "next: ~a\n" kev)))
     km))
 
 (define (init-default-smartlist-keymap km)
-  (send km map-function "n" "select-next"))
+  (send km map-function ":down" "select-next")
+  (send km map-function ":up" "select-previous"))
 
 (define (run)
 
