@@ -43,8 +43,8 @@
     (define status-glyphs
       (make-hash
        (list (cons 'offline (make-object bitmap% "icons/offline.png"))
-             (cons 'busy (make-object bitmap% "icons/away.png"))
-             (cons 'away (make-object bitmap% "icons/busy.png"))
+             (cons 'busy (make-object bitmap% "icons/busy.png"))
+             (cons 'away (make-object bitmap% "icons/away.png"))
              (cons 'available (make-object bitmap% "icons/available.png")))))
 
     (define/public (get-glyph status)
@@ -94,6 +94,7 @@
       (set! glyphw (send snip-glyph get-width))
       (set! glyphh (send snip-glyph get-height))
       (set! contact-status new-status)
+      (send smart-list update-entry this)
       (printf "set status for ~a: ~a\n" snip-text contact-status))
 
     (define/public (get-status)
@@ -168,10 +169,12 @@
              [sn-status (send sn get-status) ]
              [name1 (cs-data-name snip-data)]
              [name2 (cs-data-name sd)])
-        (cond
-         [(status>? contact-status sn-status) #t]
-         [(status=? contact-status sn-status) (string<? name1 name2)]
-         [else #f])))
+        (begin
+          (printf "~a vs ~a: " name1 name2)
+          (cond
+           [(status>? contact-status sn-status) #t]
+           [(status=? contact-status sn-status) (string<? name1 name2)]
+           [else #f]))))
 
     (define snip-text-fg-sel (send style-manager get-text-color-sel))
     (define snip-text-bg-sel (send style-manager get-bg-color-sel))
@@ -251,6 +254,23 @@
 
       ;; (define/public (set-selected entry)
       ;;   (printf "setting selected: ~a\n" (send entry get-ky)))
+
+      (define/public (update-entry ns)
+        (let ([key (send ns get-key)])
+          (begin
+
+            (let ([first-less
+                   ;; find the first element less than snip
+                   (for/first ([el (get-snip-stream)]
+                               #:when (send ns ss>? el))
+                     
+                     el)])
+              (begin
+                (if (eq? first-less #f)
+                    ;; no such, insert to the end
+                    (send this set-after ns #f)
+                    ;; insert before the first-less snip
+                    (send this set-before ns first-less)))))))
       
       (define/public (insert-entry ns)
         
@@ -311,8 +331,11 @@
    (send pb insert-entry ss7)
 
    (send ss7 set-status 'available)
+   (printf "busy for baz\n")
    (send ss6 set-status 'busy)
-   ;; (send pb set-caret-owner ss4)
+   (printf "busy for qux\n")   
+   (send ss5 set-status 'away)
+
 
    (init-default-smartlist-keymap km)
    (send pb set-keymap km)
