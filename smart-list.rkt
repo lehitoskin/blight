@@ -201,8 +201,6 @@
     (define/override (get-flags)
       (list 'handles-events 'handles-all-mouse-events))
 
-    (define/override (on-char dc x y editorx editory event)
-      (printf "on char: ~a\n" event))
 
     (define/override (on-event dc x y editorx editory event)
       (when (send event button-up? 'left)
@@ -254,6 +252,10 @@
 
       ;; (define/public (set-selected entry)
       ;;   (printf "setting selected: ~a\n" (send entry get-ky)))
+
+      (define/override (on-default-char event)
+        (printf "on char: ~a\n" event))
+
 
       (define/public (update-entry ns)
         (let ([key (send ns get-key)])
