@@ -1,6 +1,7 @@
 #lang racket
 (require racket/gui)
 (require mrlib/aligned-pasteboard)
+(require racket/contract)
 
 ;; every custom snip needs snip-class%
 (define ssc%
@@ -35,6 +36,16 @@
   (class* object% (smart-snip-style-manager<%>)
 
     (super-new)
+
+    (define status-glyphs
+      (make-hash
+       (list (cons 'offline (make-object bitmap% "icons/offline.png"))
+             (cons 'busy (make-object bitmap% "icons/away.png"))
+             (cons 'away (make-object bitmap% "icons/busy.png"))
+             (cons 'available (make-object bitmap% "icons/available.png")))))
+
+    (define/public (get-glyph status)
+      (hash-ref status-glyphs status))
     
     (define/public (get-bg-color)
       (send the-color-database find-color "White"))
@@ -48,7 +59,9 @@
     (define/public (get-text-color-sel)
       (send the-color-database find-color "White"))))
 
-(define contact-snip%
+(define/contract contact-snip%
+  (class/c [set-status (->m (symbols 'available 'offline 'away 'busy)  any)])
+
   (class* snip% (smart-snip<%>)
     (super-new)
     (send this set-snipclass (make-object ssc%))
@@ -56,18 +69,27 @@
     (init-field smart-list style-manager snip-data)
 
     (define snip-text (cs-data-name snip-data))
-    (define snip-glyph (cs-data-glyph snip-data))
+    (define contact-status #f)
+
+    ;; glyph 
+    (define snip-glyph #f)
+    (define glyphw #f)
+    (define glyphh #f)
+    (set-status 'offline)
     
     ;; selected status
     (define selected #f)
 
-    ;; glyph 
-    (define glyphw (send snip-glyph get-width))
-    (define glyphh (send snip-glyph get-height))
 
     (define hgap 10) ;; horizontal gap
     (define selected? #f) ;; is selected
     (define selection-changed? #f)
+
+    (define/public (set-status new-status)
+      (set! snip-glyph (send style-manager get-glyph new-status))
+      (set! glyphw (send snip-glyph get-width))
+      (set! glyphh (send snip-glyph get-height))
+      (set! contact-status new-status))
 
     (define (get-snip-extent dc)
       (let-values ([(text-width text-height dist evert) (send dc get-text-extent snip-text)])
@@ -159,7 +181,7 @@
     (define/override (on-event dc x y editorx editory event)
       (when (send event button-up? 'left)
         (send smart-list set-selected this)
-              (printf "on event: ~a\n" event)))))
+        (printf "on event: ~a\n" event)))))
 
   (define smart-list%
     (class vertical-pasteboard%
@@ -265,6 +287,7 @@
    (send pb insert-entry ss6)
    (send pb insert-entry ss7)
 
+   (send ss5 set-status 'available)
    ;; (send pb set-caret-owner ss4)
 
    (init-default-smartlist-keymap km)
