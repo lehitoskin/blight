@@ -33,7 +33,7 @@
   (interface () get-bg-color get-bg-color-sel get-text-color get-text-color-sel))
 
 (define status/c
-  (symbols 'available 'offline 'away 'busy))
+  (symbols 'available 'offline 'away 'busy 'groupchat))
 
 (define cs-style-manager
   (class* object% (smart-snip-style-manager<%>)
@@ -45,6 +45,7 @@
        (list (cons 'offline (make-object bitmap% "icons/offline.png"))
              (cons 'busy (make-object bitmap% "icons/busy.png"))
              (cons 'away (make-object bitmap% "icons/away.png"))
+             (cons 'groupchat (make-object bitmap% "icons/groupchat.png"))
              (cons 'available (make-object bitmap% "icons/available.png")))))
 
     (define/public (get-glyph status)
@@ -83,7 +84,6 @@
     
     ;; selected status
     (define selected #f)
-
 
     (define hgap 10) ;; horizontal gap
     (define selected? #f) ;; is selected
@@ -150,10 +150,11 @@
 
     ;; status priority table
     (define sp (make-hash
-                (list (cons 'offline 1)
-                      (cons 'busy 2)
-                      (cons 'away 3)
-                      (cons 'available 4))))
+                (list (cons 'groupchat 0)
+                 (cons 'offline 1)
+                 (cons 'busy 2)
+                 (cons 'away 3)
+                 (cons 'available 4))))
 
     (define/contract (status>? st1 st2)
       (-> status/c status/c boolean?)
@@ -256,7 +257,6 @@
       (define/override (on-default-char event)
         (printf "on char: ~a\n" event))
 
-
       (define/public (update-entry ns)
         (let ([key (send ns get-key)])
           (begin
@@ -325,12 +325,14 @@
         [ss5 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "bar"  "status2")])]
         [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz"  "status3")])]
         [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux"  "status4")])]
+        [grp (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "Groupchat #0"  "status4")])]
         [km (init-smart-list-keymap)])
 
    (send pb insert-entry ss4)
    (send pb insert-entry ss5)
    (send pb insert-entry ss6)
    (send pb insert-entry ss7)
+   (send pb insert-entry grp)
 
    (send ss7 set-status 'available)
    (printf "busy for baz\n")
@@ -338,6 +340,7 @@
    (printf "busy for qux\n")   
    (send ss5 set-status 'away)
 
+   (send grp set-status 'groupchat)
 
    (init-default-smartlist-keymap km)
    (send pb set-keymap km)
