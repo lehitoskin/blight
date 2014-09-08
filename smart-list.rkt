@@ -40,11 +40,16 @@
     (send km add-function "open-dialogue"
           (lambda (cur-snp kev)
             (printf "open dialogue\n")))
+
+    (send km add-function "select"
+          (lambda (cur-snp kev)
+            (send (get-field smart-list cur-snp) set-selected cur-snp)
+            (printf "~a selected\n" (send cur-snp get-key))))
     km))
 
 (define (init-default-cs-keymap km)
   (send km map-function ":leftbuttondouble" "open-dialogue")
-  )
+  (send km map-function ":leftbutton" "select"))
 
 (define cs-style-manager
   (class* object% (smart-snip-style-manager<%>)
@@ -221,10 +226,7 @@
 
     (define/override (on-event dc x y editorx editory event)
       (let ([cs-km (send style-manager get-km)])
-        (when (not (send cs-km handle-mouse-event this event))
-          (when (send event button-up? 'left)
-            (send smart-list set-selected this)
-            (printf "on event: ~a\n" event)))))))
+        (send cs-km handle-mouse-event this event)))))
 
   (define smart-list%
     (class vertical-pasteboard%
@@ -328,6 +330,10 @@
                 (send pb set-selected nsel)))
             (printf "next: ~a\n" kev)))
 
+    (send km add-function "open-dialogue"
+          (lambda (pb kev)
+            (printf "open dialogue\n")))
+    
     (send km add-function "select-previous"
           (lambda (pb kev)
             (let* ([sel (send pb find-next-selected-snip #f)]
@@ -340,7 +346,7 @@
 (define (init-default-smartlist-keymap km)
   (send km map-function ":down" "select-next")
   (send km map-function ":up" "select-previous")
-  )
+  (send km map-function ":space" "open-dialogue"))
 
 (define (run)
 
@@ -360,9 +366,7 @@
         [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz"  "status3")])]
         [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux"  "status4")])]
         [grp (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "Groupchat #0"  "status4")])]
-        [km (init-smart-list-keymap)]
-
-        )
+        [km (init-smart-list-keymap)])
 
    (send pb insert-entry ss4)
    (send pb insert-entry ss5)
