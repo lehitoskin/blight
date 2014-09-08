@@ -35,11 +35,28 @@
 (define status/c
   (symbols 'available 'offline 'away 'busy 'groupchat))
 
+(define (init-cs-keymap)
+  (let ([km (new keymap%)])
+    (send km add-function "open-dialogue"
+          (lambda (cur-snp kev)
+            (printf "open dialogue\n")))
+    km))
+
+(define (init-default-cs-keymap km)
+  (send km map-function ":leftbuttondouble" "open-dialogue")
+  )
+
 (define cs-style-manager
   (class* object% (smart-snip-style-manager<%>)
 
     (super-new)
 
+    (define km (init-cs-keymap))
+    
+    (init-default-cs-keymap km)
+
+    (define/public (get-km) km)
+    
     (define status-glyphs
       (make-hash
        (list (cons 'offline (make-object bitmap% "icons/offline.png"))
@@ -202,11 +219,12 @@
     (define/override (get-flags)
       (list 'handles-events 'handles-all-mouse-events))
 
-
     (define/override (on-event dc x y editorx editory event)
-      (when (send event button-up? 'left)
-        (send smart-list set-selected this)
-        (printf "on event: ~a\n" event)))))
+      (let ([cs-km (send style-manager get-km)])
+        (when (not (send cs-km handle-mouse-event this event))
+          (when (send event button-up? 'left)
+            (send smart-list set-selected this)
+            (printf "on event: ~a\n" event)))))))
 
   (define smart-list%
     (class vertical-pasteboard%
@@ -299,15 +317,16 @@
                         (send this set-before ns first-less)))))
         (hash-set! snip-hash key ns))))))
 
+
 (define (init-smart-list-keymap)
   (let ([km (new keymap%)])
     (send km add-function "select-next"
-              (lambda (pb kev)
-                (let* ([sel (send pb find-next-selected-snip #f)]
-                       [nsel (if sel (send sel next) #f)])
-                  (when nsel
-                    (send pb set-selected nsel)))
-                (printf "next: ~a\n" kev)))
+          (lambda (pb kev)
+            (let* ([sel (send pb find-next-selected-snip #f)]
+                   [nsel (if sel (send sel next) #f)])
+              (when nsel
+                (send pb set-selected nsel)))
+            (printf "next: ~a\n" kev)))
 
     (send km add-function "select-previous"
           (lambda (pb kev)
@@ -320,7 +339,8 @@
 
 (define (init-default-smartlist-keymap km)
   (send km map-function ":down" "select-next")
-  (send km map-function ":up" "select-previous"))
+  (send km map-function ":up" "select-previous")
+  )
 
 (define (run)
 
@@ -332,6 +352,7 @@
         [ss1 (new string-snip%)]
         [ss2 (new string-snip%)]
         [bmp (make-object bitmap% "icons/available.png")]
+
         [cs-style (new cs-style-manager)]
 
         [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "foo"  "status1")])]
@@ -339,7 +360,9 @@
         [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz"  "status3")])]
         [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux"  "status4")])]
         [grp (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "Groupchat #0"  "status4")])]
-        [km (init-smart-list-keymap)])
+        [km (init-smart-list-keymap)]
+
+        )
 
    (send pb insert-entry ss4)
    (send pb insert-entry ss5)
