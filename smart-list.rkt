@@ -27,7 +27,7 @@
      (sml-stream (send (sml-stream-cs sr) next)))])
 
 (define smart-snip<%>
-  (interface () get-key ss>? set-data get-data set-selected get-selected set-style-manager get-style-manager))
+  (interface () get-key set-key ss>? set-data get-data set-selected get-selected set-style-manager get-style-manager))
 
 (struct cs-data (name status-msg))
 
@@ -184,6 +184,9 @@
     (define/public (get-key)
       snip-text)
 
+    (define/public (set-key key)
+      (set! snip-text key))
+
     (define/public (set-data nd)
       (set! snip-data nd))
 
@@ -297,8 +300,13 @@
                     ;; insert before the first-less snip
                     (send this set-before ns first-less)))))))
       
+      (define/public (rename-entry sn newname)
+        (let ([oldname (send sn get-key)])
+          (hash-remove! snip-hash oldname)
+          (hash-set! snip-hash newname sn))
+        (send sn set-key newname))
+
       (define/public (insert-entry ns)
-        
         (let ([key (send ns get-key)])
           (begin
             (printf "inserting: ~a\n" key)
@@ -320,7 +328,7 @@
                         (send this set-after ns #f)
                         ;; insert before the first-less snip
                         (send this set-before ns first-less)))))
-        (hash-set! snip-hash key ns))))))
+            (hash-set! snip-hash key ns))))))
 
 
 (define (init-smart-list-keymap)

@@ -214,6 +214,9 @@ val is a value that corresponds to the value of the key
 (define sml-canvas
   (new aligned-editor-canvas% [parent frame] [editor sml]))
 
+(define sml-km (init-smart-list-keymap))
+(init-default-smartlist-keymap sml-km)
+(send sml set-keymap sml-km)
 
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
@@ -246,11 +249,16 @@ val is a value that corresponds to the value of the key
 ; data may be arbitrary, but a label will suffice
 (send list-box set-data 0 "0123456789ABCDEF")
 
+(define (get-contact-entry number)
+  (send sml get-entry-by-key
+        (send (list-ref friend-list number) get-name)))
+
 ; helper to avoid spamming notification sounds
 (define status-checker
   (λ (friendnumber status)
     (let ((type (get-user-status my-tox friendnumber)))
       (cond [(zero? status)
+             (send (get-contact-entry friendnumber) set-status 'offline)
              ; if the user is offline, prepend his name with (X)
              (send list-box set-string friendnumber
                    (string-append
@@ -1012,6 +1020,9 @@ val is a value that corresponds to the value of the key
 
 (define on-friend-name-change
   (λ (mtox friendnumber newname len userdata)
+     (let ([sn (get-contact-entry friendnumber)])
+       (send sml rename-entry sn newname))
+
     (let ((window (list-ref friend-list friendnumber)))
       ; update the name in the list
       (send window set-name newname)
@@ -1020,9 +1031,6 @@ val is a value that corresponds to the value of the key
       ; add connection status icon
       (status-checker friendnumber (get-friend-connection-status mtox friendnumber)))))
 
-(define (get-contact-entry number)
-  (send sml get-entry-by-key
-        (send (list-ref friend-list number) get-name)))
 
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)
