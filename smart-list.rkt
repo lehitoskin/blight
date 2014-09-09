@@ -3,6 +3,8 @@
 (require mrlib/aligned-pasteboard)
 (require racket/contract)
 
+(provide (all-defined-out))
+
 ;; every custom snip needs snip-class%
 (define ssc%
   (class snip-class%
@@ -84,6 +86,24 @@
     
     (define/public (get-text-color-sel)
       (send the-color-database find-color "White"))))
+
+;; status priority table
+(define sp (make-hash
+            (list (cons 'groupchat 0)
+                  (cons 'offline 1)
+                  (cons 'busy 2)
+                  (cons 'away 3)
+                  (cons 'available 4))))
+
+(define/contract (status>? st1 st2)
+  (-> status/c status/c boolean?)
+  (printf "status> ~a ~a : ~a\n" st1 st2 (> (hash-ref sp st1) (hash-ref sp st2)))
+  (> (hash-ref sp st1) (hash-ref sp st2)))
+
+(define/contract (status=? st1 st2)
+  (-> status/c status/c boolean?)
+  (eq? (hash-ref sp st1) (hash-ref sp st2)))
+
 
 (define/contract contact-snip%
   (class/c [set-status (->m status/c  any)]
@@ -170,35 +190,19 @@
     (define/public (get-data)
       snip-data)
 
-    ;; status priority table
-    (define sp (make-hash
-                (list (cons 'groupchat 0)
-                 (cons 'offline 1)
-                 (cons 'busy 2)
-                 (cons 'away 3)
-                 (cons 'available 4))))
 
-    (define/contract (status>? st1 st2)
-      (-> status/c status/c boolean?)
-      (printf "status> ~a ~a : ~a\n" st1 st2 (> (hash-ref sp st1) (hash-ref sp st2)))
-      (> (hash-ref sp st1) (hash-ref sp st2)))
-
-    (define/contract (status=? st1 st2)
-      (-> status/c status/c boolean?)
-      (eq? (hash-ref sp st1) (hash-ref sp st2)))
-    
     (define/public (ss>? sn)
       (let* ([sd (send sn get-data)]
              [sn-status (send sn get-status) ]
              [name1 (cs-data-name snip-data)]
              [name2 (cs-data-name sd)])
         (begin
-          (printf "~a vs ~a: " name1 name2)
+          ;; (printf "~a vs ~a: " name1 name2)
           (cond
            [(status>? contact-status sn-status) #t]
            [(status=? contact-status sn-status) (string<? name1 name2)]
            [else #f]))))
-
+    
     (define snip-text-fg-sel (send style-manager get-text-color-sel))
     (define snip-text-bg-sel (send style-manager get-bg-color-sel))
 
@@ -238,9 +242,8 @@
       (send this set-selection-visible #f)
 
       ; TODO
-      (define/public (find-string)
-        #f
-        )
+      (define/public (get-entry-by-key key)
+        (hash-ref snip-hash key))
 
       (define/public (get-number)
         1
@@ -298,7 +301,7 @@
         
         (let ([key (send ns get-key)])
           (begin
-            ;; (printf "inserting: ~a\n" key)
+            (printf "inserting: ~a\n" key)
             (if (hash-empty? snip-hash) 
                 (begin
                   

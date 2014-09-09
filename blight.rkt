@@ -14,6 +14,8 @@
          "utils.rkt"
          "toxdns.rkt"
          "msg-history.rkt"
+         "smart-list.rkt"
+         mrlib/aligned-pasteboard
          )      ; for toxdns lookups
 
 (define license-message
@@ -204,6 +206,15 @@ val is a value that corresponds to the value of the key
                            [this-height 600]
                            [this-tox my-tox])))
 
+(define cs-style (new cs-style-manager))
+
+(define sml
+  (new smart-list%))
+
+(define sml-canvas
+  (new aligned-editor-canvas% [parent frame] [editor sml]))
+
+
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
 ;  choice -> string -> username
@@ -300,6 +311,19 @@ val is a value that corresponds to the value of the key
     ;; groups
     (for ([i (count-chatlist my-tox)])
       (send list-box append (format "Group Chat #~a" i) i))))
+
+(define (initial-fill-sml)
+    (for ([fn (friendlist-length my-tox)])
+      (define name (friend-name my-tox fn))
+      (define status-msg (friend-status-msg my-tox fn))
+      (define key (friend-key my-tox fn))
+      (define friend-item (list-ref friend-list fn))
+
+      (let ([nc (new contact-snip% [smart-list sml] [style-manager cs-style] [snip-data (cs-data name status-msg)])])
+        (send sml insert-entry nc))))
+
+(initial-fill-sml)
+
 (update-list-box)
 
 ; panel for choice and buttons
@@ -996,9 +1020,16 @@ val is a value that corresponds to the value of the key
       ; add connection status icon
       (status-checker friendnumber (get-friend-connection-status mtox friendnumber)))))
 
+(define (get-contact-entry number)
+  (send sml get-entry-by-key
+        (send (list-ref friend-list number) get-name)))
+
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)
     (cond [(= status (_TOX_USERSTATUS-index 'NONE))
+
+           (send (get-contact-entry friendnumber) set-status 'available)
+           
            ; if there is no special status, add a checkmark
            (send list-box set-string friendnumber
                  (string-append
@@ -1008,12 +1039,14 @@ val is a value that corresponds to the value of the key
                   (send (list-ref friend-list friendnumber) get-status-msg)))]
           ; if user is away, add a dash inside a circle
           [(= status (_TOX_USERSTATUS-index 'AWAY))
+           (send (get-contact-entry friendnumber) set-status 'away)
            (send list-box set-string friendnumber
                  (string-append "(⊖) " (send (list-ref friend-list friendnumber) get-name)
                                 "\n"
                                 (send (list-ref friend-list friendnumber) get-status-msg)))]
           ; if user is busy, add an X inside a circle
           [(= status (_TOX_USERSTATUS-index 'BUSY))
+           (send (get-contact-entry friendnumber) set-status 'busy)
            (send list-box set-string friendnumber
                  (string-append "(⊗) " (send (list-ref friend-list friendnumber) get-name)
                                 "\n"
@@ -1023,6 +1056,7 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber status userdata)
     ; add a thingie that shows the friend is online
     (cond [(zero? status)
+           (send (get-contact-entry friendnumber) set-status 'offline)
            ; if the user is offline, append his name with (X)
            (send list-box set-string friendnumber
                  (string-append "(X) " (send (list-ref friend-list friendnumber) get-name)
