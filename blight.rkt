@@ -893,8 +893,12 @@ val is a value that corresponds to the value of the key
                        (blight-save-data)
                        ; remove from list-box
                        (send list-box delete friend-num)
+
+                       (send sml remove-entry (get-contact-entry friend-num))
+                       
                        ; remove from list
                        (set! friend-list (delnode friend-list friend-num))
+
                        ; the invite list needs to be updated for
                        ; the groupchat windows that still exist
                        (unless (zero? (length group-list))
@@ -938,39 +942,50 @@ val is a value that corresponds to the value of the key
                                       [parent friend-request-dialog]
                                       [alignment (list 'right 'center)]))
     
-    (define ok (new button% [parent friend-request-panel]
-                    [label "OK"]
-                    [callback (λ (button event)
-                                (send friend-request-dialog show #f)
-                                ; add the friend
-                                (add-friend-norequest mtox public-key)
-                                ; save the tox data
-                                (blight-save-data)
-                                ; play a sound because we accepted
-                                (unless (false? make-noise)
-                                  (play-sound (sixth sounds) #f))
-                                ; append new friend to the list
-                                (set! friend-list (append
-                                                   friend-list
-                                                   (list (new chat-window%
-                                                              [this-label "a"]
-                                                              [this-width 400]
-                                                              [this-height 600]
-                                                              [this-tox my-tox]))))
-                                ; update friend list
-                                (update-list-box)
-                                ; add connection status icons to each friend
-                                (do ((i 0 (+ i 1)))
-                                  ((= i (friendlist-length mtox)))
-                                  (status-checker
-                                   i
-                                   (get-friend-connection-status mtox i)))
-                                ; the invite list needs to be updated for
-                                ; the groupchat windows that still exist
-                                (unless (zero? (length group-list))
-                                  (do ((i 0 (+ i 1)))
-                                    ((= i (count-chatlist my-tox)))
-                                    (send (list-ref group-list i) update-invite-list))))]))
+    (define ok
+      (new button% [parent friend-request-panel]
+           [label "OK"]
+           [callback
+            (λ (button event)
+               (send friend-request-dialog show #f)
+                                        ; add the friend
+               (add-friend-norequest mtox public-key)
+                                        ; save the tox data
+               (blight-save-data)
+                                        ; play a sound because we accepted
+               (unless (false? make-noise)
+                 (play-sound (sixth sounds) #f))
+                                        ; append new friend to the list
+               (set! friend-list (append
+                                  friend-list
+                                  (list (new chat-window%
+                                             [this-label "a"]
+                                             [this-width 400]
+                                             [this-height 600]
+                                             [this-tox my-tox]))))
+
+
+               (let* ([friend-num (sub1  (length friend-list))]
+                      [name (friend-name my-tox friend-num)]
+                     [status-msg (friend-status-msg my-tox friend-num)]
+                     [nc (new contact-snip% [smart-list sml] [style-manager cs-style] 
+                              [snip-data (cs-data name status-msg)])])
+                 (send sml insert-entry nc))
+                                
+                                        ; update friend list
+               (update-list-box)
+                                        ; add connection status icons to each friend
+               (do ((i 0 (+ i 1)))
+                   ((= i (friendlist-length mtox)))
+                 (status-checker
+                  i
+                  (get-friend-connection-status mtox i)))
+                                        ; the invite list needs to be updated for
+                                        ; the groupchat windows that still exist
+               (unless (zero? (length group-list))
+                 (do ((i 0 (+ i 1)))
+                     ((= i (count-chatlist my-tox)))
+                   (send (list-ref group-list i) update-invite-list))))]))
     
     (define cancel (new button% [parent friend-request-panel]
                         [label "Cancel"]
