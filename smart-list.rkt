@@ -247,7 +247,7 @@
               (send dc set-text-foreground snip-text-fg-sel)
               (let-values ([(snip-width snip-height) (get-snip-extent dc)])
                 (send dc set-brush snip-text-bg-sel 'solid)
-                (send dc draw-rectangle (+ x glyphw hgap) y snip-width text-height)))
+                (send dc draw-rectangle (+ x glyphw hgap) y snip-width snip-height)))
             
             (send dc set-text-foreground snip-text-fg))
 
