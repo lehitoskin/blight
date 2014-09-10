@@ -29,7 +29,7 @@
 (define smart-snip<%>
   (interface () get-key set-key ss>? set-data get-data set-selected get-selected set-style-manager get-style-manager))
 
-(struct cs-data (name status-msg))
+(struct cs-data (name status-msg) #:mutable)
 
 (define smart-snip-style-manager<%>
   (interface () get-bg-color get-bg-color-sel get-text-color get-text-color-sel))
@@ -115,7 +115,6 @@
     
     (init-field smart-list style-manager snip-data)
 
-    (define snip-text (cs-data-name snip-data))
     (define contact-status #f)
 
     ;; glyph 
@@ -137,23 +136,29 @@
       (set! glyphh (send snip-glyph get-height))
       (set! contact-status new-status)
       (send smart-list update-entry this)
-      (printf "set status for ~a: ~a\n" snip-text contact-status))
+      (printf "set status for ~a: ~a\n" (cs-data-name snip-data) contact-status))
 
     (define/public (get-status)
       contact-status)
 
+    (define (get-text-extent dc)
+      (let-values ([(text-width text-height dist evert) (send dc get-text-extent (cs-data-name snip-data))])
+        (printf "text extent (~a) = ~a x ~a\n" (cs-data-name snip-data) text-width text-height)
+        (values text-width text-height)))
+
     (define (get-snip-extent dc)
-      (let-values ([(text-width text-height dist evert) (send dc get-text-extent snip-text)])
+      (let-values ([(text-width text-height) (get-text-extent dc)]
+                   [(sml-w sml-h) (values (box (void)) (box (void)))]
+                   )
+        (send smart-list get-view-size sml-w sml-h)
         (values (+ glyphw text-width hgap)
                 (+ glyphh text-height))))
 
-    (define (get-text-extent dc)
-      (let-values ([(text-width text-height dist evert) (send dc get-text-extent snip-text)])
-        (values text-width text-height)))
     
     (define/override (get-extent dc x y
                                  w h descent space lspace rspace)
-      (let-values ([(tw th dist evert) (send dc get-text-extent snip-text)])
+      (let-values ([(tw th) (get-text-extent dc)])
+
         (when w
           (set-box! w (+ glyphw tw hgap)))
         (when h
@@ -175,24 +180,23 @@
       (set! style-manager mgr))
 
     (define/public (set-selected s?)
-      (printf "selection changed for ~a: ~a\n" snip-text s?)
+      (printf "selection changed for ~a: ~a\n" (cs-data-name snip-data) s?)
       (set! selected? s?))
 
     (define/public (get-selected)
       selected?)
 
     (define/public (get-key)
-      snip-text)
+      (cs-data-name snip-data))
 
     (define/public (set-key key)
-      (set! snip-text key))
+      (set-cs-data-name! snip-data key))
 
     (define/public (set-data nd)
       (set! snip-data nd))
 
     (define/public (get-data)
       snip-data)
-
 
     (define/public (ss>? sn)
       (let* ([sd (send sn get-data)]
@@ -215,7 +219,7 @@
     (define/override (draw dc x y left top right bottom dx dy draw-caret)
       (let-values ([(snip-width snip-height) (get-snip-extent dc)]
                    [(text-width text-height) (get-text-extent dc)])
-        
+        (printf "snip extent (~a) = ~a x ~a\n" (cs-data-name snip-data) snip-width snip-height)
         (if selected?
             (begin
               (send dc set-text-foreground snip-text-fg-sel)
@@ -226,7 +230,7 @@
             (send dc set-text-foreground snip-text-fg))
 
         (send dc draw-bitmap snip-glyph x y 'xor)
-        (send dc draw-text snip-text (+ x glyphw hgap) y)))
+        (send dc draw-text (cs-data-name snip-data) (+ x glyphw hgap) y)))
     
     (define/override (get-flags)
       (list 'handles-events 'handles-all-mouse-events))
@@ -299,12 +303,21 @@
                     (send this set-after ns #f)
                     ;; insert before the first-less snip
                     (send this set-before ns first-less)))))))
+
+
+      (define/public (remove-entry sn)
+        (let ([name (send sn get-key)])
+          (hash-remove! snip-hash name)
+          (send this remove sn)))
+
+      (define (reset-entry sn)
+          (remove-entry sn)
+          (insert-entry sn))
       
       (define/public (rename-entry sn newname)
         (let ([oldname (send sn get-key)])
-          (hash-remove! snip-hash oldname)
-          (hash-set! snip-hash newname sn))
-        (send sn set-key newname))
+          (send sn set-key newname)
+          (reset-entry sn)))
 
       (define/public (insert-entry ns)
         (let ([key (send ns get-key)])
@@ -359,7 +372,7 @@
   (send km map-function ":up" "select-previous")
   (send km map-function ":space" "open-dialogue"))
 
-(define (run)
+(define (smart-list-test-run)
 
  (let* ([frame (new frame% [label "Smart-list demo"]
                     [width 640]
@@ -390,6 +403,8 @@
    (send ss6 set-status 'busy)
    (printf "busy for qux\n")   
    (send ss5 set-status 'away)
+
+   (send pb rename-entry ss5 "basdfsadfasdf")
 
    (send grp set-status 'groupchat)
 
