@@ -152,7 +152,7 @@
                    )
         (send smart-list get-view-size sml-w sml-h)
         (values (+ glyphw text-width hgap)
-                (+ glyphh text-height))))
+                (max glyphh text-height))))
 
     
     (define/override (get-extent dc x y
