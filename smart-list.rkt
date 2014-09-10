@@ -97,7 +97,7 @@
 
 (define/contract (status>? st1 st2)
   (-> status/c status/c boolean?)
-  (printf "status> ~a ~a : ~a\n" st1 st2 (> (hash-ref sp st1) (hash-ref sp st2)))
+  ;; (printf "status> ~a ~a : ~a\n" st1 st2 (> (hash-ref sp st1) (hash-ref sp st2)))
   (> (hash-ref sp st1) (hash-ref sp st2)))
 
 (define/contract (status=? st1 st2)
@@ -136,14 +136,15 @@
       (set! glyphh (send snip-glyph get-height))
       (set! contact-status new-status)
       (send smart-list update-entry this)
-      (printf "set status for ~a: ~a\n" (cs-data-name snip-data) contact-status))
+      ;; (printf "set status for ~a: ~a\n" (cs-data-name snip-data) contact-status)
+      )
 
     (define/public (get-status)
       contact-status)
 
     (define (get-text-extent dc)
       (let-values ([(text-width text-height dist evert) (send dc get-text-extent (cs-data-name snip-data))])
-        (printf "text extent (~a) = ~a x ~a\n" (cs-data-name snip-data) text-width text-height)
+        ;; (printf "text extent (~a) = ~a x ~a\n" (cs-data-name snip-data) text-width text-height)
         (values text-width text-height)))
 
     (define (get-snip-extent dc)
@@ -219,7 +220,7 @@
     (define/override (draw dc x y left top right bottom dx dy draw-caret)
       (let-values ([(snip-width snip-height) (get-snip-extent dc)]
                    [(text-width text-height) (get-text-extent dc)])
-        (printf "snip extent (~a) = ~a x ~a\n" (cs-data-name snip-data) snip-width snip-height)
+        ;; (printf "snip extent (~a) = ~a x ~a\n" (cs-data-name snip-data) snip-width snip-height)
         (if selected?
             (begin
               (send dc set-text-foreground snip-text-fg-sel)
