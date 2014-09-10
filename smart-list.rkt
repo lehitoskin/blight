@@ -109,11 +109,33 @@
   (class/c [set-status (->m status/c  any)]
            [get-status (->m status/c)])
 
-  (class* snip% (smart-snip<%>)
+  (class* snip% (smart-snip<%> stretchable-snip<%>)
     (super-new)
     (send this set-snipclass (make-object ssc%))
     
     (init-field smart-list style-manager snip-data)
+
+    (define snip-height 0)
+    (define snip-width 0)
+    
+    (define/public (get-aligned-min-height)
+      (let-values ([(tw th) (get-text-extent (send smart-list get-dc))])
+        (max glyphh th)))
+    
+    (define/public (get-aligned-min-width)
+      (let-values ([(tw th) (get-text-extent (send smart-list get-dc))])
+        (+ glyphw tw hgap)))
+    
+    (define/public (stretchable-height)
+      #f)
+
+    (define/public (stretchable-width)
+      #t)
+
+    (define/public (stretch w h)
+      (set! snip-width w)
+      (set! snip-height h)
+      (send smart-list resized this #t))
 
     (define contact-status #f)
 
@@ -152,8 +174,7 @@
                    [(sml-w sml-h) (values (box (void)) (box (void)))]
                    )
         (send smart-list get-view-size sml-w sml-h)
-        (values (+ glyphw text-width hgap)
-                (max glyphh text-height))))
+        (values snip-width snip-height)))
 
     
     (define/override (get-extent dc x y
@@ -161,9 +182,9 @@
       (let-values ([(tw th) (get-text-extent dc)])
 
         (when w
-          (set-box! w (+ glyphw tw hgap)))
+          (set-box! w snip-width))
         (when h
-          (set-box! h (+ glyphh th)))
+          (set-box! h snip-height))
         (when descent 
           (set-box! descent 0))
         (when space
@@ -226,7 +247,7 @@
               (send dc set-text-foreground snip-text-fg-sel)
               (let-values ([(snip-width snip-height) (get-snip-extent dc)])
                 (send dc set-brush snip-text-bg-sel 'solid)
-                (send dc draw-rectangle (+ x glyphw hgap) y text-width text-height)))
+                (send dc draw-rectangle (+ x glyphw hgap) y snip-width text-height)))
             
             (send dc set-text-foreground snip-text-fg))
 
@@ -271,19 +292,6 @@
 
       (define/augment (on-select snip on?)
         (send snip set-selected on?))
-
-      ;; (define/public (sort)
-        
-      ;;   )
-
-      ;; (define/public (enumerate-snips func)
-      ;;   (let loop ([ns (send this find-first-snip)])
-      ;;     (when (xor ns #f)
-      ;;       (func ns)  
-      ;;       (loop (send ns next)))))
-
-      ;; (define/public (set-selected entry)
-      ;;   (printf "setting selected: ~a\n" (send entry get-ky)))
 
       (define/override (on-default-char event)
         (printf "on char: ~a\n" event))
