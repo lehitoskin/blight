@@ -113,7 +113,7 @@
     (super-new)
     (send this set-snipclass (make-object ssc%))
     
-    (init-field smart-list style-manager snip-data)
+    (init-field smart-list style-manager snip-data contact-data)
 
     (define snip-height 0)
     (define snip-width 0)
@@ -394,7 +394,7 @@
 
         [cs-style (new cs-style-manager)]
 
-        [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "foo"  "status1")])]
+        [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "foo"  "status1")] [contact-data ""])]
         [ss5 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "bar"  "status2")])]
         [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz"  "status3")])]
         [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux"  "status4")])]

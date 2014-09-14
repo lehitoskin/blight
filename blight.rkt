@@ -47,6 +47,11 @@ if people have a similar problem.")
 ; instantiate Tox session
 (define my-tox (tox-new #f))
 
+; chat entity holding group or contact data
+(struct contact-data (name type window tox-num) #:transparent)
+(define cur-groups (make-hash))
+(define cur-buddies (make-hash))
+
 #|
 reusable procedure to save information to blight-config.json
 
@@ -320,15 +325,52 @@ val is a value that corresponds to the value of the key
     (for ([i (count-chatlist my-tox)])
       (send list-box append (format "Group Chat #~a" i) i))))
 
+(define (create-buddy name status key)
+  (let* ([number (add-groupchat my-tox)]
+         
+         [group-window (new chat-window%
+                           [this-label (format "Blight - ~a" name)]
+                           [this-height 400]
+                           [this-width 600]
+                           [this-tox my-tox])]
+         [cd (contact-data name 'buddy group-window key)]
+         [ncs (new contact-snip% [smart-list sml]
+                   [style-manager cs-style]
+                   [snip-data (cs-data name status)]
+                   [contact-data cd])])
+                      (send ncs set-status 'offline)
+                      (send sml insert-entry ncs)
+
+                      (hash-set! cur-buddies name cd)))
+
+(define (create-group name)
+  (let* ([number (add-groupchat my-tox)]
+         
+         [group-window (new group-window%
+                           [this-label (format "Blight - Groupchat #~a" number)]
+                           [this-height 600]
+                           [this-width 800]
+                           [this-tox my-tox]
+                           [group-number number])]
+         [cd (contact-data name 'group group-window number)]
+         [ncs (new contact-snip% [smart-list sml]
+                   [style-manager cs-style]
+                   [snip-data (cs-data name "")]
+                   [contact-data cd])])
+                      ;; (printf "len (group-list): ~a\n" (length group-list))
+                      (send ncs set-status 'groupchat)
+                      (send sml insert-entry ncs)
+
+                      (hash-set! cur-groups name cd))
+  )
+
 (define (initial-fill-sml)
     (for ([fn (friendlist-length my-tox)])
       (define name (friend-name my-tox fn))
       (define status-msg (friend-status-msg my-tox fn))
       (define key (friend-key my-tox fn))
       (define friend-item (list-ref friend-list fn))
-
-      (let ([nc (new contact-snip% [smart-list sml] [style-manager cs-style] [snip-data (cs-data name status-msg)])])
-        (send sml insert-entry nc))))
+      (create-buddy name status-msg key)))
 
 (initial-fill-sml)
 
@@ -807,28 +849,38 @@ val is a value that corresponds to the value of the key
                                      (send add-friend-error-dialog show #f)))])))]))
 #| ##################### END ADD FRIEND STUFF ####################### |#
 
+
+
 #| ####################### BEGIN GROUP STUFF ######################## |#
 (define add-group-button
   (new button%
        [parent panel]
        [label "Add group"]
        [callback (λ (button event)
+
+                    (let ([groups-count (hash-count cur-groups)])
+                      (create-group (format "Groupchat #~a" groups-count)))
+                                        
                    ; we're out of groupchat windows!
                    ; spawn a new one
                    (cond [(zero? (length group-list))
-                          (set! group-list
-                                (append group-list
-                                        (list
-                                         (new group-window%
-                                              [this-label "Blight - Groupchat #0"]
-                                              [this-height 600]
-                                              [this-width 800]
-                                              [this-tox my-tox]
-                                              [group-number 0]))))])
+                          (printf "len (group-list): ~a\n" (length group-list))                          
+                          (begin
+                            (set! group-list
+                                  (append group-list
+                                          (list
+                                           (new group-window%
+                                                [this-label "Blight - Groupchat #0"]
+                                                [this-height 600]
+                                                [this-width 800]
+                                                [this-tox my-tox]
+                                                [group-number 0]))))
+                            )])
                    (let ((err (add-groupchat my-tox)))
                      (cond
                        ; there's more than one groupchat
                        [(> err 0)
+                        (printf "err = ~a\n" err)
                         (set! group-list
                               (append
                                group-list
