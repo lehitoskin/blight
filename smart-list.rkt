@@ -205,7 +205,7 @@
       (set! style-manager mgr))
 
     (define/public (set-selected s?)
-      (printf "selection changed for ~a: ~a\n" (cs-data-name snip-data) s?)
+      ;; (printf "selection changed for ~a: ~a\n" (cs-data-name snip-data) s?)
       (set! selected? s?))
 
     (define/public (get-selected)
@@ -334,7 +334,7 @@
       (define/public (insert-entry ns)
         (let ([key (send ns get-key)])
           (begin
-            (printf "inserting: ~a\n" key)
+            ;; (printf "inserting: ~a\n" key)
             (if (hash-empty? snip-hash) 
                 (begin
                   

@@ -337,11 +337,15 @@ val is a value that corresponds to the value of the key
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [snip-data (cs-data name status)]
-                   [contact cd])])
+                   [contact cd])]
+         [friend-number (friend-number my-tox key)])
                       (send ncs set-status 'offline)
                       (send sml insert-entry ncs)
 
-                      (hash-set! cur-buddies name cd)))
+                      (hash-set! cur-buddies friend-number cd)
+                      (send chat-window set-name name)
+                      (send chat-window set-key key)
+                      (send chat-window set-friend-num friend-number)))
 
 (define (create-group name)
   (let* ([number (add-groupchat my-tox)]
@@ -1054,7 +1058,8 @@ val is a value that corresponds to the value of the key
 
 (define on-friend-message
   (λ (mtox friendnumber message len userdata)
-    (let* ([window (list-ref friend-list friendnumber)]
+     (let* ([cd (hash-ref cur-buddies friendnumber)]
+           [window (contact-data-window cd)]
            [msg-history (send window get-msg-history)]
            [name (send window get-name)])
       
@@ -1070,7 +1075,8 @@ val is a value that corresponds to the value of the key
 
 (define on-friend-action
   (λ (mtox friendnumber action len userdata)
-    (let* ((window (list-ref friend-list friendnumber))
+    (let* ([cd (hash-ref cur-buddies friendnumber)]
+           [window (contact-data-window cd)]           
            (editor (send window get-receive-editor))
            [msg-history (send window get-msg-history)]
            (name (send window get-name)))
