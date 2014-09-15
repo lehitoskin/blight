@@ -325,6 +325,12 @@ val is a value that corresponds to the value of the key
     (for ([i (count-chatlist my-tox)])
       (send list-box append (format "Group Chat #~a" i) i))))
 
+(define (update-invite-list)
+  (for ([grp cur-groups])
+    (let ([cw (contact-data-window grp)])
+      (send cw
+            update-invite-list))))
+
 (define (create-buddy name status key)
   (let* ([number (add-groupchat my-tox)]
          
@@ -835,12 +841,8 @@ val is a value that corresponds to the value of the key
                                           (send add-friend-box show #f)
                                           ; the invite list needs to be updated for
                                           ; the groupchat windows that still exist
-                                          (unless (zero? (length group-list))
-                                            (do ((i 0 (+ i 1)))
-                                              ((= i (count-chatlist my-tox)))
-                                              (send
-                                               (list-ref group-list i)
-                                               update-invite-list)))]))]
+                                          (unless (zero? (hash-count cur-groups))
+                                            (update-invite-list))]))]
                            ; something went wrong!
                            [else (unless (false? make-noise)
                                    (play-sound (last sounds) #t))
@@ -958,10 +960,7 @@ val is a value that corresponds to the value of the key
                        ; the invite list needs to be updated for
                        ; the groupchat windows that still exist
                        (unless (zero? (length group-list))
-                         (do ((i 0 (+ i 1)))
-                           ((= i (count-chatlist my-tox)))
-                           (send (list-ref group-list i) update-invite-list)))
-                       )))]))
+                         (update-invite-list)))))]))
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
@@ -1035,9 +1034,7 @@ val is a value that corresponds to the value of the key
                                         ; the invite list needs to be updated for
                                         ; the groupchat windows that still exist
                (unless (zero? (length group-list))
-                 (do ((i 0 (+ i 1)))
-                     ((= i (count-chatlist my-tox)))
-                   (send (list-ref group-list i) update-invite-list))))]))
+                 (update-invite-list)))]))
     
     (define cancel (new button% [parent friend-request-panel]
                         [label "Cancel"]
