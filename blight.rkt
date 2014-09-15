@@ -960,7 +960,8 @@ val is a value that corresponds to the value of the key
                        (unless (zero? (length group-list))
                          (do ((i 0 (+ i 1)))
                            ((= i (count-chatlist my-tox)))
-                           (send (list-ref group-list i) update-invite-list))))))]))
+                           (send (list-ref group-list i) update-invite-list)))
+                       )))]))
 
 #| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
@@ -1006,6 +1007,7 @@ val is a value that corresponds to the value of the key
                (send friend-request-dialog show #f)
                                         ; add the friend
                (add-friend-norequest mtox public-key)
+               (define friendnumber (sub1 (friendlist-length my-tox)))
                                         ; save the tox data
                (blight-save-data)
                                         ; play a sound because we accepted
@@ -1020,13 +1022,7 @@ val is a value that corresponds to the value of the key
                                              [this-height 600]
                                              [this-tox my-tox]))))
 
-
-               (let* ([friend-num (sub1  (length friend-list))]
-                      [name (friend-name my-tox friend-num)]
-                     [status-msg (friend-status-msg my-tox friend-num)]
-                     [nc (new contact-snip% [smart-list sml] [style-manager cs-style] 
-                              [snip-data (cs-data name status-msg)])])
-                 (send sml insert-entry nc))
+               (create-buddy "Anonymous" "" (friend-key my-tox friendnumber))
                                 
                                         ; update friend list
                (update-list-box)
@@ -1103,7 +1099,8 @@ val is a value that corresponds to the value of the key
       ; update the name in the window
       (send window set-new-label (string-append "Blight - " newname))
       ; add connection status icon
-      (status-checker friendnumber (get-friend-connection-status mtox friendnumber)))))
+      ;; (status-checker friendnumber (get-friend-connection-status mtox friendnumber))
+      )))
 
 
 (define on-status-type-change
@@ -1249,25 +1246,15 @@ val is a value that corresponds to the value of the key
                               #f
                               (list 'ok-cancel 'caution))))
       (when (eq? mbox 'ok)
-        (unless (not (= (+ (count-chatlist mtox) 1)
-                        (length group-list)))
-          (set! group-list
-                (append group-list
-                        (list
-                         (new group-window%
-                              [this-label (format "Blight - Groupchat #~a"
-                                                  (length group-list))]
-                              
-                              [this-height 600]
-                              [this-width 800]
-                              [this-tox my-tox]
-                              [group-number (length group-list)])))))
         (define err (join-groupchat mtox friendnumber group-public-key))
         (cond [(= err -1)
                (message-box "Blight - Groupchat Failure"
                             "Failed to add groupchat!"
                             #f
-                            (list 'ok 'caution))])
+                            (list 'ok 'caution))]
+              [else
+                (create-group (format "Blight - Groupchat #~a"
+                                      (hash-count cur-groups)))])
         (update-list-box)
         #|(cond [(> err 0)
          (set! group-list
