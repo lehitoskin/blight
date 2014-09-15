@@ -30,6 +30,7 @@
   (interface () get-key set-key ss>? set-data get-data set-selected get-selected set-style-manager get-style-manager))
 
 (struct cs-data (name status-msg) #:mutable)
+(struct contact-data (name type window tox-num) #:transparent #:mutable)
 
 (define smart-snip-style-manager<%>
   (interface () get-bg-color get-bg-color-sel get-text-color get-text-color-sel))
@@ -41,6 +42,8 @@
   (let ([km (new keymap%)])
     (send km add-function "open-dialogue"
           (lambda (cur-snp kev)
+            (let* ([sel-cd (get-field contact cur-snp)])
+              (send (contact-data-window sel-cd) show #t))
             (printf "open dialogue\n")))
 
     (send km add-function "select"
@@ -113,7 +116,7 @@
     (super-new)
     (send this set-snipclass (make-object ssc%))
     
-    (init-field smart-list style-manager snip-data contact-data)
+    (init-field smart-list style-manager snip-data contact)
 
     (define snip-height 0)
     (define snip-width 0)
@@ -365,6 +368,9 @@
 
     (send km add-function "open-dialogue"
           (lambda (pb kev)
+            (let* ([sel (send pb find-next-selected-snip #f)]
+                  [sel-cd (get-field contact sel)])
+              (send (contact-data-window sel-cd) show #t))
             (printf "open dialogue\n")))
     
     (send km add-function "select-previous"
@@ -394,11 +400,11 @@
 
         [cs-style (new cs-style-manager)]
 
-        [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "foo"  "status1")] [contact-data ""])]
-        [ss5 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "bar"  "status2")])]
-        [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz"  "status3")])]
-        [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux"  "status4")])]
-        [grp (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "Groupchat #0"  "status4")])]
+        [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "foo"  "status1")] [contact ""])]
+        [ss5 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "bar"  "status2")] [contact ""])]
+        [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz"  "status3")] [contact ""])]
+        [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux"  "status4")][contact ""])]
+        [grp (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "Groupchat #0"  "status4")]  [contact ""])]
         [km (init-smart-list-keymap)])
 
    (send pb insert-entry ss4)

@@ -48,7 +48,7 @@ if people have a similar problem.")
 (define my-tox (tox-new #f))
 
 ; chat entity holding group or contact data
-(struct contact-data (name type window tox-num) #:transparent)
+
 (define cur-groups (make-hash))
 (define cur-buddies (make-hash))
 
@@ -328,16 +328,16 @@ val is a value that corresponds to the value of the key
 (define (create-buddy name status key)
   (let* ([number (add-groupchat my-tox)]
          
-         [group-window (new chat-window%
+         [chat-window (new chat-window%
                            [this-label (format "Blight - ~a" name)]
                            [this-height 400]
                            [this-width 600]
                            [this-tox my-tox])]
-         [cd (contact-data name 'buddy group-window key)]
+         [cd (contact-data name 'buddy chat-window key)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [snip-data (cs-data name status)]
-                   [contact-data cd])])
+                   [contact cd])])
                       (send ncs set-status 'offline)
                       (send sml insert-entry ncs)
 
@@ -356,7 +356,7 @@ val is a value that corresponds to the value of the key
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [snip-data (cs-data name "")]
-                   [contact-data cd])])
+                   [contact cd])])
                       ;; (printf "len (group-list): ~a\n" (length group-list))
                       (send ncs set-status 'groupchat)
                       (send sml insert-entry ncs)
