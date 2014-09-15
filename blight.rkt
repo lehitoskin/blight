@@ -1056,10 +1056,13 @@ val is a value that corresponds to the value of the key
                                       "Message: " data))
     (send friend-request-dialog show #t)))
 
+(define (get-contact-window friendnumber)
+  (let* ([cd (hash-ref cur-buddies friendnumber)])
+    (contact-data-window cd)))
+
 (define on-friend-message
   (λ (mtox friendnumber message len userdata)
-     (let* ([cd (hash-ref cur-buddies friendnumber)]
-           [window (contact-data-window cd)]
+     (let* ([window (get-contact-window friendnumber)]
            [msg-history (send window get-msg-history)]
            [name (send window get-name)])
       
@@ -1075,9 +1078,7 @@ val is a value that corresponds to the value of the key
 
 (define on-friend-action
   (λ (mtox friendnumber action len userdata)
-    (let* ([cd (hash-ref cur-buddies friendnumber)]
-           [window (contact-data-window cd)]           
-           (editor (send window get-receive-editor))
+    (let* ([window (get-contact-window friendnumber)]
            [msg-history (send window get-msg-history)]
            (name (send window get-name)))
       ; if the window isn't open, force it open
@@ -1096,7 +1097,7 @@ val is a value that corresponds to the value of the key
      (let ([sn (get-contact-entry friendnumber)])
        (send sml rename-entry sn newname))
 
-    (let ((window (list-ref friend-list friendnumber)))
+    (let ([window (get-contact-window friendnumber)])
       ; update the name in the list
       (send window set-name newname)
       ; update the name in the window
