@@ -273,18 +273,23 @@
       (super-new)
       (send this set-selection-visible #f)
 
+      (define delete-entry-cb (void))
+
       ; TODO
       (define/public (get-entry-by-key key)
         (hash-ref snip-hash key))
 
       (define/public (get-number)
-        1
-        )
+        1)
 
       (define/public (set-string n label)
-        
-        (void)
-        )
+        (void))
+
+      (define/public (set-delete-entry-cb fun)
+        (set! delete-entry-cb fun))
+      
+      (define/public (call-delete-entry-cb sn)
+        (delete-entry-cb sn))
 
       (define/public (get-snip-stream)
         (let ([fs (send this find-first-snip)])
@@ -328,7 +333,7 @@
       
       (define/public (rename-entry sn newname)
         (let ([oldname (send sn get-key)])
-          (printf "renaming ~a -> ~a" oldname newname)
+          (printf "renaming ~a -> ~a\n" oldname newname)
           (send sn set-key newname)
           (reset-entry sn)))
 
@@ -373,6 +378,13 @@
                   [sel-cd (get-field contact sel)])
               (send (contact-data-window sel-cd) show #t))
             (printf "open dialogue\n")))
+
+    (send km add-function "delete-entry"
+          (lambda (pb kev)
+            (let* ([sel (send pb find-next-selected-snip #f)]
+                   [sel-cd (get-field contact sel)])
+              (send pb call-delete-entry-cb sel-cd))
+            (printf "deleted buddy\n")))
     
     (send km add-function "select-previous"
           (lambda (pb kev)
@@ -386,7 +398,8 @@
 (define (init-default-smartlist-keymap km)
   (send km map-function ":down" "select-next")
   (send km map-function ":up" "select-previous")
-  (send km map-function ":space" "open-dialogue"))
+  (send km map-function ":space" "open-dialogue")
+  (send km map-function ":delete" "delete-entry"))
 
 (define (smart-list-test-run)
 

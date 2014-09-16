@@ -223,6 +223,12 @@ val is a value that corresponds to the value of the key
 (init-default-smartlist-keymap sml-km)
 (send sml set-keymap sml-km)
 
+(send sml set-delete-entry-cb
+      (lambda (cd)
+        (let ([friend-num (contact-data-tox-num cd)])
+          (printf "deleting friend: ~a\n" cd)
+          (delete-friend friend-num))))
+
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
 ;  choice -> string -> username
@@ -932,6 +938,32 @@ val is a value that corresponds to the value of the key
 (define del-friend-dialog (new dialog%
                                [label "Remove a Tox friend"]
                                [style (list 'close-button)]))
+
+(define (do-delete-friend friend-num)
+                       ; delete from tox friend list
+                       (del-friend! my-tox friend-num)
+                       ; save the blight data
+                       (blight-save-data)
+                       ; remove from list-box
+                       (send list-box delete friend-num)
+
+                       (send sml remove-entry (get-contact-entry friend-num))
+                       
+                       ; remove from list
+                       (set! friend-list (delnode friend-list friend-num))
+
+                       ; the invite list needs to be updated for
+                       ; the groupchat windows that still exist
+                       (unless (zero? (length group-list))
+                         (update-invite-list)))
+
+(define (delete-friend friend-number)
+  (let ((mbox (message-box "Blight - Deleting Friend"
+                            "Are you sure you want to delete?"
+                            del-friend-dialog
+                            (list 'ok-cancel))))
+    (when (eq? mbox 'ok)
+      (do-delete-friend friend-number))))
 
 ; remove friend from list
 (define delete-friend-button
