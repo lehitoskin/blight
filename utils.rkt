@@ -106,3 +106,7 @@
               #:mode 'binary
               #:exists 'replace)))
 
+
+(define (format-anonymous public-key)
+  (let* ([id (bytes->string/utf-8)])
+    (format "Anonymous (~a)") (substring id 0 4)))

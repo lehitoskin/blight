@@ -328,6 +328,7 @@
       
       (define/public (rename-entry sn newname)
         (let ([oldname (send sn get-key)])
+          (printf "renaming ~a -> ~a" oldname newname)
           (send sn set-key newname)
           (reset-entry sn)))
 

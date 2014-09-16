@@ -256,7 +256,7 @@ val is a value that corresponds to the value of the key
 
 (define (get-contact-entry number)
   (send sml get-entry-by-key
-        (send (list-ref friend-list number) get-name)))
+        (contact-data-name (hash-ref cur-buddies number))))
 
 ; helper to avoid spamming notification sounds
 (define status-checker
@@ -339,12 +339,12 @@ val is a value that corresponds to the value of the key
                            [this-height 400]
                            [this-width 600]
                            [this-tox my-tox])]
-         [cd (contact-data name 'buddy chat-window key)]
+         [friend-number (friend-number my-tox key)]
+         [cd (contact-data name 'buddy chat-window friend-number)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [snip-data (cs-data name status)]
-                   [contact cd])]
-         [friend-number (friend-number my-tox key)])
+                   [contact cd])])
                       (send ncs set-status 'offline)
                       (send sml insert-entry ncs)
 
@@ -1021,7 +1021,7 @@ val is a value that corresponds to the value of the key
                                              [this-height 600]
                                              [this-tox my-tox]))))
 
-               (create-buddy "Anonymous" "" (friend-key my-tox friendnumber))
+               (create-buddy (format-anonymous public-key) "" (friend-key my-tox friendnumber))
                                 
                                         ; update friend list
                (update-list-box)
@@ -1096,8 +1096,7 @@ val is a value that corresponds to the value of the key
       ; update the name in the window
       (send window set-new-label (string-append "Blight - " newname))
       ; add connection status icon
-      ;; (status-checker friendnumber (get-friend-connection-status mtox friendnumber))
-      )))
+      (status-checker friendnumber (get-friend-connection-status mtox friendnumber)))))
 
 
 (define on-status-type-change
