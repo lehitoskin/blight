@@ -381,8 +381,14 @@ val is a value that corresponds to the value of the key
   )
 
 (define (initial-fill-sml)
+  (define an-id 1)
     (for ([fn (friendlist-length my-tox)])
       (define name (friend-name my-tox fn))
+
+      (when (string=? name "")
+          (set! name (format "Anonymous #~a" an-id))
+          (set! an-id (add1 an-id)))
+      
       (define status-msg (friend-status-msg my-tox fn))
       (define key (friend-key my-tox fn))
       (define friend-item (list-ref friend-list fn))
@@ -837,8 +843,17 @@ val is a value that corresponds to the value of the key
                                                                         [this-tox my-tox]))))
                                           ; save the tox data
                                           (blight-save-data)
+
+
+                                          (let* ([newfn (sub1 (friendlist-length my-tox))]
+                                                  [key (friend-key my-tox newfn)])
+                                             (if (string=? hex-tfield "")
+                                              (create-buddy nick-tfield "" key)
+                                              (create-buddy (format "Anonymous (~a)" (substring hex-tfield 0 5)) "" key)))
+                                          
                                           ; update friend list, but don't mess up
                                           ; the numbering we already have
+
                                           (update-list-box)
                                           ; zero-out some fields
                                           (send add-friend-hex-tfield set-value "")
