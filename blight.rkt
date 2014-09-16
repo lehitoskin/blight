@@ -952,6 +952,8 @@ val is a value that corresponds to the value of the key
                        ; remove from list
                        (set! friend-list (delnode friend-list friend-num))
 
+                       (hash-remove! cur-buddies friend-num)
+
                        ; the invite list needs to be updated for
                        ; the groupchat windows that still exist
                        (unless (zero? (length group-list))
@@ -1053,7 +1055,7 @@ val is a value that corresponds to the value of the key
                                              [this-height 600]
                                              [this-tox my-tox]))))
 
-               (create-buddy (format-anonymous public-key) "" (friend-key my-tox friendnumber))
+               (create-buddy (format-anonymous id-hex) "" (friend-key my-tox friendnumber))
                                 
                                         ; update friend list
                (update-list-box)

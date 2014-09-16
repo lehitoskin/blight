@@ -4,6 +4,7 @@
 
 (require racket/gui
          "helpers.rkt")
+(require file/sha1)
 
 
 ;;; TODO: use structure type properties here
@@ -108,5 +109,4 @@
 
 
 (define (format-anonymous public-key)
-  (let* ([id (bytes->string/utf-8)])
-    (format "Anonymous (~a)") (substring id 0 4)))
+  (format "Anonymous (~a)" (substring public-key 0 5)))
