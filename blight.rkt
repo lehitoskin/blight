@@ -227,8 +227,14 @@ val is a value that corresponds to the value of the key
 (send sml set-delete-entry-cb
       (lambda (cd)
         (let ([friend-num (contact-data-tox-num cd)])
-          (printf "deleting friend: ~a\n" cd)
-          (delete-friend friend-num))))
+          (if (eq? contact-data-type 'buddy)
+              (begin
+                (printf "deleting friend: ~a\n" cd)
+                (delete-friend friend-num))
+              
+              (begin
+                (printf "deleting group: ~a\n" cd)
+                (do-delete-group! friend-num))))))
 
 ; list box for friend list
 ; format: (indexed by list-box starting from 0)
@@ -264,6 +270,11 @@ val is a value that corresponds to the value of the key
 (define (get-contact-entry number)
   (send sml get-entry-by-key
         (contact-data-name (hash-ref cur-buddies number))))
+
+(define (get-group-entry number)
+  (send sml get-entry-by-key
+        (contact-data-name (hash-ref cur-groups number))))
+
 
 ; helper to avoid spamming notification sounds
 (define status-checker
@@ -379,7 +390,7 @@ val is a value that corresponds to the value of the key
 
 (define (add-new-group name)
   (let* ([number (add-groupchat my-tox)])
-    (do-add-group (format "Blight - Groupchat #~a" number))))
+    (do-add-group (format "Blight - Groupchat #~a" number) number)))
 
 (define (initial-fill-sml)
   (define an-id 1)
@@ -925,22 +936,19 @@ val is a value that corresponds to the value of the key
                              (= (length group-list) 1))
                         (update-list-box)])))]))
 
+(define (do-delete-group! grp-number)
+  (del-groupchat! my-tox grp-number)
+  (send sml remove-entry (get-group-entry grp-number))
+  (hash-remove! cur-groups grp-number))
+
 (define del-group-button
   (new button%
        [parent panel]
        [label "Del group"]
        [callback (λ (button event)
-                   (let ((num (send list-box get-selection)))
-                     ; unless num is a friend and we have no groups right now
-                     (unless (and (<= num (length friend-list))
-                                  (zero? (count-chatlist my-tox)))
-                       ; delete from tox groupchat list
-                       (del-groupchat! my-tox (- num (length friend-list)))
-                       ; remove from list-box
-                       (send list-box delete num)
-                       ; remove from list
-                       (set! group-list (delnode group-list
-                                                 (- num (length friend-list)))))))]))
+                    (send sml call-delete-entry-cb (send sml get-selection-cd)))]))
+
+
 #| ####################### END GROUP STUFF ########################## |#
 
 ; send friend request
@@ -1285,6 +1293,7 @@ val is a value that corresponds to the value of the key
       (send (list-ref friend-list friendnumber) set-gauge-pos percent))))
 
 
+;; when calling tox-join-groupchat() ffi function it calls back to group-namelist-change(), which requires the new group to be present in hashtable, but it is actually returned by tox-join-groupchat(), so save function arguments and delay the call.
 (define adding-group-after-invite? #f)
 (define grp-add-wait-ch (make-async-channel))
 
@@ -1329,7 +1338,7 @@ val is a value that corresponds to the value of the key
 
 (define on-group-message
   (λ (mtox groupnumber friendgroupnumber message len userdata)
-    (let* ((window (list-ref group-list groupnumber))
+    (let* ([window (contact-data-window (hash-ref cur-groups groupnumber))]
            (editor (send window get-receive-editor))
            (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
            (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
@@ -1339,7 +1348,7 @@ val is a value that corresponds to the value of the key
 
 (define on-group-action
   (λ (mtox groupnumber friendgroupnumber action len userdata)
-    (let* ((window (list-ref group-list groupnumber))
+    (let* ([window (contact-data-window (hash-ref cur-groups groupnumber))]
            (editor (send window get-receive-editor))
            (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
            (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))

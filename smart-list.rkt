@@ -223,6 +223,9 @@
     (define/public (get-data)
       snip-data)
 
+    (define/public (get-cd)
+      contact)
+    
     (define/public (ss>? sn)
       (let* ([sd (send sn get-data)]
              [sn-status (send sn get-status) ]
@@ -288,8 +291,8 @@
       (define/public (set-delete-entry-cb fun)
         (set! delete-entry-cb fun))
       
-      (define/public (call-delete-entry-cb sn)
-        (delete-entry-cb sn))
+      (define/public (call-delete-entry-cb cd)
+        (delete-entry-cb cd))
 
       (define/public (get-snip-stream)
         (let ([fs (send this find-first-snip)])
@@ -336,6 +339,14 @@
           (printf "renaming ~a -> ~a\n" oldname newname)
           (send sn set-key newname)
           (reset-entry sn)))
+
+      (define/public (get-selection)
+        (send this find-next-selected-snip #f))
+
+      (define/public (get-selection-cd)
+        (define sel (get-selection))
+        (if sel (send sel get-cd)
+            #t))
 
       (define/public (insert-entry ns)
         (let ([key (send ns get-key)])
