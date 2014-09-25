@@ -203,15 +203,6 @@ val is a value that corresponds to the value of the key
                               [this-tox my-tox]
                               [group-number 0])))
 
-; loop through and create as many chat-window%'s
-; as there are friends and add them to the list
-(define friend-list (for/list ([i (in-range (friendlist-length my-tox))])
-                      (new chat-window%
-                           [this-label "a"]
-                           [this-width 400]
-                           [this-height 600]
-                           [this-tox my-tox])))
-
 (define cs-style (new cs-style-manager))
 
 (define sml
@@ -236,13 +227,27 @@ val is a value that corresponds to the value of the key
                 (printf "deleting group: ~a\n" cd)
                 (do-delete-group! friend-num))))))
 
-(define (get-contact-entry number)
+(define (get-contact-data friendnumber)
+  (hash-ref cur-buddies friendnumber))
+
+(define (get-group-data friendnumber)
+  (hash-ref cur-groups friendnumber))
+
+(define (get-contact-snip number)
   (send sml get-entry-by-key
         (contact-data-name (hash-ref cur-buddies number))))
 
-(define (get-group-entry number)
+(define (get-group-snip number)
   (send sml get-entry-by-key
         (contact-data-name (hash-ref cur-groups number))))
+
+(define (get-contact-window friendnumber)
+  (let* ([cd (get-contact-data friendnumber)])
+    (contact-data-window cd)))
+
+(define (get-contact-name friendnumber)
+  (let* ([cd (get-contact-data friendnumber)])
+    (contact-data-name cd)))
 
 
 ; helper to avoid spamming notification sounds
@@ -250,7 +255,7 @@ val is a value that corresponds to the value of the key
   (λ (friendnumber status)
     (let ((type (get-user-status my-tox friendnumber)))
       (cond [(zero? status)
-             (send (get-contact-entry friendnumber) set-status 'offline)]
+             (send (get-contact-snip friendnumber) set-status 'offline)]
             ; user is online, check his status type
             [else (on-status-type-change my-tox friendnumber type #f)]))))
 
@@ -365,7 +370,7 @@ val is a value that corresponds to the value of the key
       
       (define status-msg (friend-status-msg my-tox fn))
       (define key (friend-key my-tox fn))
-      (define friend-item (list-ref friend-list fn))
+
       (create-buddy name status-msg key)))
 
 (initial-fill-sml)
@@ -805,17 +810,8 @@ val is a value that corresponds to the value of the key
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
                                     [else (displayln "All okay!")
-                                          ; append new friend to the list
-                                          (set! friend-list (append
-                                                             friend-list
-                                                             (list (new chat-window%
-                                                                        [this-label "a"]
-                                                                        [this-width 400]
-                                                                        [this-height 600]
-                                                                        [this-tox my-tox]))))
                                           ; save the tox data
                                           (blight-save-data)
-
 
                                           (let* ([newfn (sub1 (friendlist-length my-tox))]
                                                   [key (friend-key my-tox newfn)])
@@ -862,7 +858,7 @@ val is a value that corresponds to the value of the key
 
 (define (do-delete-group! grp-number)
   (del-groupchat! my-tox grp-number)
-  (send sml remove-entry (get-group-entry grp-number))
+  (send sml remove-entry (get-group-snip grp-number))
   (hash-remove! cur-groups grp-number))
 
 (define del-group-button
@@ -894,7 +890,7 @@ val is a value that corresponds to the value of the key
                        (blight-save-data)
                        ; remove from list-box
 
-                       (send sml remove-entry (get-contact-entry friend-num))
+                       (send sml remove-entry (get-contact-snip friend-num))
                        (hash-remove! cur-buddies friend-num)
 
                        ; the invite list needs to be updated for
@@ -928,10 +924,7 @@ val is a value that corresponds to the value of the key
                        ; save the blight data
                        (blight-save-data)
 
-                       (send sml remove-entry (get-contact-entry friend-num))
-                       
-                       ; remove from list
-                       (set! friend-list (delnode friend-list friend-num))
+                       (send sml remove-entry (get-contact-snip friend-num))
 
                        ; the invite list needs to be updated for
                        ; the groupchat windows that still exist
@@ -1017,10 +1010,6 @@ val is a value that corresponds to the value of the key
                                       "Message: " data))
     (send friend-request-dialog show #t)))
 
-(define (get-contact-window friendnumber)
-  (let* ([cd (hash-ref cur-buddies friendnumber)])
-    (contact-data-window cd)))
-
 (define on-friend-message
   (λ (mtox friendnumber message len userdata)
      (let* ([window (get-contact-window friendnumber)]
@@ -1055,7 +1044,7 @@ val is a value that corresponds to the value of the key
 
 (define on-friend-name-change
   (λ (mtox friendnumber newname len userdata)
-     (let ([sn (get-contact-entry friendnumber)])
+     (let ([sn (get-contact-snip friendnumber)])
        (send sml rename-entry sn newname))
 
     (let ([window (get-contact-window friendnumber)])
@@ -1070,25 +1059,25 @@ val is a value that corresponds to the value of the key
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)
     (cond [(= status (_TOX_USERSTATUS-index 'NONE))
-           (send (get-contact-entry friendnumber) set-status 'available)]
+           (send (get-contact-snip friendnumber) set-status 'available)]
           ; if user is away, add a dash inside a circle
           [(= status (_TOX_USERSTATUS-index 'AWAY))
-           (send (get-contact-entry friendnumber) set-status 'away)]
+           (send (get-contact-snip friendnumber) set-status 'away)]
           ; if user is busy, add an X inside a circle
           [(= status (_TOX_USERSTATUS-index 'BUSY))
-           (send (get-contact-entry friendnumber) set-status 'busy)])))
+           (send (get-contact-snip friendnumber) set-status 'busy)])))
 
 (define on-connection-status-change
   (λ (mtox friendnumber status userdata)
     ; add a thingie that shows the friend is online
     (cond [(zero? status)
-           (send (get-contact-entry friendnumber) set-status 'offline)
+           (send (get-contact-snip friendnumber) set-status 'offline)
            ; if the user is offline, append his name with (X)
            (unless (false? make-noise)
              (play-sound (third sounds) #t))]
           ; user is online, add a checkmark
           [else
-           (send (get-contact-entry friendnumber) set-status 'available)
+           (send (get-contact-snip friendnumber) set-status 'available)
            (unless (false? make-noise)
              (play-sound (second sounds) #t))])))
 
@@ -1099,30 +1088,33 @@ val is a value that corresponds to the value of the key
      (λ ()
        (unless (false? make-noise)
          (play-sound (seventh sounds) #t))
-       (let* ((mbox (message-box "Blight - File Send Request"
+       (let* ([cd (get-contact-data friendnumber)]
+              (mbox (message-box "Blight - File Send Request"
                                  (string-append
-                                  (send (list-ref friend-list friendnumber) get-name)
+                                  (contact-data-name cd)
                                   " wants to send you "
                                   "\"" filename "\"")
                                  #f
                                  (list 'ok-cancel 'caution)))
-              [window (list-ref friend-list friendnumber)]
+              [window (contact-data-window cd)]
+              
               [msg-history (send window get-msg-history)])
          (cond [(eq? mbox 'ok)
                 
                 (let ((path (put-file "Select a file"
                                       #f
                                       download-path
-                                      filename)))
+                                      filename))
+                      [window (get-contact-window friendnumber)])
                   (unless (false? path)
                     (define message-id (_TOX_FILECONTROL-index 'ACCEPT))
                     (define receive-editor
-                      (send (list-ref friend-list friendnumber) get-receive-editor))
+                      (send window get-receive-editor))
                     (send-file-control mtox friendnumber #t filenumber message-id #f 0)
                     (set! sent 0)
                     (set! total-len filesize)
                     (set! percent 0)
-                    (send (list-ref friend-list friendnumber) set-gauge-pos percent)
+                    (send window set-gauge-pos percent)
                     (rt-add! path filenumber)
                     
                     (send msg-history
@@ -1133,7 +1125,7 @@ val is a value that corresponds to the value of the key
 
 (define on-file-control
   (λ (mtox friendnumber sending? filenumber control-type data-ptr len userdata)
-    (let* ((window (list-ref friend-list friendnumber))
+    (let* ((window (get-contact-window friendnumber))
            (receive-editor (send window get-receive-editor))
            [msg-history (send window get-msg-history)]
            )
@@ -1165,7 +1157,7 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber filenumber data-ptr len userdata)
 
     (define data-bytes (make-sized-byte-string data-ptr len))
-    (define window (list-ref friend-list friendnumber))
+    (define window (get-contact-window friendnumber))
     (define msg-history (send window get-msg-history))
     
     (with-handlers
@@ -1175,7 +1167,7 @@ val is a value that corresponds to the value of the key
       (write-bytes data-bytes (rt-ref filenumber))
       (set! sent (+ sent len))
       (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
-      (send (list-ref friend-list friendnumber) set-gauge-pos percent))))
+      (send window set-gauge-pos percent))))
 
 
 ;; when calling tox-join-groupchat() ffi function it calls back to group-namelist-change(), which requires the new group to be present in hashtable, but it is actually returned by tox-join-groupchat(), so save function arguments and delay the call.
@@ -1184,7 +1176,7 @@ val is a value that corresponds to the value of the key
 
 (define on-group-invite
   (λ (mtox friendnumber group-public-key userdata)
-    (let* ((friendname (send (list-ref friend-list friendnumber) get-name))
+    (let* ((friendname (get-contact-name friendnumber))
            (mbox (message-box "Blight - Groupchat Invite"
                               (string-append friendname
                                              " has invited you to a groupchat!")
