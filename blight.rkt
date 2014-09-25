@@ -227,7 +227,7 @@ val is a value that corresponds to the value of the key
 (send sml set-delete-entry-cb
       (lambda (cd)
         (let ([friend-num (contact-data-tox-num cd)])
-          (if (eq? contact-data-type 'buddy)
+          (if (eq? (contact-data-type cd) 'buddy)
               (begin
                 (printf "deleting friend: ~a\n" cd)
                 (delete-friend friend-num))
@@ -997,7 +997,7 @@ val is a value that corresponds to the value of the key
        [parent panel]
        [label "Del friend"]
        [callback (λ (button event)
-                   (let ((friend-num (send list-box get-selection))
+                    (let ((friend-num (contact-data-tox-num (send sml get-selection-cd)))
                          (mbox (message-box "Blight - Deleting Friend"
                                             "Are you sure you want to delete?"
                                             del-friend-dialog
