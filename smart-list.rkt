@@ -118,7 +118,7 @@
     (super-new)
     (send this set-snipclass (make-object ssc%))
     
-    (init-field smart-list style-manager snip-data contact)
+    (init-field smart-list style-manager contact)
 
     (define snip-height 0)
     (define snip-width 0)
@@ -176,8 +176,8 @@
       contact-status)
 
     (define (get-text-extent dc)
-      (let-values ([(text-width text-height dist evert) (send dc get-text-extent (cs-data-name snip-data))])
-        ;; (printf "text extent (~a) = ~a x ~a\n" (cs-data-name snip-data) text-width text-height)
+      (let-values ([(text-width text-height dist evert) (send dc get-text-extent (contact-data-name contact))])
+        ;; (printf "text extent (~a) = ~a x ~a\n" (contact-data-name contact) text-width text-height)
         (values text-width text-height)))
 
     (define (get-snip-extent dc)
@@ -213,23 +213,23 @@
       (set! style-manager mgr))
 
     (define/public (set-selected s?)
-      ;; (printf "selection changed for ~a: ~a\n" (cs-data-name snip-data) s?)
+      ;; (printf "selection changed for ~a: ~a\n" (contact-data-name contact) s?)
       (set! selected? s?))
 
     (define/public (get-selected)
       selected?)
 
     (define/public (get-key)
-      (cs-data-name snip-data))
+      (contact-data-name contact))
 
     (define/public (set-key key)
-      (set-cs-data-name! snip-data key))
+      (set-contact-data-name! contact key))
 
     (define/public (set-data nd)
-      (set! snip-data nd))
+      (set! contact nd))
 
     (define/public (get-data)
-      snip-data)
+      contact)
 
     (define/public (get-cd)
       contact)
@@ -237,8 +237,8 @@
     (define/public (ss>? sn)
       (let* ([sd (send sn get-data)]
              [sn-status (send sn get-status) ]
-             [name1 (cs-data-name snip-data)]
-             [name2 (cs-data-name sd)])
+             [name1 (contact-data-name contact)]
+             [name2 (contact-data-name sd)])
         (begin
           ;; (printf "~a vs ~a: " name1 name2)
           (cond
@@ -255,7 +255,7 @@
     (define/override (draw dc x y left top right bottom dx dy draw-caret)
       (let-values ([(snip-width snip-height) (get-snip-extent dc)]
                    [(text-width text-height) (get-text-extent dc)])
-        ;; (printf "snip extent (~a) = ~a x ~a\n" (cs-data-name snip-data) snip-width snip-height)
+        ;; (printf "snip extent (~a) = ~a x ~a\n" (contact-data-name contact) snip-width snip-height)
         (if selected?
             (begin
               (send dc set-text-foreground snip-text-fg-sel)
@@ -266,7 +266,7 @@
             (send dc set-text-foreground snip-text-fg))
 
         (send dc draw-bitmap snip-glyph x y 'xor)
-        (send dc draw-text (cs-data-name snip-data) (+ x glyphw hgap) y)))
+        (send dc draw-text (contact-data-name contact) (+ x glyphw hgap) y)))
 
     (define/override (get-flags)
       (list 'handles-events 'handles-all-mouse-events))
@@ -433,11 +433,11 @@
 
         [cs-style (new cs-style-manager)]
 
-        [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "foo"  "status1")] [contact ""])]
-        [ss5 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "bar"  "status2")] [contact ""])]
-        [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "baz"  "status3")] [contact ""])]
-        [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "qux"  "status4")][contact ""])]
-        [grp (new contact-snip% [smart-list pb] [style-manager cs-style] [snip-data (cs-data "Groupchat #0"  "status4")]  [contact ""])]
+        [ss4 (new contact-snip% [smart-list pb] [style-manager cs-style] [contact (contact-data "foo"  "status1")] [contact ""])]
+        [ss5 (new contact-snip% [smart-list pb] [style-manager cs-style] [contact (contact-data "bar"  "status2")] [contact ""])]
+        [ss6 (new contact-snip% [smart-list pb] [style-manager cs-style] [contact (contact-data "baz"  "status3")] [contact ""])]
+        [ss7 (new contact-snip% [smart-list pb] [style-manager cs-style] [contact (contact-data "qux"  "status4")][contact ""])]
+        [grp (new contact-snip% [smart-list pb] [style-manager cs-style] [contact (contact-data "Groupchat #0"  "status4")]  [contact ""])]
         [km (init-smart-list-keymap)])
 
    (send pb insert-entry ss4)

@@ -336,7 +336,6 @@ val is a value that corresponds to the value of the key
          [cd (contact-data name 'offline status-msg 'buddy chat-window friend-number)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
-                   [snip-data (cs-data name status-msg)]
                    [contact cd])])
                       (send ncs set-status 'offline)
                       (send sml insert-entry ncs)
@@ -358,7 +357,6 @@ val is a value that corresponds to the value of the key
          [cd (contact-data name #f #f 'group group-window number)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
-                   [snip-data (cs-data name "")]
                    [contact cd])])
                       (send ncs set-status 'groupchat)
                       (send sml insert-entry ncs)
