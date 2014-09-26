@@ -205,6 +205,12 @@
         ;; (printf "text extent (~a) = ~a x ~a\n" (contact-data-name contact) text-width text-height)
         (values text-width text-height)))
 
+    (define/public (get-snip-height)
+      snip-height)
+    
+    (define/public (get-snip-width)
+      snip-width)    
+    
     (define (get-snip-extent dc)
       (let-values ([(text-width text-height) (get-text-extent dc)]
                    [(sml-w sml-h) (values (box (void)) (box (void)))])
@@ -413,6 +419,7 @@
         (if sel (send sel get-cd)
             #t))
 
+
       (define/public (insert-entry ns)
         (let ([key (send ns get-key)])
           (begin
@@ -437,15 +444,27 @@
                         (send this set-before ns first-less)))))
             (hash-set! snip-hash key ns))))))
 
-
 (define (init-smart-list-keymap)
+  (define (scroll-to-snip sel pb bb)
+    (define sh (send sel get-snip-height))
+    (define sw (send sel get-snip-width))
+    (define bsx (box #f))
+    (define bsy (box #f))
+    (send pb get-snip-location sel bsx bsy)
+    (define sx (unbox bsx))
+    (define sy (unbox bsy))
+
+    (send (send pb get-canvas) scroll-with-bottom-base bb)
+    (send (send pb get-canvas) scroll-to sx sy sw sh #t))
+  
   (let ([km (new keymap%)])
     (send km add-function "select-next"
           (lambda (pb kev)
             (let* ([sel (send pb find-next-selected-snip #f)]
                    [nsel (if sel (send sel next) #f)])
               (when nsel
-                (send pb set-selected nsel)))
+                (send pb set-selected nsel)
+                (scroll-to-snip nsel pb #t)))
             (printf "next: ~a\n" kev)))
 
     (send km add-function "open-dialogue"
@@ -467,7 +486,8 @@
             (let* ([sel (send pb find-next-selected-snip #f)]
                    [nsel (if sel (send sel previous) #f)])
               (when nsel
-                (send pb set-selected nsel)))
+                (send pb set-selected nsel)
+                (scroll-to-snip nsel pb #f)))
             (printf "next: ~a\n" kev)))
     km))
 
