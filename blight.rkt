@@ -196,13 +196,6 @@ val is a value that corresponds to the value of the key
 
 #| ################## BEGIN FRIEND LIST STUFF #################### |#
 
-(define group-list (list (new group-window%
-                              [this-label "Blight - Groupchat #0"]
-                              [this-height 600]
-                              [this-width 800]
-                              [this-tox my-tox]
-                              [group-number 0])))
-
 (define cs-style (new cs-style-manager))
 
 (define sml
@@ -336,7 +329,8 @@ val is a value that corresponds to the value of the key
                       (hash-set! cur-buddies friend-number cd)
                       (send chat-window set-name name)
                       (send chat-window set-key key)
-                      (send chat-window set-friend-num friend-number)))
+                      (send chat-window set-friend-num friend-number)
+                      (send chat-window set-status-msg status)))
 
 (define (do-add-group name number)
   (let* ([group-window (new group-window%
@@ -994,7 +988,7 @@ val is a value that corresponds to the value of the key
                   (get-friend-connection-status mtox i)))
                                         ; the invite list needs to be updated for
                                         ; the groupchat windows that still exist
-               (unless (zero? (length group-list))
+               (unless (zero? (hash-count cur-groups))
                  (update-invite-list)))]))
     
     (define cancel (new button% [parent friend-request-panel]
