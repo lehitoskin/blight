@@ -88,7 +88,13 @@
       (send the-color-database find-color "Black"))
     
     (define/public (get-text-color-sel)
-      (send the-color-database find-color "White"))))
+      (send the-color-database find-color "White"))
+
+    (define/public (get-stext-color-sel)
+      (send the-color-database find-color "Gray"))
+    
+    (define/public (get-stext-color)
+      (send the-color-database find-color "Gray"))))
 
 ;; status priority table
 (define sp (make-hash
@@ -129,7 +135,7 @@
     
     (define/public (get-aligned-min-width)
       (let-values ([(tw th) (get-text-extent (send smart-list get-dc))])
-        (+ glyphw tw hgap)))
+        (+ glyphw tw icon-name-hgap)))
     
     (define/public (stretchable-height)
       #f)
@@ -153,7 +159,9 @@
     ;; selected status
     (define selected #f)
 
-    (define hgap 10) ;; horizontal gap
+    (define icon-name-hgap 10) ;; horizontal gap
+    (define name-status-hgap 5) ;; horizontal gap
+    
     (define selected? #f) ;; is selected
     (define selection-changed? #f)
 
@@ -176,14 +184,14 @@
       contact-status)
 
     (define (get-text-extent dc)
-      (let-values ([(text-width text-height dist evert) (send dc get-text-extent (contact-data-name contact))])
+      (let-values ([(text-width text-height dist evert)
+                    (send dc get-text-extent (contact-data-name contact))])
         ;; (printf "text extent (~a) = ~a x ~a\n" (contact-data-name contact) text-width text-height)
         (values text-width text-height)))
 
     (define (get-snip-extent dc)
       (let-values ([(text-width text-height) (get-text-extent dc)]
-                   [(sml-w sml-h) (values (box (void)) (box (void)))]
-                   )
+                   [(sml-w sml-h) (values (box (void)) (box (void)))])
         (send smart-list get-view-size sml-w sml-h)
         (values snip-width snip-height)))
 
@@ -247,10 +255,14 @@
            [else #f]))))
     
     (define snip-text-fg-sel (send style-manager get-text-color-sel))
+    (define snip-stext-fg-sel (send style-manager get-stext-color-sel))
+    
     (define snip-text-bg-sel (send style-manager get-bg-color-sel))
 
     (define snip-text-fg (send style-manager get-text-color))
     (define snip-text-bg (send style-manager get-bg-color))
+
+    (define snip-stext-fg (send style-manager get-stext-color))
     
     (define/override (draw dc x y left top right bottom dx dy draw-caret)
       (let-values ([(snip-width snip-height) (get-snip-extent dc)]
@@ -258,15 +270,26 @@
         ;; (printf "snip extent (~a) = ~a x ~a\n" (contact-data-name contact) snip-width snip-height)
         (if selected?
             (begin
-              (send dc set-text-foreground snip-text-fg-sel)
               (let-values ([(snip-width snip-height) (get-snip-extent dc)])
                 (send dc set-brush snip-text-bg-sel 'solid)
-                (send dc draw-rectangle (+ x glyphw hgap) y snip-width snip-height)))
-            
-            (send dc set-text-foreground snip-text-fg))
+                (send dc draw-rectangle (+ x glyphw icon-name-hgap)
+                      y snip-width snip-height))
+              
+              (send dc set-text-foreground snip-text-fg-sel)
+              (send dc draw-text (contact-data-name contact)
+                    (+ x glyphw icon-name-hgap) y)
+              (send dc set-text-foreground snip-stext-fg-sel)
+              (send dc draw-text (contact-data-status-msg contact)
+                    (+ x glyphw icon-name-hgap text-width name-status-hgap) y))
+            (begin
+              (send dc set-text-foreground snip-text-fg)
+              (send dc draw-text (contact-data-name contact)
+                    (+ x glyphw icon-name-hgap) y)
+              (send dc set-text-foreground snip-stext-fg)
+              (send dc draw-text (contact-data-status-msg contact)
+                    (+ x glyphw icon-name-hgap text-width name-status-hgap) y)))
 
-        (send dc draw-bitmap snip-glyph x y 'xor)
-        (send dc draw-text (contact-data-name contact) (+ x glyphw hgap) y)))
+        (send dc draw-bitmap snip-glyph x y 'xor)))
 
     (define/override (get-flags)
       (list 'handles-events 'handles-all-mouse-events))
