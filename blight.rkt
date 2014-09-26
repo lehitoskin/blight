@@ -354,7 +354,7 @@ val is a value that corresponds to the value of the key
                            [this-width 800]
                            [this-tox my-tox]
                            [group-number number])]
-         [cd (contact-data name #f #f 'group group-window number)]
+         [cd (contact-data name #f "" 'group group-window number)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [contact cd])])

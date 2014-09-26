@@ -75,6 +75,12 @@
              (cons 'groupchat (make-object bitmap% "icons/groupchat.png"))
              (cons 'available (make-object bitmap% "icons/available.png")))))
 
+    (define/public (get-text-font)
+      (make-font #:size 12))
+
+    (define/public (get-stext-font)
+      (make-font #:size 8))
+
     (define/public (get-glyph status)
       (hash-ref status-glyphs status))
     
@@ -160,7 +166,7 @@
     (define selected #f)
 
     (define icon-name-hgap 10) ;; horizontal gap
-    (define name-status-hgap 5) ;; horizontal gap
+    (define name-status-hgap 10) ;; horizontal gap
     
     (define selected? #f) ;; is selected
     (define selection-changed? #f)
@@ -183,7 +189,17 @@
     (define/public (get-status)
       contact-status)
 
+    (define (get-stext-extent dc)
+      (send dc set-font snip-stext-font)
+      
+      (let-values ([(text-width text-height dist evert)
+                    (send dc get-text-extent (contact-data-status-msg contact))])
+        ;; (printf "text extent (~a) = ~a x ~a\n" (contact-data-name contact) text-width text-height)
+        (values text-width text-height)))
+    
     (define (get-text-extent dc)
+      (send dc set-font snip-text-font)
+      
       (let-values ([(text-width text-height dist evert)
                     (send dc get-text-extent (contact-data-name contact))])
         ;; (printf "text extent (~a) = ~a x ~a\n" (contact-data-name contact) text-width text-height)
@@ -263,10 +279,20 @@
     (define snip-text-bg (send style-manager get-bg-color))
 
     (define snip-stext-fg (send style-manager get-stext-color))
+
+    (define snip-stext-font (send style-manager get-stext-font))
+    (define snip-text-font (send style-manager get-text-font))
     
+    (define draw-status? #t)
+
+    (define/public (set-draw-status! val)
+      (set! draw-status? val))
+
     (define/override (draw dc x y left top right bottom dx dy draw-caret)
-      (let-values ([(snip-width snip-height) (get-snip-extent dc)]
-                   [(text-width text-height) (get-text-extent dc)])
+      (let*-values ([(snip-width snip-height) (get-snip-extent dc)]
+                   [(text-width text-height) (get-text-extent dc)]
+                   [(stext-width stext-height) (get-stext-extent dc)]
+                   [(stext-y) (+ y text-height (- stext-height))])
         ;; (printf "snip extent (~a) = ~a x ~a\n" (contact-data-name contact) snip-width snip-height)
         (if selected?
             (begin
@@ -274,20 +300,28 @@
                 (send dc set-brush snip-text-bg-sel 'solid)
                 (send dc draw-rectangle (+ x glyphw icon-name-hgap)
                       y snip-width snip-height))
-              
+
+              (send dc set-font snip-text-font)
               (send dc set-text-foreground snip-text-fg-sel)
               (send dc draw-text (contact-data-name contact)
                     (+ x glyphw icon-name-hgap) y)
-              (send dc set-text-foreground snip-stext-fg-sel)
-              (send dc draw-text (contact-data-status-msg contact)
-                    (+ x glyphw icon-name-hgap text-width name-status-hgap) y))
+
+              (when draw-status?
+                (send dc set-text-foreground snip-stext-fg-sel)
+                (send dc set-font snip-stext-font)
+                (send dc draw-text (contact-data-status-msg contact)
+                      (+ x glyphw icon-name-hgap text-width name-status-hgap) stext-y)))
             (begin
+              (send dc set-font snip-text-font)              
               (send dc set-text-foreground snip-text-fg)
               (send dc draw-text (contact-data-name contact)
                     (+ x glyphw icon-name-hgap) y)
-              (send dc set-text-foreground snip-stext-fg)
-              (send dc draw-text (contact-data-status-msg contact)
-                    (+ x glyphw icon-name-hgap text-width name-status-hgap) y)))
+
+              (when draw-status?
+                (send dc set-font snip-stext-font)              
+                (send dc set-text-foreground snip-stext-fg)
+                (send dc draw-text (contact-data-status-msg contact)
+                      (+ x glyphw icon-name-hgap text-width name-status-hgap) stext-y))))
 
         (send dc draw-bitmap snip-glyph x y 'xor)))
 
