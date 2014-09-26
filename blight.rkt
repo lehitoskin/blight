@@ -242,13 +242,27 @@ val is a value that corresponds to the value of the key
   (let* ([cd (get-contact-data friendnumber)])
     (contact-data-name cd)))
 
+(define (update-contact-status friend-num con-status)
+  (define status-msg
+    (friend-status-msg my-tox friend-num))
+  
+  (define cd (get-contact-data friend-num))
+  (define sn (get-contact-snip friend-num))
+  (define window (get-contact-window friend-num))
+  
+  (send sn set-status con-status)
+  (send sn set-status-msg status-msg)
+  (send window set-status-msg status-msg))
+
 
 ; helper to avoid spamming notification sounds
 (define status-checker
   (λ (friendnumber status)
     (let ((type (get-user-status my-tox friendnumber)))
       (cond [(zero? status)
-             (send (get-contact-snip friendnumber) set-status 'offline)]
+             (send (get-contact-snip friendnumber) set-status 'offline)
+             (update-contact-status friendnumber 'offline)]
+            
             ; user is online, check his status type
             [else (on-status-type-change my-tox friendnumber type #f)]))))
 
@@ -309,7 +323,7 @@ val is a value that corresponds to the value of the key
       (send cw
             update-invite-list))))
 
-(define (create-buddy name status key)
+(define (create-buddy name key)
   (let* ([number (add-groupchat my-tox)]
          
          [chat-window (new chat-window%
@@ -318,10 +332,11 @@ val is a value that corresponds to the value of the key
                            [this-width 600]
                            [this-tox my-tox])]
          [friend-number (friend-number my-tox key)]
-         [cd (contact-data name 'buddy chat-window friend-number)]
+         [status-msg (friend-status-msg my-tox friend-number)]
+         [cd (contact-data name 'offline status-msg 'buddy chat-window friend-number)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
-                   [snip-data (cs-data name status)]
+                   [snip-data (cs-data name status-msg)]
                    [contact cd])])
                       (send ncs set-status 'offline)
                       (send sml insert-entry ncs)
@@ -330,7 +345,8 @@ val is a value that corresponds to the value of the key
                       (send chat-window set-name name)
                       (send chat-window set-key key)
                       (send chat-window set-friend-num friend-number)
-                      (send chat-window set-status-msg status)))
+
+                      (update-contact-status friend-number 'offline)))
 
 (define (do-add-group name number)
   (let* ([group-window (new group-window%
@@ -339,7 +355,7 @@ val is a value that corresponds to the value of the key
                            [this-width 800]
                            [this-tox my-tox]
                            [group-number number])]
-         [cd (contact-data name 'group group-window number)]
+         [cd (contact-data name #f #f 'group group-window number)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [snip-data (cs-data name "")]
@@ -361,11 +377,10 @@ val is a value that corresponds to the value of the key
       (when (string=? name "")
           (set! name (format "Anonymous #~a" an-id))
           (set! an-id (add1 an-id)))
-      
-      (define status-msg (friend-status-msg my-tox fn))
+
       (define key (friend-key my-tox fn))
 
-      (create-buddy name status-msg key)))
+      (create-buddy name key)))
 
 (initial-fill-sml)
 
@@ -1053,25 +1068,30 @@ val is a value that corresponds to the value of the key
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)
     (cond [(= status (_TOX_USERSTATUS-index 'NONE))
-           (send (get-contact-snip friendnumber) set-status 'available)]
+           (send (get-contact-snip friendnumber) set-status 'available)
+           (update-contact-status friendnumber 'available)]
           ; if user is away, add a dash inside a circle
           [(= status (_TOX_USERSTATUS-index 'AWAY))
-           (send (get-contact-snip friendnumber) set-status 'away)]
+           (send (get-contact-snip friendnumber) set-status 'away)
+           (update-contact-status friendnumber 'away)]
           ; if user is busy, add an X inside a circle
           [(= status (_TOX_USERSTATUS-index 'BUSY))
-           (send (get-contact-snip friendnumber) set-status 'busy)])))
+           (send (get-contact-snip friendnumber) set-status 'busy)
+           (update-contact-status friendnumber 'busy)])))
 
 (define on-connection-status-change
   (λ (mtox friendnumber status userdata)
     ; add a thingie that shows the friend is online
     (cond [(zero? status)
            (send (get-contact-snip friendnumber) set-status 'offline)
+           (update-contact-status friendnumber 'offline)
            ; if the user is offline, append his name with (X)
            (unless (false? make-noise)
              (play-sound (third sounds) #t))]
           ; user is online, add a checkmark
           [else
            (send (get-contact-snip friendnumber) set-status 'available)
+           (update-contact-status friendnumber 'available)
            (unless (false? make-noise)
              (play-sound (second sounds) #t))])))
 

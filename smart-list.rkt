@@ -30,7 +30,7 @@
   (interface () get-key set-key ss>? set-data get-data set-selected get-selected set-style-manager get-style-manager))
 
 (struct cs-data (name status-msg) #:mutable)
-(struct contact-data (name type window tox-num) #:transparent #:mutable)
+(struct contact-data (name status status-msg type window tox-num) #:transparent #:mutable)
 
 (define smart-snip-style-manager<%>
   (interface () get-bg-color get-bg-color-sel get-text-color get-text-color-sel))
@@ -109,8 +109,10 @@
 
 
 (define/contract contact-snip%
-  (class/c [set-status (->m status/c  any)]
-           [get-status (->m status/c)])
+  (class/c [set-status (->m status/c any)]
+           [get-status (->m status/c)]
+           [set-status-msg (->m string? any)]
+           [get-status-msg (->m string?)])
 
   (class* snip% (smart-snip<%> stretchable-snip<%>)
     (super-new)
@@ -155,14 +157,20 @@
     (define selected? #f) ;; is selected
     (define selection-changed? #f)
 
-    (define/public (set-status new-status)
+    (define/public (get-status-msg)
+      (contact-data-status-msg contact))
+    
+    (define/public (set-status-msg new-status-msg)
+      (set-contact-data-status-msg! contact new-status-msg))
+    
+    (define/public (set-status new-status [status-msg #f])
       (set! snip-glyph (send style-manager get-glyph new-status))
       (set! glyphw (send snip-glyph get-width))
       (set! glyphh (send snip-glyph get-height))
       (set! contact-status new-status)
       (send smart-list update-entry this)
-      ;; (printf "set status for ~a: ~a\n" (cs-data-name snip-data) contact-status)
-      )
+
+      (set-contact-data-status! contact new-status))
 
     (define/public (get-status)
       contact-status)
@@ -259,7 +267,7 @@
 
         (send dc draw-bitmap snip-glyph x y 'xor)
         (send dc draw-text (cs-data-name snip-data) (+ x glyphw hgap) y)))
-    
+
     (define/override (get-flags)
       (list 'handles-events 'handles-all-mouse-events))
 
@@ -418,7 +426,7 @@
                     [width 640]
                     [height 480])]
         [pb (new smart-list%)]
-        [ec (new aligned-editor-canvas% [parent frame] [editor pb])]
+        [ec (new aligned-editor-canvas% [parent frame] [editor pb] [style '(list 'no-hscroll)])]
         [ss1 (new string-snip%)]
         [ss2 (new string-snip%)]
         [bmp (make-object bitmap% "icons/available.png")]
