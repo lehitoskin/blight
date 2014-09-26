@@ -202,7 +202,7 @@ val is a value that corresponds to the value of the key
   (new smart-list%))
 
 (define sml-canvas
-  (new aligned-editor-canvas% [parent frame] [editor sml]))
+  (new aligned-editor-canvas% [parent frame] [editor sml] [style (list 'no-hscroll)]))
 
 (define sml-km (init-smart-list-keymap))
 (init-default-smartlist-keymap sml-km)
