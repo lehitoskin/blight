@@ -161,7 +161,7 @@ val is a value that corresponds to the value of the key
 (define frame (new frame%
                    [label "Blight - Friend List"]
                    [stretchable-width #t]
-                   [height 300]))
+                   [height 600]))
 
 ; make a static text message in the frame
 (define frame-msg (new message%
@@ -213,11 +213,9 @@ val is a value that corresponds to the value of the key
         (let ([friend-num (contact-data-tox-num cd)])
           (if (eq? (contact-data-type cd) 'buddy)
               (begin
-                (printf "deleting friend: ~a\n" cd)
                 (delete-friend friend-num))
               
               (begin
-                (printf "deleting group: ~a\n" cd)
                 (do-delete-group! friend-num))))))
 
 (define (get-contact-data friendnumber)
@@ -361,7 +359,7 @@ val is a value that corresponds to the value of the key
                       (send ncs set-status 'groupchat)
                       (send sml insert-entry ncs)
                       (hash-set! cur-groups number cd)
-                      (printf "added new group with id ~a\n" number)))
+))
 
 (define (add-new-group name)
   (let* ([number (add-groupchat my-tox)])
@@ -925,7 +923,7 @@ val is a value that corresponds to the value of the key
                                             del-friend-dialog
                                             (list 'ok-cancel))))
                      (when (eq? mbox 'ok)
-                       (printf "deleting friend ~a\n" friend-num)
+
                        ; delete from tox friend list
                        (del-friend! my-tox friend-num)
                        ; save the blight data
@@ -1199,7 +1197,6 @@ val is a value that corresponds to the value of the key
 
         (define grp-number
           (join-groupchat mtox friendnumber group-public-key))
-
         (printf "new grp number: ~a\n" grp-number)
         (flush-output)
 
@@ -1249,13 +1246,13 @@ val is a value that corresponds to the value of the key
   (λ (mtox groupnumber peernumber change userdata)
      (if adding-group-after-invite?
          (begin
-           (printf "on-group-namelist-change: in process of adding a group. Making delayed function call.")
+
            (let ([delayed-cb
                   (lambda ()
                     (on-group-namelist-change mtox groupnumber peernumber change userdata))])
              (async-channel-put grp-add-wait-ch delayed-cb)))
          (begin
-           (printf "on-group-namelist-change: groupnumber ~a,  peernumber ~a,  change ~a,  userdata ~a" groupnumber peernumber change userdata )
+
            (let* ([group-window (contact-data-window (hash-ref cur-groups groupnumber))]
                   [lbox (send group-window get-list-box)])
 
@@ -1263,21 +1260,17 @@ val is a value that corresponds to the value of the key
                     (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
                     (define len (get-group-peername! mtox groupnumber peernumber name-buf))
                     (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
-                    (printf "tox change peer index: add: ~a\n" name)
                     (send lbox append name)
                     (send lbox set-label
-                          (format "~a Peers" (get-group-number-peers mtox groupnumber)))
-                    ]
+                          (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
                    [(= change (_TOX_CHAT_CHANGE_PEER-index 'DEL))
                     (send lbox delete peernumber)
                     (send lbox set-label
-                          (format "~a Peers" (get-group-number-peers mtox groupnumber)))
-                    (printf "tox change peer index: del\n")]
+                          (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
                    [(= change (_TOX_CHAT_CHANGE_PEER-index 'NAME))
                     (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
                     (define len (get-group-peername! mtox groupnumber peernumber name-buf))
                     (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
-                    (printf "tox change peer index: name: ~a\n" name)
                     (send lbox set-string peernumber name)]))))))
 
 ; register our callback functions

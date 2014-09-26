@@ -43,13 +43,11 @@
     (send km add-function "open-dialogue"
           (lambda (cur-snp kev)
             (let* ([sel-cd (get-field contact cur-snp)])
-              (send (contact-data-window sel-cd) show #t))
-            (printf "open dialogue\n")))
+              (send (contact-data-window sel-cd) show #t))))
 
     (send km add-function "select"
           (lambda (cur-snp kev)
-            (send (get-field smart-list cur-snp) set-selected cur-snp)
-            (printf "~a selected\n" (send cur-snp get-key))))
+            (send (get-field smart-list cur-snp) set-selected cur-snp)))
     km))
 
 (define (init-default-cs-keymap km)
@@ -376,7 +374,7 @@
         (send snip set-selected on?))
 
       (define/override (on-default-char event)
-        (printf "on char: ~a\n" event))
+        (void))
 
       (define/public (update-entry ns)
         (let ([key (send ns get-key)])
@@ -407,7 +405,6 @@
       
       (define/public (rename-entry sn newname)
         (let ([oldname (send sn get-key)])
-          (printf "renaming ~a -> ~a\n" oldname newname)
           (send sn set-key newname)
           (reset-entry sn)))
 
@@ -464,22 +461,19 @@
                    [nsel (if sel (send sel next) #f)])
               (when nsel
                 (send pb set-selected nsel)
-                (scroll-to-snip nsel pb #t)))
-            (printf "next: ~a\n" kev)))
+                (scroll-to-snip nsel pb #t)))))
 
     (send km add-function "open-dialogue"
           (lambda (pb kev)
             (let* ([sel (send pb find-next-selected-snip #f)]
                   [sel-cd (get-field contact sel)])
-              (send (contact-data-window sel-cd) show #t))
-            (printf "open dialogue\n")))
+              (send (contact-data-window sel-cd) show #t))))
 
     (send km add-function "delete-entry"
           (lambda (pb kev)
             (let* ([sel (send pb find-next-selected-snip #f)]
                    [sel-cd (get-field contact sel)])
-              (send pb call-delete-entry-cb sel-cd))
-            (printf "deleted buddy\n")))
+              (send pb call-delete-entry-cb sel-cd))))
     
     (send km add-function "select-previous"
           (lambda (pb kev)
@@ -487,8 +481,7 @@
                    [nsel (if sel (send sel previous) #f)])
               (when nsel
                 (send pb set-selected nsel)
-                (scroll-to-snip nsel pb #f)))
-            (printf "next: ~a\n" kev)))
+                (scroll-to-snip nsel pb #f)))))
     km))
 
 (define (init-default-smartlist-keymap km)
