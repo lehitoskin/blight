@@ -322,9 +322,7 @@ val is a value that corresponds to the value of the key
             update-invite-list))))
 
 (define (create-buddy name key)
-  (let* ([number (add-groupchat my-tox)]
-         
-         [chat-window (new chat-window%
+  (let* ([chat-window (new chat-window%
                            [this-label (format "Blight - ~a" name)]
                            [this-height 400]
                            [this-width 600]
