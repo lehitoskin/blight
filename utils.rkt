@@ -4,6 +4,7 @@
 
 (require racket/gui
          "helpers.rkt")
+(require file/sha1)
 
 
 ;;; TODO: use structure type properties here
@@ -106,3 +107,6 @@
               #:mode 'binary
               #:exists 'replace)))
 
+
+(define (format-anonymous public-key)
+  (format "Anonymous (~a)" (substring public-key 0 5)))
