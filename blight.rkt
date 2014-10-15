@@ -1182,7 +1182,7 @@ val is a value that corresponds to the value of the key
 (define grp-add-wait-ch (make-async-channel))
 
 (define on-group-invite
-  (λ (mtox friendnumber group-public-key userdata)
+  (λ (mtox friendnumber data len userdata)
     (let* ((friendname (get-contact-name friendnumber))
            (mbox (message-box "Blight - Groupchat Invite"
                               (string-append friendname
@@ -1193,7 +1193,7 @@ val is a value that corresponds to the value of the key
         (set! adding-group-after-invite? #t)
 
         (define grp-number
-          (join-groupchat mtox friendnumber group-public-key))
+          (join-groupchat mtox friendnumber data len))
         (printf "new grp number: ~a\n" grp-number)
         (flush-output)
 
@@ -1201,7 +1201,7 @@ val is a value that corresponds to the value of the key
 
         (define delayed-on-grp-namechange-cb (async-channel-get grp-add-wait-ch))
 
-        (printf "done")
+        (displayln "done")
         
         (cond [(= grp-number -1)
                (message-box "Blight - Groupchat Failure"
