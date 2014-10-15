@@ -858,8 +858,7 @@ val is a value that corresponds to the value of the key
        [callback (λ (button event)
 
                     (let ([groups-count (hash-count cur-groups)])
-                      (add-new-group (format "Groupchat #~a" groups-count)))
-                   (add-groupchat my-tox))]))
+                      (add-new-group (format "Groupchat #~a" groups-count))))]))
 
 (define (do-delete-group! grp-number)
   (del-groupchat! my-tox grp-number)
