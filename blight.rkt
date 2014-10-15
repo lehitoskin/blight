@@ -821,8 +821,8 @@ val is a value that corresponds to the value of the key
                                           (let* ([newfn (sub1 (friendlist-length my-tox))]
                                                   [key (friend-key my-tox newfn)])
                                              (if (string=? hex-tfield "")
-                                              (create-buddy nick-tfield "" key)
-                                              (create-buddy (format "Anonymous (~a)" (substring hex-tfield 0 5)) "" key)))
+                                              (create-buddy nick-tfield key)
+                                              (create-buddy (format "Anonymous (~a)" (substring hex-tfield 0 5))  key)))
                                           
                                           ; update friend list, but don't mess up
                                           ; the numbering we already have
@@ -988,7 +988,7 @@ val is a value that corresponds to the value of the key
                  (play-sound (sixth sounds) #f))
                                         ; append new friend to the list
 
-               (create-buddy (format-anonymous id-hex) "" (friend-key my-tox friendnumber))
+               (create-buddy (format-anonymous id-hex) (friend-key my-tox friendnumber))
                                 
                                         ; update friend list
                                         ; add connection status icons to each friend
