@@ -15,9 +15,7 @@
          "toxdns.rkt"
          "msg-history.rkt"
          "smart-list.rkt"
-         mrlib/aligned-pasteboard
-         racket/async-channel
-         )      ; for toxdns lookups
+         mrlib/aligned-pasteboard)     
 
 (define license-message
   "Blight - a Tox client written in Racket.
@@ -1177,10 +1175,6 @@ val is a value that corresponds to the value of the key
       (send window set-gauge-pos percent))))
 
 
-;; when calling tox-join-groupchat() ffi function it calls back to group-namelist-change(), which requires the new group to be present in hashtable, but it is actually returned by tox-join-groupchat(), so save function arguments and delay the call.
-(define adding-group-after-invite? #f)
-(define grp-add-wait-ch (make-async-channel))
-
 (define on-group-invite
   (λ (mtox friendnumber data len userdata)
     (let* ((friendname (get-contact-name friendnumber))
@@ -1190,18 +1184,9 @@ val is a value that corresponds to the value of the key
                               #f
                               (list 'ok-cancel 'caution))))
       (when (eq? mbox 'ok)
-        (set! adding-group-after-invite? #t)
 
         (define grp-number
           (join-groupchat mtox friendnumber data len))
-        (printf "new grp number: ~a\n" grp-number)
-        (flush-output)
-
-        (printf "waiting for cb... ")
-
-        (define delayed-on-grp-namechange-cb (async-channel-get grp-add-wait-ch))
-
-        (displayln "done")
         
         (cond [(= grp-number -1)
                (message-box "Blight - Groupchat Failure"
@@ -1213,10 +1198,7 @@ val is a value that corresponds to the value of the key
                (flush-output)
                 (do-add-group (format "Blight - Groupchat #~a"
                                       (hash-count cur-groups))
-                              grp-number)])
-
-        (set! adding-group-after-invite? #f)
-        (delayed-on-grp-namechange-cb)))))
+                              grp-number)])))))
 
 (define on-group-message
   (λ (mtox groupnumber friendgroupnumber message len userdata)
@@ -1241,34 +1223,25 @@ val is a value that corresponds to the value of the key
 
 (define on-group-namelist-change
   (λ (mtox groupnumber peernumber change userdata)
-     (if adding-group-after-invite?
-         (begin
+     (let* ([group-window (contact-data-window (hash-ref cur-groups groupnumber))]
+            [lbox (send group-window get-list-box)])
 
-           (let ([delayed-cb
-                  (lambda ()
-                    (on-group-namelist-change mtox groupnumber peernumber change userdata))])
-             (async-channel-put grp-add-wait-ch delayed-cb)))
-         (begin
-
-           (let* ([group-window (contact-data-window (hash-ref cur-groups groupnumber))]
-                  [lbox (send group-window get-list-box)])
-
-             (cond [(= change (_TOX_CHAT_CHANGE_PEER-index 'ADD))
-                    (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
-                    (define len (get-group-peername! mtox groupnumber peernumber name-buf))
-                    (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
-                    (send lbox append name)
-                    (send lbox set-label
-                          (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
-                   [(= change (_TOX_CHAT_CHANGE_PEER-index 'DEL))
-                    (send lbox delete peernumber)
-                    (send lbox set-label
-                          (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
-                   [(= change (_TOX_CHAT_CHANGE_PEER-index 'NAME))
-                    (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
-                    (define len (get-group-peername! mtox groupnumber peernumber name-buf))
-                    (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
-                    (send lbox set-string peernumber name)]))))))
+       (cond [(= change (_TOX_CHAT_CHANGE_PEER-index 'ADD))
+              (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
+              (define len (get-group-peername! mtox groupnumber peernumber name-buf))
+              (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+              (send lbox append name)
+              (send lbox set-label
+                    (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
+             [(= change (_TOX_CHAT_CHANGE_PEER-index 'DEL))
+              (send lbox delete peernumber)
+              (send lbox set-label
+                    (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
+             [(= change (_TOX_CHAT_CHANGE_PEER-index 'NAME))
+              (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
+              (define len (get-group-peername! mtox groupnumber peernumber name-buf))
+              (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+              (send lbox set-string peernumber name)]))))
 
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
