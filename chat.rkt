@@ -9,7 +9,7 @@
          "config.rkt"
          "msg-editor.rkt"
          "msg-history.rkt"
-         "utils.rkt"
+         racket/port
          )
 (provide (all-defined-out)
          fl->exact-integer)
@@ -75,7 +75,6 @@
   (send km map-function ":c:ц" "close-chatframe") ; russian cyrillic
   (send km map-function ":c:tab" "switch-focus"))
 
-
 (define chat-window%
   (class frame%
     (inherit set-label)
@@ -89,6 +88,10 @@
     (define friend-name "")
     (define friend-key "")
     (define friend-num -1)
+    ; obtain our tox id
+    (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+    (get-address this-tox my-id-bytes)
+    (define my-id-hex (bytes->hex-string my-id-bytes))
     ; the sending file transfer list and its path list
     ; easier to have two lists than deal with a list of pairs
     (define stransfers null)
@@ -197,6 +200,54 @@
                             (define filenumber
                               (new-file-sender this-tox friend-num size filename))
                             (set! paths (append paths (list path))))))))])
+    
+    ; frame for when we want to view our chat history
+    (define history-frame (new frame%
+                               [label (format "~a (Chat History)" this-label)]
+                               [width this-width]
+                               [height this-height]))
+    
+    (define history-text (new text%
+                              [line-spacing 1.0]
+                              [auto-wrap #t]))
+    (send history-text change-style black-style)
+    
+    (define history-canvas (new editor-canvas%
+                                [parent history-frame]
+                                [editor history-text]
+                                [min-height this-height]
+                                [min-width this-width]
+                                [style (list 'control-border 'auto-hscroll
+                                             'auto-vscroll)]))
+    
+    (define history-hpanel (new horizontal-panel%
+                                [parent history-frame]
+                                [alignment '(center center)]))
+    
+    (define history-close-button (new button%
+                                      [label "Close"]
+                                      [parent history-hpanel]
+                                      [callback (λ (button event)
+                                                  (send history-frame show #f)
+                                                  (send history-text do-edit-operation
+                                                        'select-all)
+                                                  (send history-text do-edit-operation
+                                                        'clear))]))
+    
+    ; fill the canvas with our chat history
+    ;(send history-text insert (format "~s" (get-history my-id-hex friend-key)))
+    ;(define (any->string any) 
+    ;  (with-output-to-string (lambda () (write any))))
+    
+    ; view friend chat history
+    (new menu-item% [parent menu-file]
+         [label "Chat History"]
+         [help-string "View chat history for this friend"]
+         [callback (λ (button event)
+                     (for-each (λ (x)
+                                 (send history-text insert (format "~a\n" x)))
+                               (get-history my-id-hex friend-key))
+                     (send history-frame show #t))])
     
     ; close the current window
     (new menu-item% [parent menu-file]
@@ -542,11 +593,6 @@
                (do-send second-third)
                (do-send third-third)
                ; add messages to history
-               ; obtain our tox id
-               (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
-               (get-address this-tox my-id-bytes)
-               (define my-id-hex
-                 (bytes->hex-string my-id-bytes))
                (add-history my-id-hex friend-key (send editor get-text) 1)]
               [(and (> (bytes-length msg-bytes) TOX_MAX_MESSAGE_LENGTH)
                     (<= (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2)))
@@ -556,20 +602,10 @@
                (do-send first-half)
                (do-send second-half)
                ; add messages to history
-               ; obtain our tox id
-               (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
-               (get-address this-tox my-id-bytes)
-               (define my-id-hex
-                 (bytes->hex-string my-id-bytes))
                (add-history my-id-hex friend-key (send editor get-text) 1)]
               [else
                (do-send msg-bytes)
                ; add message to history
-               ; obtain our tox id
-               (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
-               (get-address this-tox my-id-bytes)
-               (define my-id-hex
-                 (bytes->hex-string my-id-bytes))
                (add-history my-id-hex friend-key (send editor get-text) 1)])))
     
     
