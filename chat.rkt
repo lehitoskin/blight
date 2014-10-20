@@ -8,9 +8,7 @@
          "history.rkt"
          "config.rkt"
          "msg-editor.rkt"
-         "msg-history.rkt"
-         racket/port
-         )
+         "msg-history.rkt")
 (provide (all-defined-out)
          fl->exact-integer)
 
@@ -234,20 +232,20 @@
                                                   (send history-text do-edit-operation
                                                         'clear))]))
     
-    ; fill the canvas with our chat history
-    ;(send history-text insert (format "~s" (get-history my-id-hex friend-key)))
-    ;(define (any->string any) 
-    ;  (with-output-to-string (lambda () (write any))))
-    
     ; view friend chat history
     (new menu-item% [parent menu-file]
          [label "Chat History"]
          [help-string "View chat history for this friend"]
          [callback (λ (button event)
-                     (for-each (λ (x)
-                                 (send history-text insert (format "~a\n" x)))
-                               (get-history my-id-hex friend-key))
-                     (send history-frame show #t))])
+                     (let-values ([(message timestamp who) (get-history my-id-hex friend-key)])
+                       (for-each
+                        (λ (x y z)
+                          (define name "")
+                          (cond [(zero? y) (set! name friend-name)]
+                                [else (set! name "Me")])
+                          (send history-text insert (format "[~a] ~a: ~a\n" x name z)))
+                        timestamp who message)
+                       (send history-frame show #t)))])
     
     ; close the current window
     (new menu-item% [parent menu-file]

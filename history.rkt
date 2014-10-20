@@ -66,12 +66,14 @@ sent is 0: they sent; 1: we sent
 ; or even Right click user -> View Chat History
 ;"SELECT * FROM History WHERE userHash = $USER AND contactHash = $CONTACT
 ;AND timestamp > $OLDEST;"
-;(define messages (get-history "BE69A0EF529FD5248C8CDA83F8545873D9D6734BE3326D49E45610E45A91D427C8A7BA6A433A" "802D30E27746AE299FC2796D014C24700140574BFBFBB9397114D7CB82DC2572"))
 (define get-history
   (λ (user contact)
     (let* ([result
            (query sqlc
                   "SELECT * FROM History WHERE userHash = $1 AND contactHash = $2;"
                   user contact)]
-           [trimmed (vector-ref (struct->vector result) 2)])
-      (map (λ (x) (vector-ref x 3)) trimmed))))
+           [trimmed (vector-ref (struct->vector result) 2)]
+           [message (map (λ (x) (vector-ref x 3)) trimmed)]
+           [timestamp (map (λ (x) (vector-ref x 4)) trimmed)]
+           [who (map (λ (x) (vector-ref x 5)) trimmed)])
+      (values message timestamp who))))
