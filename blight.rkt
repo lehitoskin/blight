@@ -359,7 +359,7 @@ val is a value that corresponds to the value of the key
 
 (define (add-new-group name)
   (let* ([number (add-groupchat my-tox)])
-    (do-add-group (format "Blight - Groupchat #~a" number) number)))
+    (do-add-group (format "Groupchat #~a" number) number)))
 
 (define (initial-fill-sml)
   (define an-id 1)
@@ -1196,7 +1196,7 @@ val is a value that corresponds to the value of the key
               [else
                (printf "adding GC: ~a\n" grp-number)
                (flush-output)
-                (do-add-group (format "Blight - Groupchat #~a"
+                (do-add-group (format "Groupchat #~a"
                                       (hash-count cur-groups))
                               grp-number)])))))
 
