@@ -314,7 +314,7 @@ val is a value that corresponds to the value of the key
 ;;       (send list-box append (format "Group Chat #~a" i) i))))
 
 (define (update-invite-list)
-  (for ([grp cur-groups])
+  (for ([(num grp) cur-groups])
     (let ([cw (contact-data-window grp)])
       (send cw
             update-invite-list))))
