@@ -79,34 +79,64 @@
   (send error-dialog show #t))
 
 ;; FILE TRANSFERS
+(struct send-transfer-data (path contents) #:mutable)
+
 (define rt (make-hash))
+(define st (make-hash))
 
 (struct	 exn:blight:rtransfer exn ()
          #:extra-constructor-name make-exn:blight:rtransfer
          #:transparent)
 
-(define (rt-raise msg)
+(define (transfer-raise msg)
   (raise (make-exn:blight:rtransfer
           msg (current-continuation-marks))))
 
-(define (rt-ref num)
-  (hash-ref rt num
+(define (transfer-ref transfer key)
+  (hash-ref transfer key
             (lambda ()
-              (rt-raise (format "Incorrect file transfer id: ~a" num )))))
+              (transfer-raise (format "transfer-ref: Incorrect file transfer id: ~a" key)))))
+
+(define (transfer-set! transfer key value)
+  (hash-set! transfer key value))
+
+(define (transfer-del! transfer key)
+  (unless (hash-has-key? rt key)
+    (transfer-raise (format "transfer-del: Incorrect file transfer id: ~a" key))))
+
+(define (rt-ref num)
+  (transfer-ref rt num))
 
 (define (rt-del! num)
-  (unless (hash-has-key? rt num)
-    (rt-raise (format "Incorrect file transfer id: ~a" num)))
-
-  (hash-remove! rt num))
+  (transfer-del! rt num))
 
 (define (rt-add! path id)
-  (hash-set! rt id
+  (transfer-set! rt id
              (open-output-file
               path
               #:mode 'binary
               #:exists 'replace)))
 
+(define (st-ref num)
+  (transfer-ref st num))
+
+(define (st-ref-data num)
+  (send-transfer-data-contents (transfer-ref st num)))
+
+(define (st-ref-path num)
+  (send-transfer-data-path (transfer-ref st num)))
+
+(define (st-del! num)
+  (transfer-del! st num))
+
+(define (st-add! path id)
+  (transfer-set! st id
+		 (send-transfer-data path #f)))
+
+(define (st-read-file! id)
+  (define cur-st (st-ref id))
+  (define cur-path (send-transfer-data-path cur-st))
+  (set-send-transfer-data-contents! cur-st (file->bytes cur-path)))
 
 (define (format-anonymous public-key)
   (format "Anonymous (~a)" (substring public-key 0 5)))

@@ -92,8 +92,6 @@
     (define my-id-hex (bytes->hex-string my-id-bytes))
     ; the sending file transfer list and its path list
     ; easier to have two lists than deal with a list of pairs
-    (define stransfers null)
-    (define paths null)
     
     ;; (define/private repeat
     ;;   (λ (proc times)
@@ -104,11 +102,11 @@
       (λ (path filenumber)
         (define filename (path->string path))
         (send transfer-gauge set-value 0)
-        (set! stransfers (append stransfers (list (file->bytes path))))))
+	(st-read-file! filenumber)))
     
     (define/public send-data
       (λ (filenumber)
-        (define path (list-ref paths filenumber))
+        (define path (st-ref-path filenumber))
         
         (send message-history
                    begin-send-file path (get-time))
@@ -123,7 +121,7 @@
         (add-file-sender path filenumber)
         (do ((i 0 (+ i 1)))
           ((= i num-pieces))
-          (let ((piece (subbytes (list-ref stransfers filenumber)
+          (let ((piece (subbytes (st-ref-data filenumber)
                                  (* max-size i) (* max-size (+ i 1)))))
             ; send our piece
             ; if there is an error, sleep and then try again.
@@ -139,7 +137,7 @@
             (send transfer-gauge set-value percent)))
         ; if there is a remainder, send the very last piece
         (unless (zero? (quotient size max-size))
-          (let ((piece (subbytes (list-ref stransfers filenumber)
+          (let ((piece (subbytes (st-ref-data filenumber)
                                  (- size (remainder size max-size)) size)))
             ; send our piece
             ; if there is an error, sleep and then try again.
@@ -197,7 +195,7 @@
                             (define filename (path->string (last (explode-path path))))
                             (define filenumber
                               (new-file-sender this-tox friend-num size filename))
-                            (set! paths (append paths (list path))))))))])
+			    (st-add! path filenumber))))))])
     
     ; frame for when we want to view our chat history
     (define history-frame (new frame%
@@ -662,8 +660,7 @@
       friend-key)
     
     (define/public (close-transfer filenumber)
-      (set! stransfers (delnode stransfers filenumber))
-      (set! paths (delnode paths filenumber)))
+      (st-del! filenumber))
     
     (define/public (set-gauge-pos num)
       (send transfer-gauge set-value num))

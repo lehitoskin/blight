@@ -1137,6 +1137,7 @@ val is a value that corresponds to the value of the key
       (with-handlers
           ([exn:blight:rtransfer?
             (lambda (ex)
+	      (blight-handle-exception ex)
               (send msg-history send-file-recv-error (exn-message ex)))])
 
         ; we've finished receiving the file
