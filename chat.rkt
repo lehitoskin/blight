@@ -8,7 +8,9 @@
          "history.rkt"
          "config.rkt"
          "msg-editor.rkt"
-         "msg-history.rkt")
+         "msg-history.rkt"
+         "utils.rkt"
+         )
 (provide (all-defined-out)
          fl->exact-integer)
 
