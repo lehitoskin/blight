@@ -357,9 +357,13 @@ val is a value that corresponds to the value of the key
                       (hash-set! cur-groups number cd)
 ))
 
-(define (add-new-group name)
+#|(define (add-new-group name)
   (let* ([number (add-groupchat my-tox)])
-    (do-add-group (format "Groupchat #~a" number) number)))
+    (do-add-group (format "Groupchat #~a" number) number)))|#
+(define (add-new-group name)
+  (let ([number (count-chatlist my-tox)])
+    (do-add-group (format "Blight - Groupchat #~a" number) number)
+    (add-groupchat my-tox)))
 
 (define (initial-fill-sml)
   (define an-id 1)
