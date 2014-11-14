@@ -156,7 +156,7 @@
         ; tell our friend we're done sending
         (send-file-control this-tox friend-num
                            #f filenumber
-                           (_TOX_FILECONTROL-index 'FINISHED)
+                           (_TOX_FILECONTROL 'FINISHED)
                            #f 0)
 
              (send message-history

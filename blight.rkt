@@ -782,35 +782,35 @@ val is a value that corresponds to the value of the key
                                                    nick-bytes
                                                    message-tfield)))
                               ; check for all the friend add errors
-                              (cond [(= err (_TOX_FAERR-index 'TOOLONG))
+                              (cond [(= err (_TOX_FAERR 'TOOLONG))
                                      (displayln "ERROR: TOX_FAERR_TOOLONG")
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR-index 'NOMESSAGE))
+                                    [(= err (_TOX_FAERR 'NOMESSAGE))
                                      (displayln "ERROR: TOX_FAERR_NOMESSAGE")
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR-index 'OWNKEY))
+                                    [(= err (_TOX_FAERR 'OWNKEY))
                                      (displayln "ERROR: TOX_FAERR_OWNKEY")
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR-index 'ALREADYSENT))
+                                    [(= err (_TOX_FAERR 'ALREADYSENT))
                                      (displayln "ERROR: TOX_FAERR_ALREADYSENT")
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR-index 'UNKNOWN))
+                                    [(= err (_TOX_FAERR 'UNKNOWN))
                                      (displayln "ERROR: TOX_FAERR_UNKNOWN")
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR-index 'BADCHECKSUM))
+                                    [(= err (_TOX_FAERR 'BADCHECKSUM))
                                      (displayln "ERROR: TOX_FAERR_BADCHECKSUM")
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR-index 'SETNEWNOSPAM))
+                                    [(= err (_TOX_FAERR 'SETNEWNOSPAM))
                                      (displayln "ERROR: TOX_FAERR_SETNEWNOSPAM")
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR-index 'NOMEM))
+                                    [(= err (_TOX_FAERR 'NOMEM))
                                      (displayln "ERROR: TOX_FAERR_NOMEM")
                                      (unless (false? make-noise)
                                        (play-sound (last sounds) #t))]
@@ -1062,15 +1062,15 @@ val is a value that corresponds to the value of the key
 
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)
-    (cond [(= status (_TOX_USERSTATUS-index 'NONE))
+    (cond [(= status (_TOX_USERSTATUS 'NONE))
            (send (get-contact-snip friendnumber) set-status 'available)
            (update-contact-status friendnumber 'available)]
           ; if user is away, add a dash inside a circle
-          [(= status (_TOX_USERSTATUS-index 'AWAY))
+          [(= status (_TOX_USERSTATUS 'AWAY))
            (send (get-contact-snip friendnumber) set-status 'away)
            (update-contact-status friendnumber 'away)]
           ; if user is busy, add an X inside a circle
-          [(= status (_TOX_USERSTATUS-index 'BUSY))
+          [(= status (_TOX_USERSTATUS 'BUSY))
            (send (get-contact-snip friendnumber) set-status 'busy)
            (update-contact-status friendnumber 'busy)])))
 
@@ -1116,7 +1116,7 @@ val is a value that corresponds to the value of the key
                                       filename))
                       [window (get-contact-window friendnumber)])
                   (unless (false? path)
-                    (define message-id (_TOX_FILECONTROL-index 'ACCEPT))
+                    (define message-id (_TOX_FILECONTROL 'ACCEPT))
                     (define receive-editor
                       (send window get-receive-editor))
                     (send-file-control mtox friendnumber #t filenumber message-id #f 0)
@@ -1145,7 +1145,7 @@ val is a value that corresponds to the value of the key
               (send msg-history send-file-recv-error (exn-message ex)))])
 
         ; we've finished receiving the file
-        (cond [(and (= control-type (_TOX_FILECONTROL-index 'FINISHED))
+        (cond [(and (= control-type (_TOX_FILECONTROL 'FINISHED))
                     (false? sending?))
                (define data-bytes (make-sized-byte-string data-ptr len))
                (write-bytes data-bytes (rt-ref filenumber))
@@ -1158,7 +1158,7 @@ val is a value that corresponds to the value of the key
                (rt-del! filenumber)]
 
               ; cue that we're going to be sending the data now
-              [(and (= control-type (_TOX_FILECONTROL-index 'ACCEPT))
+              [(and (= control-type (_TOX_FILECONTROL 'ACCEPT))
                     (not (false? sending?)))
 
                (send window send-data filenumber)])))))
@@ -1181,29 +1181,30 @@ val is a value that corresponds to the value of the key
 
 
 (define on-group-invite
-  (λ (mtox friendnumber data len userdata)
-    (let* ((friendname (get-contact-name friendnumber))
-           (mbox (message-box "Blight - Groupchat Invite"
-                              (string-append friendname
-                                             " has invited you to a groupchat!")
+  (λ (mtox friendnumber type data len userdata)
+    (unless (= type (_TOX_GROUPCHAT_TYPE 'AV))
+      (let* ((friendname (get-contact-name friendnumber))
+             (mbox (message-box "Blight - Groupchat Invite"
+                                (string-append friendname
+                                               " has invited you to a groupchat!")
+                                #f
+                                (list 'ok-cancel 'caution))))
+        (when (eq? mbox 'ok)
+          
+          (define grp-number
+            (join-groupchat mtox friendnumber data len))
+          
+          (cond [(= grp-number -1)
+                 (message-box "Blight - Groupchat Failure"
+                              "Failed to add groupchat!"
                               #f
-                              (list 'ok-cancel 'caution))))
-      (when (eq? mbox 'ok)
-
-        (define grp-number
-          (join-groupchat mtox friendnumber data len))
-        
-        (cond [(= grp-number -1)
-               (message-box "Blight - Groupchat Failure"
-                            "Failed to add groupchat!"
-                            #f
-                            (list 'ok 'caution))]
-              [else
-               (printf "adding GC: ~a\n" grp-number)
-               (flush-output)
-                (do-add-group (format "Groupchat #~a"
-                                      (hash-count cur-groups))
-                              grp-number)])))))
+                              (list 'ok 'caution))]
+                [else
+                 (printf "adding GC: ~a\n" grp-number)
+                 (flush-output)
+                 (do-add-group (format "Groupchat #~a"
+                                       (hash-count cur-groups))
+                               grp-number)]))))))
 
 (define on-group-message
   (λ (mtox groupnumber friendgroupnumber message len userdata)
@@ -1231,18 +1232,18 @@ val is a value that corresponds to the value of the key
      (let* ([group-window (contact-data-window (hash-ref cur-groups groupnumber))]
             [lbox (send group-window get-list-box)])
 
-       (cond [(= change (_TOX_CHAT_CHANGE_PEER-index 'ADD))
+       (cond [(= change (_TOX_CHAT_CHANGE_PEER 'ADD))
               (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
               (define len (get-group-peername! mtox groupnumber peernumber name-buf))
               (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
               (send lbox append name)
               (send lbox set-label
                     (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
-             [(= change (_TOX_CHAT_CHANGE_PEER-index 'DEL))
+             [(= change (_TOX_CHAT_CHANGE_PEER 'DEL))
               (send lbox delete peernumber)
               (send lbox set-label
                     (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
-             [(= change (_TOX_CHAT_CHANGE_PEER-index 'NAME))
+             [(= change (_TOX_CHAT_CHANGE_PEER 'NAME))
               (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
               (define len (get-group-peername! mtox groupnumber peernumber name-buf))
               (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
