@@ -45,6 +45,7 @@ if people have a similar problem.")
 
 ; instantiate Tox session
 (define my-tox (tox-new #f))
+(define my-av (av-new my-tox 1))
 
 ; chat entity holding group or contact data
 
@@ -1182,7 +1183,6 @@ val is a value that corresponds to the value of the key
 
 (define on-group-invite
   (λ (mtox friendnumber type data len userdata)
-    (unless (= type (_TOX_GROUPCHAT_TYPE 'AV))
       (let* ((friendname (get-contact-name friendnumber))
              (mbox (message-box "Blight - Groupchat Invite"
                                 (string-append friendname
@@ -1192,7 +1192,13 @@ val is a value that corresponds to the value of the key
         (when (eq? mbox 'ok)
           
           (define grp-number
-            (join-groupchat mtox friendnumber data len))
+            (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
+                   (join-groupchat mtox friendnumber data len)]
+                  [(= type (_TOX_GROUPCHAT_TYPE 'AV))
+                   (join-av-groupchat mtox (λ (avtox grnum peernum pcm
+                                                     samples channels sample-rate
+                                                     userdata)
+                                             (void)))]))
           
           (cond [(= grp-number -1)
                  (message-box "Blight - Groupchat Failure"
@@ -1204,7 +1210,7 @@ val is a value that corresponds to the value of the key
                  (flush-output)
                  (do-add-group (format "Groupchat #~a"
                                        (hash-count cur-groups))
-                               grp-number)]))))))
+                               grp-number)])))))
 
 (define on-group-message
   (λ (mtox groupnumber friendgroupnumber message len userdata)
