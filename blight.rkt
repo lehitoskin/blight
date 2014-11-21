@@ -362,7 +362,7 @@ val is a value that corresponds to the value of the key
     (do-add-group (format "Groupchat #~a" number) number)))|#
 (define (add-new-group name)
   (let ([number (count-chatlist my-tox)])
-    (do-add-group (format "Blight - Groupchat #~a" number) number)
+    (do-add-group name number)
     (add-groupchat my-tox)))
 
 (define (initial-fill-sml)
@@ -744,11 +744,11 @@ val is a value that corresponds to the value of the key
        [parent add-friend-panel]
        [label "OK"]
        [callback (λ (button event)
-                   (let ((nick-tfield (send add-friend-txt-tfield get-value))
-                         (hex-tfield (send add-friend-hex-tfield get-value))
-                         (message-tfield (send add-friend-message-tfield get-value))
-                         (domain (send dns-domain-choice get-string
-                                       (send dns-domain-choice get-selection))))
+                   (let ([nick-tfield (send add-friend-txt-tfield get-value)]
+                         [hex-tfield (send add-friend-hex-tfield get-value)]
+                         [message-tfield (send add-friend-message-tfield get-value)]
+                         [domain (send dns-domain-choice get-string
+                                       (send dns-domain-choice get-selection))])
                      ; add the friend to the friend list
                      (cond [(or
                              ; the hex field is empty, nick field cannot be empty
@@ -851,14 +851,67 @@ val is a value that corresponds to the value of the key
 
 
 #| ####################### BEGIN GROUP STUFF ######################## |#
+
 (define add-group-button
   (new button%
        [parent panel]
        [label "Add group"]
        [callback (λ (button event)
                    ; open a dialogue to optionally name the groupchat
-                   (let ([groups-count (hash-count cur-groups)])
-                     (add-new-group (format "Groupchat #~a" groups-count))))]))
+                   (define add-group-frame (new frame% [label "Add Group"]))
+                   
+                   (define add-group-message
+                     (new message%
+                          [label "Please enter a(n optional) Group Chat name"]
+                          [parent add-group-frame]))
+                   
+                   (define add-group-tfield (new text-field%
+                                                 [label "Group Chat name: "]
+                                                 [parent add-group-frame]))
+                   
+                   (define add-group-hpanel (new horizontal-panel%
+                                                 [parent add-group-frame]
+                                                 [alignment '(right center)]))
+                   
+                   (define add-group-cancel-button
+                     (new button%
+                          [parent add-group-hpanel]
+                          [label "Cancel"]
+                          [callback (λ (button event)
+                                      (send add-group-frame show #f))]))
+                   
+                   (define add-group-ok-button
+                     (new button%
+                          [parent add-group-hpanel]
+                          [label "&OK"]
+                          [callback
+                           (λ (button event)
+                             ; add the group
+                             (let* ([group-tfield (send add-group-tfield get-value)]
+                                    [byte-tfield (string->bytes/utf-8 group-tfield)]
+                                    [groups-count (hash-count cur-groups)]
+                                    [no-name #"Group Chat"])
+                               ; no group name supplied, go with defaults
+                               (cond [(string=? group-tfield "")
+                                      (add-new-group (format "Groupchat #~a" groups-count))
+                                      (group-set-title my-tox groups-count no-name
+                                                       (bytes-length no-name))
+                                      (send add-group-frame show #f)]
+                                     ; group name supplied, use that
+                                     [else
+                                      ; add group with number and name
+                                      (add-new-group
+                                       (format "Groupchat #~a: ~a"
+                                               groups-count
+                                               group-tfield))
+                                      ; set the group title we chose
+                                      (group-set-title my-tox
+                                                       groups-count
+                                                       byte-tfield
+                                                       (bytes-length byte-tfield))
+                                      (send add-group-frame show #f)])))]))
+                   
+                   (send add-group-frame show #t))]))
 
 (define (do-delete-group! grp-number)
   (del-groupchat! my-tox grp-number)
@@ -1230,8 +1283,10 @@ val is a value that corresponds to the value of the key
 (define on-group-title-change
   (λ (mtox groupnumber peernumber title len userdata)
     (let ([window (contact-data-window (hash-ref cur-groups groupnumber))])
+      ; TODO: (send smart-list groupnumber set-label "Groupchat #~a: ~a")
+      ; smart-list set-label is not yet implemented
       (send window set-new-label
-            (format "Blight - Groupchat #~a: ~a"
+            (format "Groupchat #~a: ~a"
                     groupnumber
                     (bytes->string/utf-8 (subbytes title 0 len)))))))
 
