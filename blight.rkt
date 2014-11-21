@@ -856,9 +856,9 @@ val is a value that corresponds to the value of the key
        [parent panel]
        [label "Add group"]
        [callback (λ (button event)
-
-                    (let ([groups-count (hash-count cur-groups)])
-                      (add-new-group (format "Groupchat #~a" groups-count))))]))
+                   ; open a dialogue to optionally name the groupchat
+                   (let ([groups-count (hash-count cur-groups)])
+                     (add-new-group (format "Groupchat #~a" groups-count))))]))
 
 (define (do-delete-group! grp-number)
   (del-groupchat! my-tox grp-number)
@@ -1227,6 +1227,14 @@ val is a value that corresponds to the value of the key
 
       (send msg-history add-recv-action action name (get-time)))))
 
+(define on-group-title-change
+  (λ (mtox groupnumber peernumber title len userdata)
+    (let ([window (contact-data-window (hash-ref cur-groups groupnumber))])
+      (send window set-new-label
+            (format "Blight - Groupchat #~a: ~a"
+                    groupnumber
+                    (bytes->string/utf-8 (subbytes title 0 len)))))))
+
 (define on-group-namelist-change
   (λ (mtox groupnumber peernumber change userdata)
      (let* ([group-window (contact-data-window (hash-ref cur-groups groupnumber))]
@@ -1262,6 +1270,7 @@ val is a value that corresponds to the value of the key
 (callback-group-invite my-tox on-group-invite)
 (callback-group-message my-tox on-group-message)
 (callback-group-action my-tox on-group-action)
+(callback-group-title my-tox on-group-title-change)
 (callback-group-namelist-change my-tox on-group-namelist-change)
 
 (define cur-ctx (tox-ctx my-tox my-id-bytes clean-up))
