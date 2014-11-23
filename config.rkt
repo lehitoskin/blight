@@ -22,7 +22,7 @@
 ; history db file
 (define db-file (build-path tox-path "blight-tox.db"))
 ; tox-specific information
-(define data-file (build-path tox-path "blight-data")) #|DONT' FORGET TO CHANGE BACK THIS ONCE STABLE|#
+(define data-file (build-path tox-path "blight-data"))
 ; blight-specific configurations
 (define config-file (build-path tox-path "blight-config.json"))
 
@@ -48,6 +48,16 @@
                 (build-path sound-dir "Error.wav")))
 
 (define make-noise-default #t)
+
+; blight icons for the buddy list
+(define icon-dir (build-path "icons"))
+; list of icon files
+(define icons (list
+               (build-path icon-dir "offline.png")
+               (build-path icon-dir "busy.png")
+               (build-path icon-dir "away.png")
+               (build-path icon-dir "groupchat.png")
+               (build-path icon-dir "available.png")))
 
 ; tox-path doesn't exist, create it
 (unless (directory-exists? tox-path)

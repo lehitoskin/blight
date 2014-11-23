@@ -1,7 +1,8 @@
-#lang racket
-(require racket/gui)
-(require mrlib/aligned-pasteboard)
-(require racket/contract)
+#lang racket/base
+(require racket/gui
+         mrlib/aligned-pasteboard
+         racket/contract
+         "config.rkt")
 
 (provide (all-defined-out))
 
@@ -67,11 +68,11 @@
     
     (define status-glyphs
       (make-hash
-       (list (cons 'offline (make-object bitmap% "icons/offline.png"))
-             (cons 'busy (make-object bitmap% "icons/busy.png"))
-             (cons 'away (make-object bitmap% "icons/away.png"))
-             (cons 'groupchat (make-object bitmap% "icons/groupchat.png"))
-             (cons 'available (make-object bitmap% "icons/available.png")))))
+       (list (cons 'offline (make-object bitmap% (first icons)))
+             (cons 'busy (make-object bitmap% (second icons)))
+             (cons 'away (make-object bitmap% (third icons)))
+             (cons 'groupchat (make-object bitmap% (fourth icons)))
+             (cons 'available (make-object bitmap% (last icons))))))
 
     (define/public (get-text-font)
       (make-font #:size 12))

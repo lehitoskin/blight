@@ -869,6 +869,8 @@ val is a value that corresponds to the value of the key
                                                  [label "Group Chat name: "]
                                                  [parent add-group-frame]))
                    
+                   ; TODO: tick box for audio capabilities
+                   
                    (define add-group-hpanel (new horizontal-panel%
                                                  [parent add-group-frame]
                                                  [alignment '(right center)]))
