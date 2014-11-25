@@ -1,8 +1,10 @@
 TODO:
 
+- Fix implications to revert back to black text
+- Investigate futures as a possible replacement to threads
+
 - Links blue, underlined, and clickable
 - Drag link into chat, prettify to title with link
-- Status message box on friend list (?)
 - Spellcheck
 - Embedding of video, images, audio, etc. (both p2p and links posted) (?)
 

@@ -902,15 +902,14 @@ val is a value that corresponds to the value of the key
                                      ; group name supplied, use that
                                      [else
                                       ; add group with number and name
-                                      (add-new-group
-                                       (format "Groupchat #~a: ~a"
-                                               groups-count
-                                               group-tfield))
+                                      (add-new-group (format "Groupchat #~a" groups-count))
                                       ; set the group title we chose
                                       (group-set-title my-tox
                                                        groups-count
                                                        byte-tfield
                                                        (bytes-length byte-tfield))
+                                      (send (get-group-snip groups-count)
+                                            set-status-msg group-tfield)
                                       (send add-group-frame show #f)])))]))
                    
                    (send add-group-frame show #t))]))
@@ -1026,36 +1025,6 @@ val is a value that corresponds to the value of the key
                                       [parent friend-request-dialog]
                                       [alignment (list 'right 'center)]))
     
-    (define ok
-      (new button% [parent friend-request-panel]
-           [label "OK"]
-           [callback
-            (λ (button event)
-               (send friend-request-dialog show #f)
-                                        ; add the friend
-               (add-friend-norequest mtox public-key)
-               (define friendnumber (sub1 (friendlist-length my-tox)))
-                                        ; save the tox data
-               (blight-save-data)
-                                        ; play a sound because we accepted
-               (unless (false? make-noise)
-                 (play-sound (sixth sounds) #f))
-                                        ; append new friend to the list
-
-               (create-buddy (format-anonymous id-hex) (friend-key my-tox friendnumber))
-                                
-                                        ; update friend list
-                                        ; add connection status icons to each friend
-               (do ((i 0 (+ i 1)))
-                   ((= i (friendlist-length mtox)))
-                 (status-checker
-                  i
-                  (get-friend-connection-status mtox i)))
-                                        ; the invite list needs to be updated for
-                                        ; the groupchat windows that still exist
-               (unless (zero? (hash-count cur-groups))
-                 (update-invite-list)))]))
-    
     (define cancel (new button% [parent friend-request-panel]
                         [label "Cancel"]
                         [callback (λ (button event)
@@ -1063,6 +1032,37 @@ val is a value that corresponds to the value of the key
                                     (send friend-request-dialog show #f)
                                     (send friend-request-text clear)
                                     (send friend-request-text change-style black-style))]))
+    
+    (define ok
+      (new button% [parent friend-request-panel]
+           [label "OK"]
+           [callback
+            (λ (button event)
+              (send friend-request-dialog show #f)
+              ; add the friend
+              (add-friend-norequest mtox public-key)
+              (define friendnumber (sub1 (friendlist-length my-tox)))
+              ; save the tox data
+              (blight-save-data)
+              ; play a sound because we accepted
+              (unless (false? make-noise)
+                (play-sound (sixth sounds) #f))
+              
+              ; append new friend to the list
+              (create-buddy (format-anonymous id-hex) (friend-key my-tox friendnumber))
+              
+              ; update friend list
+              ; add connection status icons to each friend
+              (do ((i 0 (+ i 1)))
+                ((= i (friendlist-length mtox)))
+                (status-checker
+                 i
+                 (get-friend-connection-status mtox i)))
+              ; the invite list needs to be updated for
+              ; the groupchat windows that still exist
+              (unless (zero? (hash-count cur-groups))
+                (update-invite-list)))]))
+    
     (send friend-request-text insert (string-append
                                       id-hex
                                       "\nwould like to add you as a friend!\n"
@@ -1117,14 +1117,15 @@ val is a value that corresponds to the value of the key
 
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)
+    ; friend is online
     (cond [(= status (_TOX_USERSTATUS 'NONE))
            (send (get-contact-snip friendnumber) set-status 'available)
            (update-contact-status friendnumber 'available)]
-          ; if user is away, add a dash inside a circle
+          ; friend is away
           [(= status (_TOX_USERSTATUS 'AWAY))
            (send (get-contact-snip friendnumber) set-status 'away)
            (update-contact-status friendnumber 'away)]
-          ; if user is busy, add an X inside a circle
+          ; friend is busy
           [(= status (_TOX_USERSTATUS 'BUSY))
            (send (get-contact-snip friendnumber) set-status 'busy)
            (update-contact-status friendnumber 'busy)])))
@@ -1135,10 +1136,8 @@ val is a value that corresponds to the value of the key
     (cond [(zero? status)
            (send (get-contact-snip friendnumber) set-status 'offline)
            (update-contact-status friendnumber 'offline)
-           ; if the user is offline, append his name with (X)
            (unless (false? make-noise)
              (play-sound (third sounds) #t))]
-          ; user is online, add a checkmark
           [else
            (send (get-contact-snip friendnumber) set-status 'available)
            (update-contact-status friendnumber 'available)
@@ -1284,13 +1283,11 @@ val is a value that corresponds to the value of the key
 
 (define on-group-title-change
   (λ (mtox groupnumber peernumber title len userdata)
-    (let ([window (contact-data-window (hash-ref cur-groups groupnumber))])
-      ; TODO: (send smart-list groupnumber set-label "Groupchat #~a: ~a")
-      ; smart-list set-label is not yet implemented
-      (send window set-new-label
-            (format "Groupchat #~a: ~a"
-                    groupnumber
-                    (bytes->string/utf-8 (subbytes title 0 len)))))))
+    (let ([window (contact-data-window (hash-ref cur-groups groupnumber))]
+          [gsnip (get-group-snip groupnumber)]
+          [newname (bytes->string/utf-8 (subbytes title 0 len))])
+      (send gsnip set-status-msg newname)
+      (send window set-new-label (format "Blight - Groupchat #~a: ~a" groupnumber newname)))))
 
 (define on-group-namelist-change
   (λ (mtox groupnumber peernumber change userdata)
