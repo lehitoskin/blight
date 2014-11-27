@@ -129,9 +129,9 @@ val is a value that corresponds to the value of the key
     ; place all tox info into data-bytes
     (tox-save! my-tox data-bytes)
     ; SAVE INFORMATION TO DATA
-    (let ((data-port-out (open-output-file data-file
+    (let ([data-port-out (open-output-file data-file
                                            #:mode 'binary
-                                           #:exists 'truncate/replace)))
+                                           #:exists 'truncate/replace)])
       (write-bytes data-bytes data-port-out)
       (close-output-port data-port-out))
     (displayln "Done!")))
@@ -1311,6 +1311,47 @@ val is a value that corresponds to the value of the key
               (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
               (send lbox set-string peernumber name)]))))
 
+(define on-avatar-info
+  (λ (mtox friendnumber img-format img-hash userdata)
+    (displayln "We got avatar info!")
+    ; check if we have the avatar already
+    (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
+           [friend-id (send window get-key)]
+           [hash-file (build-path
+                       avatar-dir
+                       (string-append friend-id ".hash"))]
+           [png-file (build-path
+                      avatar-dir
+                      (string-append friend-id ".png"))])
+      (displayln (bytes-length img-hash))
+      (cond [(and (file-exists? hash-file)
+                  (file-exists? png-file))
+             ; if they both exist, do nothing unless the hashes are different
+             (unless (bytes=? (file->bytes hash-file #:mode 'binary) img-hash)
+               ; request the avatar's data
+               ;(request-avatar-data mtox friendnumber)
+               ; update the hash file
+               (let ([hash-port-out (open-output-file hash-file
+                                                      #:mode 'binary
+                                                      #:exists 'truncate/replace)])
+                 (write-bytes img-hash hash-port-out)
+                 (close-output-port hash-port-out)))]
+            [else
+             (displayln "Writing to new .hash file")
+             ; request the avatar's data
+             ;(request-avatar-data mtox friendnumber)
+             ; update the hash file
+             (let ([hash-port-out (open-output-file hash-file
+                                                    #:mode 'binary
+                                                    #:exists 'truncate/replace)])
+               (write-bytes img-hash hash-port-out)
+               (close-output-port hash-port-out))]))))
+
+(define on-avatar-data
+  (λ (mtox friendnumber img-format img-hash data datalen userdata)
+    (unless (not (= img-format (_TOX_AVATAR_FORMAT 'PNG)))
+      (displayln "We got avatar data!"))))
+
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
 (callback-friend-message my-tox on-friend-message)
@@ -1326,6 +1367,8 @@ val is a value that corresponds to the value of the key
 (callback-group-action my-tox on-group-action)
 (callback-group-title my-tox on-group-title-change)
 (callback-group-namelist-change my-tox on-group-namelist-change)
+(callback-avatar-info my-tox on-avatar-info)
+(callback-avatar-data my-tox on-avatar-data)
 
 (define cur-ctx (tox-ctx my-tox my-id-bytes clean-up))
 
