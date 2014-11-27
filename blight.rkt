@@ -1313,43 +1313,45 @@ val is a value that corresponds to the value of the key
 
 (define on-avatar-info
   (λ (mtox friendnumber img-format img-hash userdata)
-    (displayln "We got avatar info!")
-    ; check if we have the avatar already
-    (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
-           [friend-id (send window get-key)]
-           [hash-file (build-path
-                       avatar-dir
-                       (string-append friend-id ".hash"))]
-           [png-file (build-path
-                      avatar-dir
-                      (string-append friend-id ".png"))])
-      (displayln (bytes-length img-hash))
-      (cond [(and (file-exists? hash-file)
-                  (file-exists? png-file))
-             ; if they both exist, do nothing unless the hashes are different
-             (unless (bytes=? (file->bytes hash-file #:mode 'binary) img-hash)
+    ; if the img-format is 'NONE, do nothing
+    (unless (= (_TOX_AVATAR_FORMAT 'NONE) img-format)
+      ; check if we have the avatar already
+      (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
+             [friend-id (send window get-key)]
+             [hash-file (build-path
+                         avatar-dir
+                         (string-append friend-id ".hash"))]
+             [png-file (build-path
+                        avatar-dir
+                        (string-append friend-id ".png"))]
+             [cropped-hash (subbytes img-hash 0 TOX_HASH_LENGTH)])
+        (cond [(and (file-exists? hash-file)
+                    (file-exists? png-file))
+               ; if they both exist, do nothing if the hashes are identical
+               (unless (bytes=? (file->bytes hash-file #:mode 'binary) cropped-hash)
+                 (displayln "The avatar's hash hash changed! Updating...")
+                 ; request the avatar's data
+                 (request-avatar-data mtox friendnumber)
+                 ; update the hash file
+                 (let ([hash-port-out (open-output-file hash-file
+                                                        #:mode 'binary
+                                                        #:exists 'truncate/replace)])
+                   (write-bytes cropped-hash hash-port-out)
+                   (close-output-port hash-port-out)))]
+              [else
+               (displayln "We got a new avatar! Saving information...")
                ; request the avatar's data
-               ;(request-avatar-data mtox friendnumber)
+               (request-avatar-data mtox friendnumber)
                ; update the hash file
                (let ([hash-port-out (open-output-file hash-file
                                                       #:mode 'binary
                                                       #:exists 'truncate/replace)])
-                 (write-bytes img-hash hash-port-out)
-                 (close-output-port hash-port-out)))]
-            [else
-             (displayln "Writing to new .hash file")
-             ; request the avatar's data
-             ;(request-avatar-data mtox friendnumber)
-             ; update the hash file
-             (let ([hash-port-out (open-output-file hash-file
-                                                    #:mode 'binary
-                                                    #:exists 'truncate/replace)])
-               (write-bytes img-hash hash-port-out)
-               (close-output-port hash-port-out))]))))
+                 (write-bytes cropped-hash hash-port-out)
+                 (close-output-port hash-port-out))])))))
 
 (define on-avatar-data
   (λ (mtox friendnumber img-format img-hash data datalen userdata)
-    (unless (not (= img-format (_TOX_AVATAR_FORMAT 'PNG)))
+    (unless (= img-format (_TOX_AVATAR_FORMAT 'NONE))
       (displayln "We got avatar data!"))))
 
 ; register our callback functions
