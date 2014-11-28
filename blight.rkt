@@ -1315,7 +1315,6 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber img-format img-hash userdata)
     ; if the img-format is 'NONE, do nothing
     (unless (= (_TOX_AVATAR_FORMAT 'NONE) img-format)
-      ; check if we have the avatar already
       (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
              [friend-id (send window get-key)]
              [hash-file (build-path
@@ -1325,6 +1324,7 @@ val is a value that corresponds to the value of the key
                         avatar-dir
                         (string-append friend-id ".png"))]
              [cropped-hash (subbytes img-hash 0 TOX_HASH_LENGTH)])
+        ; check if we have the avatar already
         (cond [(and (file-exists? hash-file)
                     (file-exists? png-file))
                ; if they both exist, do nothing if the hashes are identical
@@ -1350,9 +1350,19 @@ val is a value that corresponds to the value of the key
                  (close-output-port hash-port-out))])))))
 
 (define on-avatar-data
-  (λ (mtox friendnumber img-format img-hash data datalen userdata)
+  (λ (mtox friendnumber img-format img-hash data-ptr datalen userdata)
     (unless (= img-format (_TOX_AVATAR_FORMAT 'NONE))
-      (displayln "We got avatar data!"))))
+      (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
+             [friend-id (send window get-key)]
+             [png-file (build-path
+                        avatar-dir
+                        (string-append friend-id ".png"))]
+             [png-port-out (open-output-file png-file
+                                             #:mode 'binary
+                                             #:exists 'truncate/replace)]
+             [data-bytes (make-sized-byte-string data-ptr datalen)])
+        (write-bytes data-bytes png-port-out 0 datalen)
+        (close-output-port png-port-out)))))
 
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
