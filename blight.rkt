@@ -320,10 +320,23 @@ val is a value that corresponds to the value of the key
             update-invite-list))))
 
 (define (create-buddy name key)
-  (let* ([chat-window (new chat-window%
+  (let* ([avatar-file (build-path avatar-dir
+                                  (string-append key ".png"))]
+         [avatar-bitmap (if (file-exists? avatar-file)
+                            (make-object bitmap% avatar-file)
+                            #f)]
+         [bitmap-height (if (false? avatar-bitmap)
+                            300
+                            (send avatar-bitmap get-height))]
+         [bitmap-width (if (false? avatar-bitmap)
+                           300
+                           (send avatar-bitmap get-width))]
+         [chat-window (new chat-window%
                            [this-label (format "Blight - ~a" name)]
                            [this-height 400]
                            [this-width 600]
+                           [avatar-height bitmap-height]
+                           [avatar-width bitmap-width]
                            [this-tox my-tox])]
          [friend-number (friend-number my-tox key)]
          [status-msg (friend-status-msg my-tox friend-number)]
@@ -331,31 +344,34 @@ val is a value that corresponds to the value of the key
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [contact cd])])
-                      (send ncs set-status 'offline)
-                      (send sml insert-entry ncs)
-
-                      (hash-set! cur-buddies friend-number cd)
-                      (send chat-window set-name name)
-                      (send chat-window set-key key)
-                      (send chat-window set-friend-num friend-number)
-
-                      (update-contact-status friend-number 'offline)))
+    (send ncs set-status 'offline)
+    (send sml insert-entry ncs)
+    
+    (hash-set! cur-buddies friend-number cd)
+    (send chat-window set-name name)
+    (send chat-window set-key key)
+    (send chat-window set-friend-num friend-number)
+    (send chat-window set-friend-avatar
+          (if (file-exists? avatar-file)
+              avatar-file
+              #f))
+    
+    (update-contact-status friend-number 'offline)))
 
 (define (do-add-group name number)
   (let* ([group-window (new group-window%
-                           [this-label (format "Blight - ~a" name)]
-                           [this-height 600]
-                           [this-width 800]
-                           [this-tox my-tox]
-                           [group-number number])]
+                            [this-label (format "Blight - ~a" name)]
+                            [this-height 600]
+                            [this-width 800]
+                            [this-tox my-tox]
+                            [group-number number])]
          [cd (contact-data name #f "" 'group group-window number)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [contact cd])])
-                      (send ncs set-status 'groupchat)
-                      (send sml insert-entry ncs)
-                      (hash-set! cur-groups number cd)
-))
+    (send ncs set-status 'groupchat)
+    (send sml insert-entry ncs)
+    (hash-set! cur-groups number cd)))
 
 #|(define (add-new-group name)
   (let* ([number (add-groupchat my-tox)])
@@ -1361,8 +1377,12 @@ val is a value that corresponds to the value of the key
                                              #:mode 'binary
                                              #:exists 'truncate/replace)]
              [data-bytes (make-sized-byte-string data-ptr datalen)])
+        ; write to file
         (write-bytes data-bytes png-port-out 0 datalen)
-        (close-output-port png-port-out)))))
+        ; close the output port
+        (close-output-port png-port-out)
+        ; tell the buddy window to update the avatar
+        (send window set-friend-avatar png-file)))))
 
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
