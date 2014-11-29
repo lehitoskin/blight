@@ -2,7 +2,8 @@
 ; chat.rkt
 ; contains chat-window definitions
 (require libtoxcore-racket
-         racket/flonum
+         (only-in racket/flonum
+                  fl->exact-integer)
          "helpers.rkt"
          "number-conversions.rkt"
          "history.rkt"
@@ -10,15 +11,15 @@
          "msg-editor.rkt"
          "msg-history.rkt"
          "utils.rkt"
-         )
+         (only-in pict
+                  bitmap
+                  scale-to-fit
+                  pict->bitmap))
 (provide (all-defined-out)
-         fl->exact-integer)
-
-#|
- # issues:
- # - need to reimplement a whole bunch of key events because we're
- #   overriding this, baby!
- |#
+         fl->exact-integer
+         bitmap
+         scale-to-fit
+         pict->bitmap)
 
 ; clipboard control thingie
 (define chat-clipboard-client (new clipboard-client%))
@@ -81,6 +82,8 @@
     (init-field this-label
                 this-width
                 this-height
+                avatar-height
+                avatar-width
                 this-tox)
     
     (set-default-chatframe-bindings chatframe-keymap)
@@ -92,6 +95,8 @@
     (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
     (get-address this-tox my-id-bytes)
     (define my-id-hex (bytes->hex-string my-id-bytes))
+    (define friend-avatar (make-bitmap 40 40))
+    
     ; the sending file transfer list and its path list
     ; easier to have two lists than deal with a list of pairs
     
@@ -189,7 +194,7 @@
                      ; create a new thread so we don't get disconnected
                      (thread
                       (λ ()
-                        (let ((path (get-file "Select a file to send")))
+                        (let ([path (get-file "Select a file to send")])
                           (unless (false? path)
                             ; total size of the file
                             (define size (file-size path))
@@ -254,18 +259,45 @@
          [callback (λ (button event)
                      (send this show #f))])
     
-    ; make a static text message in the frame
+    (define avatar-view-frame (new frame%
+                                   [label "Blight - Avatar View"]))
+    
+    (define avatar-view-canvas
+      (new canvas%
+           [parent avatar-view-frame]
+           [min-width avatar-width]
+           [min-height avatar-height]
+           [paint-callback
+            (λ (l e)
+              (let ([dc (send l get-dc)]
+                    [avatar-big friend-avatar])
+                (send dc draw-bitmap avatar-big 0 0)))]))
+    
+    (define chat-frame-hpanel (new horizontal-panel%
+                                   [parent chat-frame]))
+    
+    (define friend-avatar-button (new button%
+                                      [parent chat-frame-hpanel]
+                                      [label friend-avatar]
+                                      [callback (λ (button event)
+                                                  (send avatar-view-frame show #t))]))
+    
+    (define chat-frame-vpanel (new vertical-panel%
+                                   [parent chat-frame-hpanel]
+                                   [alignment '(left center)]))
+    
+    ; make a static text message in the frame containing friend's name
     ; replaced immediately by update-list-box
     (define chat-frame-msg (new message%
-                                [parent chat-frame]
+                                [parent chat-frame-vpanel]
                                 [label this-label]
-                                [min-width 40]))
-    (send chat-frame-msg auto-resize #t)
+                                [min-width 40]
+                                [auto-resize #t]))
     
     ; secondary frame message containing friend's status
     ; replaced by update-list-box
     (define chat-frame-status-msg (new message%
-                                       [parent chat-frame]
+                                       [parent chat-frame-vpanel]
                                        [label ""]
                                        [auto-resize #t]))
     
@@ -345,7 +377,7 @@
                                             [parent chat-frame]
                                             [label "Messages received"]
                                             [editor chat-text-receive]
-                                            [min-height 400]
+                                            [min-height 358] ; exact height of buddy list
                                             [vert-margin 5]
                                             [style (list 'control-border 'no-hscroll
                                                          'auto-vscroll)]
@@ -357,8 +389,7 @@
 
     (define/public set-editor-black-style
       (λ (editor)
-         (send editor change-style black-style)
-         ))
+         (send editor change-style black-style)))
     
     (define chat-text-send (new text%
                                 [line-spacing 1.0]
@@ -586,8 +617,7 @@
                                 [range 100])) ; range in percentage
     
     (define/public (set-new-label x)
-      (send chat-frame set-label x)
-      (send chat-frame-msg set-label x))
+      (send chat-frame set-label x))
     
     (define/override (show x)
       (send chat-frame show x))
@@ -599,7 +629,8 @@
       (send chat-frame is-enabled?))
     
     (define/public (set-name name)
-      (set! friend-name name))
+      (set! friend-name name)
+      (send chat-frame-msg set-label name))
     
     (define/public (get-name)
       friend-name)
@@ -636,6 +667,35 @@
     
     (define/public (get-status-msg)
       (send chat-frame-status-msg get-label))
+    
+    (define/public (set-friend-avatar avatar)
+      (cond [(path? avatar)
+             ; create the bitmap
+             (define avatar-bitmap (make-bitmap 40 40))
+             ; load the file into the bitmap
+             (send avatar-bitmap load-file avatar)
+             ; turn it into a pict
+             (define avatar-pict (bitmap avatar-bitmap))
+             ; scale the pict to 40x40
+             (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
+             ; set the avatar to the new one
+             (set! friend-avatar avatar-bitmap)
+             ; set the button to the scaled avatar
+             (send friend-avatar-button set-label (pict->bitmap avatar-pict-small))
+             ; destroy old canvas and create a new one reflecting the new avatar
+             #;(set! avatar-view-canvas
+                   (new canvas%
+                        [parent avatar-view-frame]
+                        [min-width (send avatar-bitmap get-width)]
+                        [min-height (send avatar-bitmap get-height)]
+                        [paint-callback
+                         (λ (l e)
+                           (let ([dc (send l get-dc)])
+                             (send dc draw-bitmap avatar-bitmap 0 0)))]))]
+            [else (send friend-avatar-button set-label (make-bitmap 40 40))]))
+    
+    (define/public (get-friend-avatar)
+      friend-avatar)
     
     (super-new
      [label this-label]

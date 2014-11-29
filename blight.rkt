@@ -47,7 +47,6 @@ if people have a similar problem.")
 (define my-tox (tox-new #f))
 
 ; chat entity holding group or contact data
-
 (define cur-groups (make-hash))
 (define cur-buddies (make-hash))
 
@@ -106,6 +105,24 @@ val is a value that corresponds to the value of the key
 (get-address my-tox my-id-bytes)
 (define my-id-hex (bytes->hex-string my-id-bytes))
 
+; create initial avatar bitmap
+(define my-avatar (make-bitmap 40 40))
+
+; if we've already set an avatar, load from that file
+(let* ([my-client-id (substring my-id-hex 0 (* TOX_CLIENT_ID_SIZE 2))]
+        [my-avatar-location (build-path avatar-dir (string-append my-client-id ".png"))])
+  (cond [(file-exists? my-avatar-location)
+         ; create the bitmap
+         (define avatar-bitmap (make-bitmap 40 40))
+         ; load the file into the bitmap
+         (send avatar-bitmap load-file my-avatar-location)
+         ; turn it into a pict
+         (define avatar-pict (bitmap avatar-bitmap))
+         ; scale the pict to 40x40
+         (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
+         ; set the avatar to the new one
+         (set! my-avatar (pict->bitmap avatar-pict-small))]))
+
 ; connect to DHT
 (display "Connecting to network... ")
 (cond [(not (false? (bootstrap-from-address my-tox
@@ -129,9 +146,9 @@ val is a value that corresponds to the value of the key
     ; place all tox info into data-bytes
     (tox-save! my-tox data-bytes)
     ; SAVE INFORMATION TO DATA
-    (let ((data-port-out (open-output-file data-file
+    (let ([data-port-out (open-output-file data-file
                                            #:mode 'binary
-                                           #:exists 'truncate/replace)))
+                                           #:exists 'truncate/replace)])
       (write-bytes data-bytes data-port-out)
       (close-output-port data-port-out))
     (displayln "Done!")))
@@ -166,15 +183,63 @@ val is a value that corresponds to the value of the key
                        [parent frame]
                        [label "Blight Friend List"]))
 
-(define username-frame-message (new message%
-                                    [parent frame]
-                                    [label my-name]))
+(define frame-hpanel (new horizontal-panel%
+                          [parent frame]
+                          [alignment '(left center)]))
 
+(define frame-avatar-button
+  (new button%
+       [parent frame-hpanel]
+       [label my-avatar]
+       [callback
+        (λ (button event)
+          (thread
+           (λ ()
+             (let ([path (get-file "Select an avatar" ; message
+                                   #f ; parent
+                                   #f ; directory
+                                   #f ; filename
+                                   "png" ; extension (windows only)
+                                   null ; style
+                                   '(("PNG" "*.png")))]) ; filters
+               (unless (false? path)
+                 (let ([img-data (file->bytes path)]
+                       [my-client-id (substring my-id-hex 0 (* TOX_CLIENT_ID_SIZE 2))])
+                   (displayln "Setting avatar...")
+                   ; create a temp bitmap
+                   (define avatar-bitmap (make-bitmap 40 40))
+                   ; load the file in to the bitmap
+                   (send avatar-bitmap load-file path)
+                   ; turn it into a pict
+                   (define avatar-pict (bitmap avatar-bitmap))
+                   ; scale the pict to 40x40
+                   (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
+                   ; set the avatar in tox
+                   (set-avatar my-tox
+                               (_TOX_AVATAR_FORMAT 'PNG)
+                               img-data
+                               (bytes-length img-data))
+                   ; set the avatar to the new one
+                   (set! my-avatar (pict->bitmap avatar-pict-small))
+                   ; save the avatar to avatar directory
+                   (copy-file path
+                              (build-path avatar-dir (string-append my-client-id ".png"))
+                              #t)
+                   ; reset the avatar as this button's label
+                   (send button set-label my-avatar)))))))]))
+
+(define frame-vpanel (new vertical-panel%
+                          [parent frame-hpanel]
+                          [alignment '(left center)]))
+
+(define username-frame-message (new message%
+                                    [parent frame-vpanel]
+                                    [label my-name]))
 
 (send username-frame-message auto-resize #t)
 
 (define status-frame-message (new message%
-                                  [parent frame]
+                                  [parent frame-vpanel]
                                   [label my-status-message]))
 
 (send status-frame-message auto-resize #t)
@@ -200,7 +265,13 @@ val is a value that corresponds to the value of the key
   (new smart-list%))
 
 (define sml-canvas
-  (new aligned-editor-canvas% [parent frame] [editor sml] [style (list 'no-hscroll)]))
+  (new aligned-editor-canvas%
+       [parent frame]
+       [editor sml]
+       [style (list 'no-hscroll)]
+       ; perfect minimum height
+       ; needs to be set because of frame-vpanel and frame-hpanel
+       [min-height 450]))
 
 (define sml-km (init-smart-list-keymap))
 (init-default-smartlist-keymap sml-km)
@@ -320,10 +391,23 @@ val is a value that corresponds to the value of the key
             update-invite-list))))
 
 (define (create-buddy name key)
-  (let* ([chat-window (new chat-window%
+  (let* ([avatar-file (build-path avatar-dir
+                                  (string-append key ".png"))]
+         [avatar-bitmap (if (file-exists? avatar-file)
+                            (make-object bitmap% avatar-file)
+                            #f)]
+         [bitmap-height (if (false? avatar-bitmap)
+                            300
+                            (send avatar-bitmap get-height))]
+         [bitmap-width (if (false? avatar-bitmap)
+                           300
+                           (send avatar-bitmap get-width))]
+         [chat-window (new chat-window%
                            [this-label (format "Blight - ~a" name)]
                            [this-height 400]
                            [this-width 600]
+                           [avatar-height bitmap-height]
+                           [avatar-width bitmap-width]
                            [this-tox my-tox])]
          [friend-number (friend-number my-tox key)]
          [status-msg (friend-status-msg my-tox friend-number)]
@@ -331,31 +415,34 @@ val is a value that corresponds to the value of the key
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [contact cd])])
-                      (send ncs set-status 'offline)
-                      (send sml insert-entry ncs)
-
-                      (hash-set! cur-buddies friend-number cd)
-                      (send chat-window set-name name)
-                      (send chat-window set-key key)
-                      (send chat-window set-friend-num friend-number)
-
-                      (update-contact-status friend-number 'offline)))
+    (send ncs set-status 'offline)
+    (send sml insert-entry ncs)
+    
+    (hash-set! cur-buddies friend-number cd)
+    (send chat-window set-name name)
+    (send chat-window set-key key)
+    (send chat-window set-friend-num friend-number)
+    (send chat-window set-friend-avatar
+          (if (file-exists? avatar-file)
+              avatar-file
+              #f))
+    
+    (update-contact-status friend-number 'offline)))
 
 (define (do-add-group name number)
   (let* ([group-window (new group-window%
-                           [this-label (format "Blight - ~a" name)]
-                           [this-height 600]
-                           [this-width 800]
-                           [this-tox my-tox]
-                           [group-number number])]
+                            [this-label (format "Blight - ~a" name)]
+                            [this-height 600]
+                            [this-width 800]
+                            [this-tox my-tox]
+                            [group-number number])]
          [cd (contact-data name #f "" 'group group-window number)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [contact cd])])
-                      (send ncs set-status 'groupchat)
-                      (send sml insert-entry ncs)
-                      (hash-set! cur-groups number cd)
-))
+    (send ncs set-status 'groupchat)
+    (send sml insert-entry ncs)
+    (hash-set! cur-groups number cd)))
 
 #|(define (add-new-group name)
   (let* ([number (add-groupchat my-tox)])
@@ -1311,6 +1398,63 @@ val is a value that corresponds to the value of the key
               (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
               (send lbox set-string peernumber name)]))))
 
+(define on-avatar-info
+  (λ (mtox friendnumber img-format img-hash userdata)
+    ; if the img-format is 'NONE, do nothing
+    (unless (= (_TOX_AVATAR_FORMAT 'NONE) img-format)
+      (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
+             [friend-id (send window get-key)]
+             [hash-file (build-path
+                         avatar-dir
+                         (string-append friend-id ".hash"))]
+             [png-file (build-path
+                        avatar-dir
+                        (string-append friend-id ".png"))]
+             [cropped-hash (subbytes img-hash 0 TOX_HASH_LENGTH)])
+        ; check if we have the avatar already
+        (cond [(and (file-exists? hash-file)
+                    (file-exists? png-file))
+               ; if they both exist, do nothing if the hashes are identical
+               (unless (bytes=? (file->bytes hash-file #:mode 'binary) cropped-hash)
+                 (displayln "The avatar's hash hash changed! Updating...")
+                 ; request the avatar's data
+                 (request-avatar-data mtox friendnumber)
+                 ; update the hash file
+                 (let ([hash-port-out (open-output-file hash-file
+                                                        #:mode 'binary
+                                                        #:exists 'truncate/replace)])
+                   (write-bytes cropped-hash hash-port-out)
+                   (close-output-port hash-port-out)))]
+              [else
+               (displayln "We got a new avatar! Saving information...")
+               ; request the avatar's data
+               (request-avatar-data mtox friendnumber)
+               ; update the hash file
+               (let ([hash-port-out (open-output-file hash-file
+                                                      #:mode 'binary
+                                                      #:exists 'truncate/replace)])
+                 (write-bytes cropped-hash hash-port-out)
+                 (close-output-port hash-port-out))])))))
+
+(define on-avatar-data
+  (λ (mtox friendnumber img-format img-hash data-ptr datalen userdata)
+    (unless (= img-format (_TOX_AVATAR_FORMAT 'NONE))
+      (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
+             [friend-id (send window get-key)]
+             [png-file (build-path
+                        avatar-dir
+                        (string-append friend-id ".png"))]
+             [png-port-out (open-output-file png-file
+                                             #:mode 'binary
+                                             #:exists 'truncate/replace)]
+             [data-bytes (make-sized-byte-string data-ptr datalen)])
+        ; write to file
+        (write-bytes data-bytes png-port-out 0 datalen)
+        ; close the output port
+        (close-output-port png-port-out)
+        ; tell the buddy window to update the avatar
+        (send window set-friend-avatar png-file)))))
+
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
 (callback-friend-message my-tox on-friend-message)
@@ -1326,6 +1470,8 @@ val is a value that corresponds to the value of the key
 (callback-group-action my-tox on-group-action)
 (callback-group-title my-tox on-group-title-change)
 (callback-group-namelist-change my-tox on-group-namelist-change)
+(callback-avatar-info my-tox on-avatar-info)
+(callback-avatar-data my-tox on-avatar-data)
 
 (define cur-ctx (tox-ctx my-tox my-id-bytes clean-up))
 

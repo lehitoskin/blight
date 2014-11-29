@@ -59,9 +59,14 @@
                (build-path icon-dir "groupchat.png")
                (build-path icon-dir "available.png")))
 
-; tox-path doesn't exist, create it
+(define avatar-dir (build-path tox-path "avatars"))
+
+; tox-path doesn't exist? create it
 (unless (directory-exists? tox-path)
   (make-directory tox-path))
+
+(unless (directory-exists? avatar-dir)
+  (make-directory avatar-dir))
 
 ; if blight-config.json does not exist, create it
 (unless (file-exists? config-file)
