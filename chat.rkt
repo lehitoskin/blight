@@ -2,7 +2,8 @@
 ; chat.rkt
 ; contains chat-window definitions
 (require libtoxcore-racket
-         racket/flonum
+         (only-in racket/flonum
+                  fl->exact-integer)
          "helpers.rkt"
          "number-conversions.rkt"
          "history.rkt"
@@ -15,7 +16,10 @@
                   scale-to-fit
                   pict->bitmap))
 (provide (all-defined-out)
-         fl->exact-integer)
+         fl->exact-integer
+         bitmap
+         scale-to-fit
+         pict->bitmap)
 
 ; clipboard control thingie
 (define chat-clipboard-client (new clipboard-client%))
@@ -190,7 +194,7 @@
                      ; create a new thread so we don't get disconnected
                      (thread
                       (λ ()
-                        (let ((path (get-file "Select a file to send")))
+                        (let ([path (get-file "Select a file to send")])
                           (unless (false? path)
                             ; total size of the file
                             (define size (file-size path))
@@ -287,8 +291,8 @@
     (define chat-frame-msg (new message%
                                 [parent chat-frame-vpanel]
                                 [label this-label]
-                                [min-width 40]))
-    (send chat-frame-msg auto-resize #t)
+                                [min-width 40]
+                                [auto-resize #t]))
     
     ; secondary frame message containing friend's status
     ; replaced by update-list-box
@@ -678,6 +682,7 @@
              (set! friend-avatar avatar-bitmap)
              ; set the button to the scaled avatar
              (send friend-avatar-button set-label (pict->bitmap avatar-pict-small))
+             ; destroy old canvas and create a new one reflecting the new avatar
              #;(set! avatar-view-canvas
                    (new canvas%
                         [parent avatar-view-frame]
@@ -687,7 +692,7 @@
                          (λ (l e)
                            (let ([dc (send l get-dc)])
                              (send dc draw-bitmap avatar-bitmap 0 0)))]))]
-            [else (send friend-avatar-button set-label "(None")]))
+            [else (send friend-avatar-button set-label (make-bitmap 40 40))]))
     
     (define/public (get-friend-avatar)
       friend-avatar)

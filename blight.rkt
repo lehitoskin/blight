@@ -47,7 +47,6 @@ if people have a similar problem.")
 (define my-tox (tox-new #f))
 
 ; chat entity holding group or contact data
-
 (define cur-groups (make-hash))
 (define cur-buddies (make-hash))
 
@@ -105,6 +104,24 @@ val is a value that corresponds to the value of the key
 (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
 (get-address my-tox my-id-bytes)
 (define my-id-hex (bytes->hex-string my-id-bytes))
+
+; create initial avatar bitmap
+(define my-avatar (make-bitmap 40 40))
+
+; if we've already set an avatar, load from that file
+(let* ([my-client-id (substring my-id-hex 0 (* TOX_CLIENT_ID_SIZE 2))]
+        [my-avatar-location (build-path avatar-dir (string-append my-client-id ".png"))])
+  (cond [(file-exists? my-avatar-location)
+         ; create the bitmap
+         (define avatar-bitmap (make-bitmap 40 40))
+         ; load the file into the bitmap
+         (send avatar-bitmap load-file my-avatar-location)
+         ; turn it into a pict
+         (define avatar-pict (bitmap avatar-bitmap))
+         ; scale the pict to 40x40
+         (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
+         ; set the avatar to the new one
+         (set! my-avatar (pict->bitmap avatar-pict-small))]))
 
 ; connect to DHT
 (display "Connecting to network... ")
@@ -166,15 +183,63 @@ val is a value that corresponds to the value of the key
                        [parent frame]
                        [label "Blight Friend List"]))
 
-(define username-frame-message (new message%
-                                    [parent frame]
-                                    [label my-name]))
+(define frame-hpanel (new horizontal-panel%
+                          [parent frame]
+                          [alignment '(left center)]))
 
+(define frame-avatar-button
+  (new button%
+       [parent frame-hpanel]
+       [label my-avatar]
+       [callback
+        (λ (button event)
+          (thread
+           (λ ()
+             (let ([path (get-file "Select an avatar" ; message
+                                   #f ; parent
+                                   #f ; directory
+                                   #f ; filename
+                                   "png" ; extension (windows only)
+                                   null ; style
+                                   '(("PNG" "*.png")))]) ; filters
+               (unless (false? path)
+                 (let ([img-data (file->bytes path)]
+                       [my-client-id (substring my-id-hex 0 (* TOX_CLIENT_ID_SIZE 2))])
+                   (displayln "Setting avatar...")
+                   ; create a temp bitmap
+                   (define avatar-bitmap (make-bitmap 40 40))
+                   ; load the file in to the bitmap
+                   (send avatar-bitmap load-file path)
+                   ; turn it into a pict
+                   (define avatar-pict (bitmap avatar-bitmap))
+                   ; scale the pict to 40x40
+                   (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
+                   ; set the avatar in tox
+                   (set-avatar my-tox
+                               (_TOX_AVATAR_FORMAT 'PNG)
+                               img-data
+                               (bytes-length img-data))
+                   ; set the avatar to the new one
+                   (set! my-avatar (pict->bitmap avatar-pict-small))
+                   ; save the avatar to avatar directory
+                   (copy-file path
+                              (build-path avatar-dir (string-append my-client-id ".png"))
+                              #t)
+                   ; reset the avatar as this button's label
+                   (send button set-label my-avatar)))))))]))
+
+(define frame-vpanel (new vertical-panel%
+                          [parent frame-hpanel]
+                          [alignment '(left center)]))
+
+(define username-frame-message (new message%
+                                    [parent frame-vpanel]
+                                    [label my-name]))
 
 (send username-frame-message auto-resize #t)
 
 (define status-frame-message (new message%
-                                  [parent frame]
+                                  [parent frame-vpanel]
                                   [label my-status-message]))
 
 (send status-frame-message auto-resize #t)
@@ -200,7 +265,13 @@ val is a value that corresponds to the value of the key
   (new smart-list%))
 
 (define sml-canvas
-  (new aligned-editor-canvas% [parent frame] [editor sml] [style (list 'no-hscroll)]))
+  (new aligned-editor-canvas%
+       [parent frame]
+       [editor sml]
+       [style (list 'no-hscroll)]
+       ; perfect minimum height
+       ; needs to be set because of frame-vpanel and frame-hpanel
+       [min-height 450]))
 
 (define sml-km (init-smart-list-keymap))
 (init-default-smartlist-keymap sml-km)
