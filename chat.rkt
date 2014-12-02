@@ -33,21 +33,16 @@
                     (string->list (string-upcase (dec->hex item)))))
     (list->string (flatten (map stuff blist)))))
 
-; TODO: make tail-recursive (start at (bytes-length bstr) and end at 0)
+; recursion! whee!
 (define hex-string->bytes
   (λ (hexstr len)
-    (define bstr #"")
-    (do ((i 0 (+ i 1))
-         (j 0 (+ j 2)))
-      ((= i len))
-      (set! bstr (bytes-append
-                  bstr
-                  (bytes
-                   (hex->dec
-                    (string-append
-                     (string (string-ref hexstr j))
-                     (string (string-ref hexstr (+ j 1)))))))))
-    bstr))
+    (cond [(zero? len) #""]
+          [else
+           (bytes-append
+            (bytes
+             (hex->dec
+              (substring hexstr 0 2)))
+            (hex-string->bytes (substring hexstr 2) (- len 1)))])))
 
 (define (init-chatframe-keymap)
   (let ([km (new keymap%)])
