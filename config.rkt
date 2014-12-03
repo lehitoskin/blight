@@ -19,12 +19,28 @@
 (define download-path (normal-case-path (build-path (find-system-path 'home-dir)
                                                     "Downloads")))
 
+; profiling!
+(define default-profile "blight")
+(define profile-name (make-parameter default-profile))
+
 ; history db file
-(define db-file (build-path tox-path "blight-tox.db"))
+(define db-file
+  (λ ([profile (profile-name)])
+    (make-parameter
+     (build-path tox-path
+                 (string-append profile ".sqlite")))))
 ; tox-specific information
-(define data-file (build-path tox-path "blight-data"))
+(define data-file
+  (λ ([profile (profile-name)])
+    (make-parameter
+     (build-path tox-path
+                 (string-append (profile-name) ".tox")))))
 ; blight-specific configurations
-(define config-file (build-path tox-path "blight-config.json"))
+(define config-file
+  (λ ([profile (profile-name)])
+    (make-parameter
+     (build-path tox-path
+                 (string-append (profile-name) ".json")))))
 
 ; location of sound directory (currently depends on running from same dir
 ; change to /usr/share/blight/sounds (or something) once a proper
@@ -69,26 +85,35 @@
   (make-directory avatar-dir))
 
 ; if blight-config.json does not exist, create it
-(unless (file-exists? config-file)
+(unless (file-exists? ((config-file)))
   (define config-port-out
     (open-output-file config-file
                       #:mode 'text
                       #:exists 'can-update))
-  (printf "~a created...\n" config-file)
+  (printf "~a created...\n" ((config-file)))
   (close-output-port config-port-out))
 
 ; open blight-config.json
-(define config-port-in (open-input-file config-file
+(define config-port-in (open-input-file ((config-file))
                                         #:mode 'text))
 
-; if data does not exist, create it
-(unless (file-exists? data-file)
-  (define data-port-out
-    (open-output-file data-file
-                      #:mode 'binary
-                      #:exists 'can-update))
-  (printf "~a created...\n" data-file)
-  (close-output-port data-port-out))
+(let ([old-data-file (build-path tox-path "blight-data")])
+  ; if old data-file exists, but new one does not,
+  ; copy it over, otherwise do nothing
+  (cond [(and (not (file-exists? ((data-file))))
+              (file-exists? old-data-file))
+         (printf "Detected old data file ~a, copying to ~a... " old-data-file ((data-file)))
+         (copy-file old-data-file ((data-file)))
+         (displayln "Done!")]
+        ; if neither exist, this must all be new, so create a fresh data-file
+        [(and (not (file-exists? ((data-file))))
+              (not (file-exists? old-data-file)))
+         (define data-port-out
+           (open-output-file ((data-file))
+                             #:mode 'binary
+                             #:exists 'can-update))
+         (printf "~a created...~n" ((data-file)))
+         (close-output-port data-port-out)]))
 
 ; default name and status message
 ; if data exists, do no use these
@@ -112,10 +137,10 @@
           'make-noise-last make-noise-default))
 
 ; blight-config.json is empty, initialize with default values for variables
-(unless (not (zero? (file-size config-file)))
-  (let ((config-port-out (open-output-file config-file
+(unless (not (zero? (file-size ((config-file)))))
+  (let ([config-port-out (open-output-file ((config-file))
                                            #:mode 'text
-                                           #:exists 'truncate/replace)))
+                                           #:exists 'truncate/replace)])
     (json-null 'null)
     (write-json json-default config-port-out)
     (write-json (json-null) config-port-out)

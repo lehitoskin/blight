@@ -9,12 +9,22 @@
          disconnect
          get-history)
 
+(printf "db-file is currently ~a~n" ((db-file)))
+; copy old file scheme to follow new file scheme
+(let ([old-db-file (build-path tox-path "blight-tox.db")])
+  (cond [(and (not (file-exists? ((db-file))))
+              (file-exists? old-db-file))
+         (printf "Detected old history database ~a, copying to ~a... " old-db-file ((db-file)))
+         (copy-file old-db-file ((db-file)))
+         (displayln "Done!")]))
+
+(printf "db-file is currently ~a~n" ((db-file)))
 #| ############ BEGIN DATABASE STUFF ################ |#
 ; DATABASE DATABASE! JUST LIVING IN THE DATABASE!
 ; WOWOW
 (define sqlc
   (sqlite3-connect
-   #:database db-file
+   #:database ((db-file))
    #:mode 'create))
 
 ; database initialization

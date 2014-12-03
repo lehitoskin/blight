@@ -15,7 +15,8 @@
          "toxdns.rkt"
          "msg-history.rkt"
          "smart-list.rkt"
-         mrlib/aligned-pasteboard)     
+         mrlib/aligned-pasteboard
+         srfi/13)
 
 (define license-message
   "Blight - a Tox client written in Racket.
@@ -43,6 +44,72 @@ Unported\", all credit attributed to Adam Reid.")
 and bug the dev! Alternatively, you could join #tox-dev on freenode and see
 if people have a similar problem.")
 
+#|
+command-line stuff
+
+--profile: determine the profile to use
+--list: list available profiles (by looking for .tox files)
+arg: list of files to copy to tox-dir as .tox files
+
+1. default profile is "blight"
+2. all other files are determined by adding to profile-name
+   ex: (string-append (profile-name) "-config.json")
+       (string-append (profile-name) "-data.tox")
+       (string-append (profile-name) "-history.sqlite")
+|#
+(let* ([ext ".tox"]
+       [dlst (directory-list tox-path)]
+       [checker (λ (f)
+                  (let ([name (path->string f)])
+                    (cond [(false? (string-contains-ci name ext)) #f]
+                          [else f])))]
+       [filtered (filter checker dlst)])
+  (command-line
+   #:usage-help
+   "Calling Blight without any arguments will start Blight with the defualt profile."
+   "Otherwise, please provide a valid profile for Blight to use."
+   "Giving Blight an optional number of files will have them be imported"
+   "as Tox profiles."
+   #:once-any
+   [("-p" "--profile")
+    pn ; takes one argument pn
+    "Specify the profile (by name) to use at startup. (Do not include a .tox extension.)"
+    "Use --list to see a list of available profiles."
+    ; given profile has no extension
+    (cond [(integer? (string-contains-ci pn ext))
+           (displayln "Invalid profile entered! Reverting to default profile...")]
+          ; given profile is valid (if it doesn't exist, we'll just make it)
+          [else (profile-name pn)
+                (printf "db-file is now ~a~n" ((db-file)))
+                ((data-file))
+                ((config-file))])]
+   [("-l" "--list") "List available Tox profiles to load."
+                    (for-each (λ (f)
+                                (let ([name (path->string f)])
+                                  (displayln
+                                   (substring name 0 (- (string-length name) 4)))))
+                              filtered)
+                    (exit)]
+   #:args import-files
+   (unless (empty? import-files)
+     (for-each
+      (λ (x)
+        (let* ([fn (path->string (file-name-from-path x))]
+               [contains (string-contains-ci fn ext)]
+               [timestamp
+                (inexact->exact
+                 (floor (current-inexact-milliseconds)))])
+          (if (false? contains)
+              (copy-file x (build-path tox-path
+                                       (string-append fn timestamp ext)))
+              (copy-file x (build-path tox-path
+                                       (substring fn 0 contains))))))
+      import-files))))
+
+(printf "profile-name: ~a~ndb-file: ~a~ndata-file: ~a~nconfig-file: ~a~n"
+        (profile-name) ((db-file)) ((data-file)) ((config-file)))
+(exit)
+
 ; instantiate Tox session
 (define my-tox (tox-new #f))
 
@@ -51,24 +118,28 @@ if people have a similar problem.")
 (define cur-buddies (make-hash))
 
 #|
-reusable procedure to save information to blight-config.json
+reusable procedure to save information to <profile>.json
 
-1. read from blight-config.json to get the most up-to-date info
+1. read from <profile>.json to get the most up-to-date info
 2. modify the hash
-3. save the modified hash to blight-config.json
+3. save the modified hash to <profile>.json
 
 key is a symbol corresponding to the key in the hash
 val is a value that corresponds to the value of the key
 |#
 (define blight-save-config
   (λ (key val)
-    (let* ((new-input-port (open-input-file config-file
-                                            #:mode 'text))
-           (json (read-json new-input-port))
-           (modified-json (hash-set* json key val))
-           (config-port-out (open-output-file config-file
+    (let* ([profile (if (string=? (profile-name) "blight")
+                        config-file
+                        (build-path tox-path
+                                    (string-append (profile-name) ".json")))]
+           [new-input-port (open-input-file profile
+                                            #:mode 'text)]
+           [json (read-json new-input-port)]
+           [modified-json (hash-set* json key val)]
+           [config-port-out (open-output-file profile
                                               #:mode 'text
-                                              #:exists 'truncate/replace)))
+                                              #:exists 'truncate/replace)])
       (json-null 'null)
       (write-json modified-json config-port-out)
       (write-json (json-null) config-port-out)
@@ -84,17 +155,17 @@ val is a value that corresponds to the value of the key
 (define percent 0) ; percent of bytes sent
 
 ; data-file is empty, use default settings
-(cond [(zero? (file-size data-file))
+(cond [(zero? (file-size (data-file)))
        ; set username
        (set-name my-tox my-name)
        ; set status message
        (set-status-message my-tox my-status-message)]
       ; data-file is not empty, load from data-file
-      [(not (zero? (file-size data-file)))
+      [(not (zero? (file-size (data-file))))
        ; load the messenger from data of size length
-       (define size (file-size data-file))
+       (define size (file-size (data-file)))
        ; no conversions necessary because bytes-ref reports a decimal value
-       (define my-bytes (file->bytes data-file #:mode 'binary))
+       (define my-bytes (file->bytes (data-file) #:mode 'binary))
        (display "Loading from data file... ")
        (if (zero? (tox-load my-tox my-bytes size))
            (displayln "Done!")
@@ -139,19 +210,19 @@ val is a value that corresponds to the value of the key
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
   (λ ()
-    (display "Saving data... ")
-    ; necessary for saving the messenger
-    (define size (tox-size my-tox))
-    (define data-bytes (make-bytes size))
-    ; place all tox info into data-bytes
-    (tox-save! my-tox data-bytes)
-    ; SAVE INFORMATION TO DATA
-    (let ([data-port-out (open-output-file data-file
-                                           #:mode 'binary
-                                           #:exists 'truncate/replace)])
-      (write-bytes data-bytes data-port-out)
-      (close-output-port data-port-out))
-    (displayln "Done!")))
+      (display "Saving data... ")
+      ; necessary for saving the messenger
+      (define size (tox-size my-tox))
+      (define data-bytes (make-bytes size))
+      ; place all tox info into data-bytes
+      (tox-save! my-tox data-bytes)
+      ; SAVE INFORMATION TO DATA
+      (let ([data-port-out (open-output-file (data-file)
+                                             #:mode 'binary
+                                             #:exists 'truncate/replace)])
+        (write-bytes data-bytes data-port-out)
+        (close-output-port data-port-out))
+      (displayln "Done!")))
 
 ; little procedure to wrap things up for us
 (define clean-up
@@ -909,7 +980,9 @@ val is a value that corresponds to the value of the key
                                                   [key (friend-key my-tox newfn)])
                                              (if (string=? hex-tfield "")
                                               (create-buddy nick-tfield key)
-                                              (create-buddy (format "Anonymous (~a)" (substring hex-tfield 0 5))  key)))
+                                              (create-buddy
+                                               (format "Anonymous (~a)"
+                                                       (substring hex-tfield 0 5))  key)))
                                           
                                           ; update friend list, but don't mess up
                                           ; the numbering we already have
