@@ -6,7 +6,6 @@
          "chat.rkt"         ; contains definitions for chat window
          "group.rkt"        ; contains definitions for group window
          "config.rkt"       ; default config file
-         "number-conversions.rkt" ; bin, dec, and hex conversions
          "helpers.rkt"      ; various useful functions
          ffi/unsafe         ; needed for neat pointer shenanigans
          json               ; for reading and writing to config file
@@ -15,8 +14,7 @@
          "toxdns.rkt"
          "msg-history.rkt"
          "smart-list.rkt"
-         mrlib/aligned-pasteboard
-         srfi/13)
+         mrlib/aligned-pasteboard)
 
 (define license-message
   "Blight - a Tox client written in Racket.
@@ -66,7 +64,7 @@ val is a value that corresponds to the value of the key
     (let* ([new-input-port (open-input-file ((config-file))
                                             #:mode 'text)]
            [json (read-json new-input-port)]
-           [modified-json (hash-set* json key val)]
+           [modified-json (hash-set json key val)]
            [config-port-out (open-output-file ((config-file))
                                               #:mode 'text
                                               #:exists 'truncate/replace)])
@@ -535,6 +533,14 @@ val is a value that corresponds to the value of the key
                               [callback (λ (button event)
                                           (send preferences-box show #t))]))
 
+(define menu-profile (new menu-item%
+                          [parent menu-edit]
+                          [label "Profiles"]
+                          [shortcut #\P]
+                          [help-string "Manage Tox profiles"]
+                          [callback (λ (button event)
+                                      (send profiles-box show #t))]))
+
 (define help-get-dialog (new dialog%
                              [label "Blight - Get Help"]
                              [style (list 'close-button)]))
@@ -742,6 +748,55 @@ val is a value that corresponds to the value of the key
        [callback (λ (button event)
                    (send preferences-box show #f))]))
 #| #################### END PREFERENCES STUFF ################### |#
+
+#| #################### PROFILE STUFF ################### |#
+(define profiles-box (new dialog%
+                          [label "Blight - Manage Profiles"]
+                          [style (list 'close-button)]
+                          [height 100]
+                          [width 400]))
+
+(define profile-message (new message%
+                             [parent profiles-box]
+                             [label "Select a profile:"]))
+
+(define profile-caveat (new message%
+                            [parent profiles-box]
+                            [label "Profile will be selected upon program restart."]))
+
+; choices for available profiles
+(define profiles-choice
+  (let ([profile-last (hash-ref json-info 'profile-last)])
+    (new choice%
+         [parent profiles-box]
+         [label ""]
+         [stretchable-width #t]
+         [choices ((profiles))] ; list of available profiles
+         [selection 0]
+         [callback (λ (choice control-event)
+                     (printf "~a selected!~n" (send choice get-selection)))])))
+
+(define profiles-hpanel
+  (new horizontal-panel%
+       [parent profiles-box]
+       [alignment '(right center)]))
+
+(define profiles-cancel-button
+  (new button%
+       [parent profiles-hpanel]
+       [label "Cancel"]
+       [callback (λ (button event)
+                   (send profiles-box show #f))]))
+
+; OK button for preferences dialog box
+(define profiles-ok-button
+  (new button%
+       [parent profiles-hpanel]
+       [label "OK"]
+       [callback (λ (button event)
+                   (blight-save-config 'profile-last (send profiles-choice get-selection))
+                   (send profiles-box show #f))]))
+#| ################## END PROFILE STUFF ################# |#
 
 #| #################### BEGIN ADD FRIEND STUFF ####################### |#
 (define add-friend-box (new dialog%

@@ -27,6 +27,21 @@
 ; profiling!
 (define default-profile "blight")
 (define profile-name (make-parameter default-profile))
+(define profiles
+  (λ ([x null])
+    ; populate profiles list
+    (let* ([ext ".tox"]
+           [dlst (directory-list tox-path)]
+           [checker (λ (f)
+                      (let ([name (path->string f)])
+                        (cond [(false? (string-contains-ci name ext)) #f]
+                              [else f])))]
+           [filtered (filter checker dlst)])
+      (make-parameter (map
+                       (λ (x)
+                         (let [(name (path->string x))]
+                           (substring name 0 (- (string-length name) 4))))
+                       filtered)))))
 
 ; history db file
 (define db-file
@@ -106,13 +121,7 @@ arg: list of files to copy to tox-path as .tox files
    only temporary as calling ((db-file)) again will change it back to
    whatever (profile-name) is currently
 |#
-(let* ([ext ".tox"]
-       [dlst (directory-list tox-path)]
-       [checker (λ (f)
-                  (let ([name (path->string f)])
-                    (cond [(false? (string-contains-ci name ext)) #f]
-                          [else f])))]
-       [filtered (filter checker dlst)])
+(let ([ext ".tox"])
   (command-line
    #:usage-help
    "Calling Blight without any arguments will start Blight with the defualt profile."
@@ -137,7 +146,7 @@ arg: list of files to copy to tox-path as .tox files
                                 (let ([name (path->string f)])
                                   (displayln
                                    (substring name 0 (- (string-length name) 4)))))
-                              filtered)
+                              ((profiles)))
                     (exit)]
    #:args import-files
    (unless (empty? import-files)
@@ -165,7 +174,23 @@ arg: list of files to copy to tox-path as .tox files
          (printf "Detected old config file ~a, copying to ~a... "
                  old-config-file new-config-file)
          (copy-file old-config-file new-config-file)
-         (displayln "Done!")]))
+         (displayln "Done!")
+         (print "Updating config file... ")
+         ; update json hasheq to contain new variable 'profile-last
+         (let* ([config-port-in (open-input-file new-config-file
+                                                 #:mode 'text)]
+                [json-info-old (read-json config-port-in)]
+                [json-info-new (hash-set json-info-old
+                                         'profile-last default-profile)]
+                [config-port-out (open-output-file new-config-file
+                                                   #:mode 'text
+                                                   #:exists 'truncate/replace)])
+           (json-null 'null)
+           (write-json json-info-new config-port-out)
+           (write-json (json-null) config-port-out)
+           (close-input-port config-port-in)
+           (close-output-port config-port-out)
+           (displayln "Done!"))]))
 
 ; migrate old data file
 (let ([old-data-file (build-path tox-path "blight-data")]
@@ -225,7 +250,8 @@ arg: list of files to copy to tox-path as .tox files
           'dht-public-key dht-public-key-default
           'my-name-last my-name-default
           'my-status-last my-status-message-default
-          'make-noise-last make-noise-default))
+          'make-noise-last make-noise-default
+          'profile-last default-profile))
 
 ; <profile>.json is empty, initialize with default values for variables
 (unless (not (zero? (file-size ((config-file)))))
@@ -238,10 +264,12 @@ arg: list of files to copy to tox-path as .tox files
     (close-output-port config-port-out)))
 
 ; read from <profile>.json
-(define json-info (let ([config-port-in
-                         (open-input-file ((config-file))
-                                          #:mode 'text)])
-                    (read-json config-port-in)))
+(define json-info (let* ([config-port-in
+                          (open-input-file ((config-file))
+                                           #:mode 'text)]
+                         [my-json (read-json config-port-in)])
+                    (close-input-port config-port-in)
+                    my-json))
 ; set variables to values those contained in <profile>.json
 (define dht-address (hash-ref json-info 'dht-address))
 (define dht-port (hash-ref json-info 'dht-port))
