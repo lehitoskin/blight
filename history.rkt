@@ -14,7 +14,7 @@
 ; WOWOW
 (define sqlc
   (sqlite3-connect
-   #:database db-file
+   #:database ((db-file))
    #:mode 'create))
 
 ; database initialization

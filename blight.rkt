@@ -6,7 +6,6 @@
          "chat.rkt"         ; contains definitions for chat window
          "group.rkt"        ; contains definitions for group window
          "config.rkt"       ; default config file
-         "number-conversions.rkt" ; bin, dec, and hex conversions
          "helpers.rkt"      ; various useful functions
          ffi/unsafe         ; needed for neat pointer shenanigans
          json               ; for reading and writing to config file
@@ -15,7 +14,7 @@
          "toxdns.rkt"
          "msg-history.rkt"
          "smart-list.rkt"
-         mrlib/aligned-pasteboard)     
+         mrlib/aligned-pasteboard)
 
 (define license-message
   "Blight - a Tox client written in Racket.
@@ -51,24 +50,24 @@ if people have a similar problem.")
 (define cur-buddies (make-hash))
 
 #|
-reusable procedure to save information to blight-config.json
+reusable procedure to save information to <profile>.json
 
-1. read from blight-config.json to get the most up-to-date info
+1. read from <profile>.json to get the most up-to-date info
 2. modify the hash
-3. save the modified hash to blight-config.json
+3. save the modified hash to <profile>.json
 
 key is a symbol corresponding to the key in the hash
 val is a value that corresponds to the value of the key
 |#
 (define blight-save-config
   (λ (key val)
-    (let* ((new-input-port (open-input-file config-file
-                                            #:mode 'text))
-           (json (read-json new-input-port))
-           (modified-json (hash-set* json key val))
-           (config-port-out (open-output-file config-file
+    (let* ([new-input-port (open-input-file ((config-file))
+                                            #:mode 'text)]
+           [json (read-json new-input-port)]
+           [modified-json (hash-set json key val)]
+           [config-port-out (open-output-file ((config-file))
                                               #:mode 'text
-                                              #:exists 'truncate/replace)))
+                                              #:exists 'truncate/replace)])
       (json-null 'null)
       (write-json modified-json config-port-out)
       (write-json (json-null) config-port-out)
@@ -84,17 +83,17 @@ val is a value that corresponds to the value of the key
 (define percent 0) ; percent of bytes sent
 
 ; data-file is empty, use default settings
-(cond [(zero? (file-size data-file))
+(cond [(zero? (file-size ((data-file))))
        ; set username
        (set-name my-tox my-name)
        ; set status message
        (set-status-message my-tox my-status-message)]
       ; data-file is not empty, load from data-file
-      [(not (zero? (file-size data-file)))
+      [(not (zero? (file-size ((data-file)))))
        ; load the messenger from data of size length
-       (define size (file-size data-file))
+       (define size (file-size ((data-file))))
        ; no conversions necessary because bytes-ref reports a decimal value
-       (define my-bytes (file->bytes data-file #:mode 'binary))
+       (define my-bytes (file->bytes ((data-file)) #:mode 'binary))
        (display "Loading from data file... ")
        (if (zero? (tox-load my-tox my-bytes size))
            (displayln "Done!")
@@ -139,19 +138,19 @@ val is a value that corresponds to the value of the key
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
   (λ ()
-    (display "Saving data... ")
-    ; necessary for saving the messenger
-    (define size (tox-size my-tox))
-    (define data-bytes (make-bytes size))
-    ; place all tox info into data-bytes
-    (tox-save! my-tox data-bytes)
-    ; SAVE INFORMATION TO DATA
-    (let ([data-port-out (open-output-file data-file
-                                           #:mode 'binary
-                                           #:exists 'truncate/replace)])
-      (write-bytes data-bytes data-port-out)
-      (close-output-port data-port-out))
-    (displayln "Done!")))
+      (display "Saving data... ")
+      ; necessary for saving the messenger
+      (define size (tox-size my-tox))
+      (define data-bytes (make-bytes size))
+      ; place all tox info into data-bytes
+      (tox-save! my-tox data-bytes)
+      ; SAVE INFORMATION TO DATA
+      (let ([data-port-out (open-output-file ((data-file))
+                                             #:mode 'binary
+                                             #:exists 'truncate/replace)])
+        (write-bytes data-bytes data-port-out)
+        (close-output-port data-port-out))
+      (displayln "Done!")))
 
 ; little procedure to wrap things up for us
 (define clean-up
@@ -160,8 +159,6 @@ val is a value that corresponds to the value of the key
     (blight-save-data)
     ; disconnect from the database
     (disconnect sqlc)
-    ; close config file input port
-    (close-input-port config-port-in)
     ; kill tox thread
     (kill-thread tox-loop-thread)
     ; this kills the tox
@@ -536,6 +533,14 @@ val is a value that corresponds to the value of the key
                               [callback (λ (button event)
                                           (send preferences-box show #t))]))
 
+(define menu-profile (new menu-item%
+                          [parent menu-edit]
+                          [label "Profiles"]
+                          [shortcut #\P]
+                          [help-string "Manage Tox profiles"]
+                          [callback (λ (button event)
+                                      (send profiles-box show #t))]))
+
 (define help-get-dialog (new dialog%
                              [label "Blight - Get Help"]
                              [style (list 'close-button)]))
@@ -744,6 +749,96 @@ val is a value that corresponds to the value of the key
                    (send preferences-box show #f))]))
 #| #################### END PREFERENCES STUFF ################### |#
 
+#| #################### PROFILE STUFF ################### |#
+(define profiles-box (new dialog%
+                          [label "Blight - Manage Profiles"]
+                          [style (list 'close-button)]
+                          [height 100]
+                          [width 400]))
+
+(define profile-message (new message%
+                             [parent profiles-box]
+                             [label "Select a profile:"]))
+
+(define profile-caveat (new message%
+                            [parent profiles-box]
+                            [label "(Profile will be selected upon program restart.)"]))
+
+; choices for available profiles
+(define profiles-choice
+  (let ([profile-last (hash-ref json-info 'profile-last)])
+    (new choice%
+         [parent profiles-box]
+         [label ""]
+         [stretchable-width #t]
+         [choices ((profiles))]))) ; list of available profiles
+
+(define profiles-hpanel
+  (new horizontal-panel%
+       [parent profiles-box]
+       [alignment '(right center)]))
+
+(define profiles-cancel-button
+  (new button%
+       [parent profiles-hpanel]
+       [label "Cancel"]
+       [callback (λ (button event)
+                   (send profiles-box show #f))]))
+
+(define profiles-export-button
+  (new button%
+       [parent profiles-hpanel]
+       [label "Export"]
+       [callback (λ (button event)
+                   (let ([path (get-directory "Blight - Export Data" ; label
+                                              #f ; parent
+                                              tox-path)] ; directory
+                         [selection-str (send profiles-choice get-string-selection)])
+                     (unless (false? path)
+                       (printf "Exporting profile ~a to ~a... " selection-str path)
+                       (copy-file ((data-file selection-str))
+                                  (build-path path (file-name-from-path ((data-file)))))
+                       (displayln "Done!"))
+                     (send profiles-box show #f)))]))
+
+; delete the selected profile
+(define profiles-delete-button
+  (new button%
+       [parent profiles-hpanel]
+       [label "Delete"]
+       [callback
+        (λ (button event)
+          (let-values ([(mbox cbox) (message+check-box
+                                     "Blight - Delete Profile" ; label
+                                     "Are you certain you want to delete this profile?" ; msg
+                                     "Delete History DB" ; cbox label
+                                     #f ; parent
+                                     '(ok-cancel stop))] ; style
+                       [(selection-num) (send profiles-choice get-selection)]
+                       [(selection-str) (send profiles-choice get-string-selection)])
+            (when (eq? mbox 'ok)
+              (printf "Deleting profile ~a... " selection-str)
+              (send profiles-choice delete selection-num)
+              (delete-file ((data-file selection-str)))
+              (delete-file ((config-file selection-str)))
+              ; if cbox is selected, also delete db-file
+              (cond [(false? cbox)
+                     (displayln "Done!")]
+                    [else (delete-file ((db-file selection-str)))
+                          (displayln "Done!")])
+              (send profiles-box show #f))))]))
+
+; Select button for preferences dialog box
+(define profiles-ok-button
+  (new button%
+       [parent profiles-hpanel]
+       [label "Select"]
+       [callback (λ (button event)
+                   (blight-save-config 'profile-last
+                                       (send profiles-choice get-string-selection))
+                   (send profiles-box show #f))]))
+#| ################## END PROFILE STUFF ################# |#
+
 #| #################### BEGIN ADD FRIEND STUFF ####################### |#
 (define add-friend-box (new dialog%
                             [label "Blight - Add a new Tox friend"]
@@ -909,7 +1004,9 @@ val is a value that corresponds to the value of the key
                                                   [key (friend-key my-tox newfn)])
                                              (if (string=? hex-tfield "")
                                               (create-buddy nick-tfield key)
-                                              (create-buddy (format "Anonymous (~a)" (substring hex-tfield 0 5))  key)))
+                                              (create-buddy
+                                               (format "Anonymous (~a)"
+                                                       (substring hex-tfield 0 5))  key)))
                                           
                                           ; update friend list, but don't mess up
                                           ; the numbering we already have
