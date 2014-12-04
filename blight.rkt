@@ -44,72 +44,6 @@ Unported\", all credit attributed to Adam Reid.")
 and bug the dev! Alternatively, you could join #tox-dev on freenode and see
 if people have a similar problem.")
 
-#|
-command-line stuff
-
---profile: determine the profile to use
---list: list available profiles (by looking for .tox files)
-arg: list of files to copy to tox-dir as .tox files
-
-1. default profile is "blight"
-2. all other files are determined by adding to profile-name
-   ex: (string-append (profile-name) "-config.json")
-       (string-append (profile-name) "-data.tox")
-       (string-append (profile-name) "-history.sqlite")
-|#
-(let* ([ext ".tox"]
-       [dlst (directory-list tox-path)]
-       [checker (λ (f)
-                  (let ([name (path->string f)])
-                    (cond [(false? (string-contains-ci name ext)) #f]
-                          [else f])))]
-       [filtered (filter checker dlst)])
-  (command-line
-   #:usage-help
-   "Calling Blight without any arguments will start Blight with the defualt profile."
-   "Otherwise, please provide a valid profile for Blight to use."
-   "Giving Blight an optional number of files will have them be imported"
-   "as Tox profiles."
-   #:once-any
-   [("-p" "--profile")
-    pn ; takes one argument pn
-    "Specify the profile (by name) to use at startup. (Do not include a .tox extension.)"
-    "Use --list to see a list of available profiles."
-    ; given profile has no extension
-    (cond [(integer? (string-contains-ci pn ext))
-           (displayln "Invalid profile entered! Reverting to default profile...")]
-          ; given profile is valid (if it doesn't exist, we'll just make it)
-          [else (profile-name pn)
-                (printf "db-file is now ~a~n" ((db-file)))
-                ((data-file))
-                ((config-file))])]
-   [("-l" "--list") "List available Tox profiles to load."
-                    (for-each (λ (f)
-                                (let ([name (path->string f)])
-                                  (displayln
-                                   (substring name 0 (- (string-length name) 4)))))
-                              filtered)
-                    (exit)]
-   #:args import-files
-   (unless (empty? import-files)
-     (for-each
-      (λ (x)
-        (let* ([fn (path->string (file-name-from-path x))]
-               [contains (string-contains-ci fn ext)]
-               [timestamp
-                (inexact->exact
-                 (floor (current-inexact-milliseconds)))])
-          (if (false? contains)
-              (copy-file x (build-path tox-path
-                                       (string-append fn timestamp ext)))
-              (copy-file x (build-path tox-path
-                                       (substring fn 0 contains))))))
-      import-files))))
-
-(printf "profile-name: ~a~ndb-file: ~a~ndata-file: ~a~nconfig-file: ~a~n"
-        (profile-name) ((db-file)) ((data-file)) ((config-file)))
-(exit)
-
 ; instantiate Tox session
 (define my-tox (tox-new #f))
 
@@ -129,15 +63,11 @@ val is a value that corresponds to the value of the key
 |#
 (define blight-save-config
   (λ (key val)
-    (let* ([profile (if (string=? (profile-name) "blight")
-                        config-file
-                        (build-path tox-path
-                                    (string-append (profile-name) ".json")))]
-           [new-input-port (open-input-file profile
+    (let* ([new-input-port (open-input-file ((config-file))
                                             #:mode 'text)]
            [json (read-json new-input-port)]
            [modified-json (hash-set* json key val)]
-           [config-port-out (open-output-file profile
+           [config-port-out (open-output-file ((config-file))
                                               #:mode 'text
                                               #:exists 'truncate/replace)])
       (json-null 'null)
@@ -155,17 +85,17 @@ val is a value that corresponds to the value of the key
 (define percent 0) ; percent of bytes sent
 
 ; data-file is empty, use default settings
-(cond [(zero? (file-size (data-file)))
+(cond [(zero? (file-size ((data-file))))
        ; set username
        (set-name my-tox my-name)
        ; set status message
        (set-status-message my-tox my-status-message)]
       ; data-file is not empty, load from data-file
-      [(not (zero? (file-size (data-file))))
+      [(not (zero? (file-size ((data-file)))))
        ; load the messenger from data of size length
-       (define size (file-size (data-file)))
+       (define size (file-size ((data-file))))
        ; no conversions necessary because bytes-ref reports a decimal value
-       (define my-bytes (file->bytes (data-file) #:mode 'binary))
+       (define my-bytes (file->bytes ((data-file)) #:mode 'binary))
        (display "Loading from data file... ")
        (if (zero? (tox-load my-tox my-bytes size))
            (displayln "Done!")
@@ -217,7 +147,7 @@ val is a value that corresponds to the value of the key
       ; place all tox info into data-bytes
       (tox-save! my-tox data-bytes)
       ; SAVE INFORMATION TO DATA
-      (let ([data-port-out (open-output-file (data-file)
+      (let ([data-port-out (open-output-file ((data-file))
                                              #:mode 'binary
                                              #:exists 'truncate/replace)])
         (write-bytes data-bytes data-port-out)
@@ -231,8 +161,6 @@ val is a value that corresponds to the value of the key
     (blight-save-data)
     ; disconnect from the database
     (disconnect sqlc)
-    ; close config file input port
-    (close-input-port config-port-in)
     ; kill tox thread
     (kill-thread tox-loop-thread)
     ; this kills the tox
