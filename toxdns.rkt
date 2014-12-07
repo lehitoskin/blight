@@ -9,7 +9,7 @@
          racket/bool
          racket/list)
 
-(provide tox-dns1)
+(provide tox-dns1
          tox-dns3)
 
 ; obtain our nameserver
