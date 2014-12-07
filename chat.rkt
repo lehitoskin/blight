@@ -1,8 +1,7 @@
 #lang racket/gui
 ; chat.rkt
 ; contains chat-window definitions
-(require libtoxcore-racket/functions
-         libtoxcore-racket/enums
+(require libtoxcore-racket
          (only-in racket/flonum
                   fl->exact-integer)
          "helpers.rkt"
