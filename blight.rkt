@@ -1439,13 +1439,11 @@ val is a value that corresponds to the value of the key
             (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
                    (join-groupchat mtox friendnumber data len)]
                   [(= type (_TOX_GROUPCHAT_TYPE 'AV))
-                   (displayln "type 'AV")
                    (join-av-groupchat mtox friendnumber data len
                                       (λ (avtox grpnum peernum pcm
                                                 samples channels sample-rate
                                                 userdata)
                                         (void)))]))
-          (printf "grp-number: ~a~n" grp-number)
           (cond [(= grp-number -1)
                  (message-box "Blight - Groupchat Failure"
                               "Failed to add groupchat!"
