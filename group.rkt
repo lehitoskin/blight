@@ -380,34 +380,7 @@
                      (send emoji-dialog show #f))])
     #| #################### END EMOJI STUFF #################### |#
     
-    ; procedure to inspect a sending message and split it so it does not
-    ; exceed TOX_MAX_MESSAGE_LENGTH
-    (define split-bytes
-      (λ (msg-bytes)
-        (let ((msg-length (bytes-length msg-bytes)))
-          (define max-length TOX_MAX_MESSAGE_LENGTH)
-          ; check if number of bytes exceeds max by more than twice
-          ; currently only supports up to (* max-length 3) message length
-          ; but that should totally be enough for a single message
-          (cond [(> msg-length (* max-length 2))
-                 (define port (open-input-bytes msg-bytes port))
-                 ; return three values
-                 (values (peek-bytes max-length 0 port)
-                         (peek-bytes max-length max-length port)
-                         (if (zero? (remainder (bytes-length msg-bytes) max-length))
-                             (peek-bytes max-length (* max-length 2) port)
-                             (peek-bytes (remainder (bytes-length msg-bytes) max-length)
-                                         (* max-length 2) port)))]
-                [else (define port (open-input-bytes msg-bytes))
-                      ; return two values
-                      (values (peek-bytes max-length 0 port)
-                              (if (zero? (remainder (bytes-length msg-bytes) max-length))
-                                  (peek-bytes max-length max-length port)
-                                  (peek-bytes (remainder (bytes-length msg-bytes) max-length)
-                                              max-length port)))]))))
-    
-    ; send the message to the editor and then through tox
-    ; assumes msg is already a byte-string
+    ; send the message through tox and then add to history
     (define/public do-send-message
       (λ (editor message)
       ; get message type
@@ -426,25 +399,20 @@
                                       (bytes-length byte-str))]
              ; we're not doing anything special
              [else (group-message-send this-tox group-number byte-str
-                                            (bytes-length byte-str))]))
-          )
-        (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
-               ; if the message is greater than twice our max length, split it
-               ; into three chunks
-               (define-values (first-third second-third third-third)
-                 (split-bytes msg-bytes))
-               ; send first third
-               (do-send first-third)
-               (do-send second-third)
-               (do-send third-third)]
-              [(and (> (bytes-length msg-bytes) TOX_MAX_MESSAGE_LENGTH)
-                    (<= (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2)))
-               ; if the message is greater than our max length, but less than
-               ; or equal to twice the max length, split it into two chunks
-               (define-values (first-half second-half) (split-bytes msg-bytes))
-               (do-send first-half)
-               (do-send second-half)]
-              [else (do-send msg-bytes)])))
+                                            (bytes-length byte-str))])))
+        
+        ; split the message if it exceeds TOX_MAX_MESSAGE_LENGTH
+        ; otherwise, just send it.
+        (define split-message
+          (λ (msg-bytes)
+            (let ([len (bytes-length msg-bytes)])
+              (cond [(<= len TOX_MAX_MESSAGE_LENGTH)
+                     (do-send msg-bytes)]
+                    [(> len TOX_MAX_MESSAGE_LENGTH)
+                     (do-send (subbytes msg-bytes 0 TOX_MAX_MESSAGE_LENGTH))
+                     (split-message (subbytes msg-bytes TOX_MAX_MESSAGE_LENGTH))]))))
+        
+        (split-message msg-bytes)))
     
     (send group-text-send change-style black-style)
     

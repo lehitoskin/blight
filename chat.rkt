@@ -2,7 +2,8 @@
 ; chat.rkt
 ; contains chat-window definitions
 (require libtoxcore-racket
-         racket/flonum
+         (only-in racket/flonum
+                  fl->exact-integer)
          "helpers.rkt"
          "number-conversions.rkt"
          "history.rkt"
@@ -10,15 +11,15 @@
          "msg-editor.rkt"
          "msg-history.rkt"
          "utils.rkt"
-         )
+         (only-in pict
+                  bitmap
+                  scale-to-fit
+                  pict->bitmap))
 (provide (all-defined-out)
-         fl->exact-integer)
-
-#|
- # issues:
- # - need to reimplement a whole bunch of key events because we're
- #   overriding this, baby!
- |#
+         fl->exact-integer
+         bitmap
+         scale-to-fit
+         pict->bitmap)
 
 ; clipboard control thingie
 (define chat-clipboard-client (new clipboard-client%))
@@ -32,21 +33,16 @@
                     (string->list (string-upcase (dec->hex item)))))
     (list->string (flatten (map stuff blist)))))
 
-; TODO: make tail-recursive (start at (bytes-length bstr) and end at 0)
+; recursion! whee!
 (define hex-string->bytes
   (λ (hexstr len)
-    (define bstr #"")
-    (do ((i 0 (+ i 1))
-         (j 0 (+ j 2)))
-      ((= i len))
-      (set! bstr (bytes-append
-                  bstr
-                  (bytes
-                   (hex->dec
-                    (string-append
-                     (string (string-ref hexstr j))
-                     (string (string-ref hexstr (+ j 1)))))))))
-    bstr))
+    (cond [(zero? len) #""]
+          [else
+           (bytes-append
+            (bytes
+             (hex->dec
+              (substring hexstr 0 2)))
+            (hex-string->bytes (substring hexstr 2) (- len 1)))])))
 
 (define (init-chatframe-keymap)
   (let ([km (new keymap%)])
@@ -81,6 +77,8 @@
     (init-field this-label
                 this-width
                 this-height
+                avatar-height
+                avatar-width
                 this-tox)
     
     (set-default-chatframe-bindings chatframe-keymap)
@@ -92,6 +90,8 @@
     (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
     (get-address this-tox my-id-bytes)
     (define my-id-hex (bytes->hex-string my-id-bytes))
+    (define friend-avatar (make-bitmap 40 40))
+    
     ; the sending file transfer list and its path list
     ; easier to have two lists than deal with a list of pairs
     
@@ -189,7 +189,7 @@
                      ; create a new thread so we don't get disconnected
                      (thread
                       (λ ()
-                        (let ((path (get-file "Select a file to send")))
+                        (let ([path (get-file "Select a file to send")])
                           (unless (false? path)
                             ; total size of the file
                             (define size (file-size path))
@@ -254,18 +254,45 @@
          [callback (λ (button event)
                      (send this show #f))])
     
-    ; make a static text message in the frame
+    (define avatar-view-frame (new frame%
+                                   [label "Blight - Avatar View"]))
+    
+    (define avatar-view-canvas
+      (new canvas%
+           [parent avatar-view-frame]
+           [min-width avatar-width]
+           [min-height avatar-height]
+           [paint-callback
+            (λ (l e)
+              (let ([dc (send l get-dc)]
+                    [avatar-big friend-avatar])
+                (send dc draw-bitmap avatar-big 0 0)))]))
+    
+    (define chat-frame-hpanel (new horizontal-panel%
+                                   [parent chat-frame]))
+    
+    (define friend-avatar-button (new button%
+                                      [parent chat-frame-hpanel]
+                                      [label friend-avatar]
+                                      [callback (λ (button event)
+                                                  (send avatar-view-frame show #t))]))
+    
+    (define chat-frame-vpanel (new vertical-panel%
+                                   [parent chat-frame-hpanel]
+                                   [alignment '(left center)]))
+    
+    ; make a static text message in the frame containing friend's name
     ; replaced immediately by update-list-box
     (define chat-frame-msg (new message%
-                                [parent chat-frame]
+                                [parent chat-frame-vpanel]
                                 [label this-label]
-                                [min-width 40]))
-    (send chat-frame-msg auto-resize #t)
+                                [min-width 40]
+                                [auto-resize #t]))
     
     ; secondary frame message containing friend's status
     ; replaced by update-list-box
     (define chat-frame-status-msg (new message%
-                                       [parent chat-frame]
+                                       [parent chat-frame-vpanel]
                                        [label ""]
                                        [auto-resize #t]))
     
@@ -345,7 +372,7 @@
                                             [parent chat-frame]
                                             [label "Messages received"]
                                             [editor chat-text-receive]
-                                            [min-height 400]
+                                            [min-height 358] ; exact height of buddy list
                                             [vert-margin 5]
                                             [style (list 'control-border 'no-hscroll
                                                          'auto-vscroll)]
@@ -357,8 +384,7 @@
 
     (define/public set-editor-black-style
       (λ (editor)
-         (send editor change-style black-style)
-         ))
+         (send editor change-style black-style)))
     
     (define chat-text-send (new text%
                                 [line-spacing 1.0]
@@ -533,38 +559,12 @@
                      (send emoji-dialog show #f))])
     #| #################### END EMOJI STUFF #################### |#
     
-    ; procedure to inspect a sending message and split it so it does not
-    ; exceed TOX_MAX_MESSAGE_LENGTH
-    (define split-bytes
-      (λ (msg-bytes)
-        (let ((msg-length (bytes-length msg-bytes)))
-          (define max-length TOX_MAX_MESSAGE_LENGTH)
-          ; check if number of bytes exceeds max by more than twice
-          ; currently only supports up to (* max-length 3) message length
-          ; but that should totally be enough for a single message
-          (cond [(> msg-length (* max-length 2))
-                 (define port (open-input-bytes msg-bytes port))
-                 ; return three values
-                 (values (peek-bytes max-length 0 port)
-                         (peek-bytes max-length max-length port)
-                         (if (zero? (remainder (bytes-length msg-bytes) max-length))
-                             (peek-bytes max-length (* max-length 2) port)
-                             (peek-bytes (remainder (bytes-length msg-bytes) max-length)
-                                         (* max-length 2) port)))]
-                [else (define port (open-input-bytes msg-bytes))
-                      ; return two values
-                      (values (peek-bytes max-length 0 port)
-                              (if (zero? (remainder (bytes-length msg-bytes) max-length))
-                                  (peek-bytes max-length max-length port)
-                                  (peek-bytes (remainder (bytes-length msg-bytes) max-length)
-                                              max-length port)))]))))
-    
-    ; send the message to msg-history and then through tox
+    ; send the message through tox and then add to history
     (define/public do-send-message
       (λ (editor message)
         ; procedure to send to the editor and to tox
 
-      ; add message to message history and get it's type
+      ; add message to message history and get its type
       (define msg-type
         (send message-history add-send-message message (get-time)))
 
@@ -581,30 +581,20 @@
              [else (send-message this-tox friend-num byte-str
                                  (bytes-length byte-str))])))
         
-        (cond [(> (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2))
-               ; if the message is greater than twice our max length, split it
-               ; into three chunks
-               (define-values (first-third second-third third-third)
-                 (split-bytes msg-bytes))
-               ; send first third
-               (do-send first-third)
-               (do-send second-third)
-               (do-send third-third)
-               ; add messages to history
-               (add-history my-id-hex friend-key (send editor get-text) 1)]
-              [(and (> (bytes-length msg-bytes) TOX_MAX_MESSAGE_LENGTH)
-                    (<= (bytes-length msg-bytes) (* TOX_MAX_MESSAGE_LENGTH 2)))
-               ; if the message is greater than our max length, but less than
-               ; or equal to twice the max length, split it into two chunks
-               (define-values (first-half second-half) (split-bytes msg-bytes))
-               (do-send first-half)
-               (do-send second-half)
-               ; add messages to history
-               (add-history my-id-hex friend-key (send editor get-text) 1)]
-              [else
-               (do-send msg-bytes)
-               ; add message to history
-               (add-history my-id-hex friend-key (send editor get-text) 1)])))
+        ; split the message if it exceeds TOX_MAX_MESSAGE_LENGTH
+        ; otherwise, just send it.
+        (define split-message
+          (λ (msg-bytes)
+            (let ([len (bytes-length msg-bytes)])
+              (cond [(<= len TOX_MAX_MESSAGE_LENGTH)
+                     (do-send msg-bytes)]
+                    [(> len TOX_MAX_MESSAGE_LENGTH)
+                     (do-send (subbytes msg-bytes 0 TOX_MAX_MESSAGE_LENGTH))
+                     (split-message (subbytes msg-bytes TOX_MAX_MESSAGE_LENGTH))]))))
+        
+        (split-message msg-bytes)
+        ; add messages to history
+        (add-history my-id-hex friend-key (send editor get-text) 1)))
     
     
     ; guess I need to override some shit to get the keys just right
@@ -622,8 +612,7 @@
                                 [range 100])) ; range in percentage
     
     (define/public (set-new-label x)
-      (send chat-frame set-label x)
-      (send chat-frame-msg set-label x))
+      (send chat-frame set-label x))
     
     (define/override (show x)
       (send chat-frame show x))
@@ -635,7 +624,8 @@
       (send chat-frame is-enabled?))
     
     (define/public (set-name name)
-      (set! friend-name name))
+      (set! friend-name name)
+      (send chat-frame-msg set-label name))
     
     (define/public (get-name)
       friend-name)
@@ -672,6 +662,35 @@
     
     (define/public (get-status-msg)
       (send chat-frame-status-msg get-label))
+    
+    (define/public (set-friend-avatar avatar)
+      (cond [(path? avatar)
+             ; create the bitmap
+             (define avatar-bitmap (make-bitmap 40 40))
+             ; load the file into the bitmap
+             (send avatar-bitmap load-file avatar)
+             ; turn it into a pict
+             (define avatar-pict (bitmap avatar-bitmap))
+             ; scale the pict to 40x40
+             (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
+             ; set the avatar to the new one
+             (set! friend-avatar avatar-bitmap)
+             ; set the button to the scaled avatar
+             (send friend-avatar-button set-label (pict->bitmap avatar-pict-small))
+             ; destroy old canvas and create a new one reflecting the new avatar
+             #;(set! avatar-view-canvas
+                   (new canvas%
+                        [parent avatar-view-frame]
+                        [min-width (send avatar-bitmap get-width)]
+                        [min-height (send avatar-bitmap get-height)]
+                        [paint-callback
+                         (λ (l e)
+                           (let ([dc (send l get-dc)])
+                             (send dc draw-bitmap avatar-bitmap 0 0)))]))]
+            [else (send friend-avatar-button set-label (make-bitmap 40 40))]))
+    
+    (define/public (get-friend-avatar)
+      friend-avatar)
     
     (super-new
      [label this-label]
