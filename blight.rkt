@@ -927,11 +927,11 @@ val is a value that corresponds to the value of the key
        [parent add-friend-panel]
        [label "OK"]
        [callback (λ (button event)
-                   (let ([nick-tfield (send add-friend-txt-tfield get-value)]
-                         [hex-tfield (send add-friend-hex-tfield get-value)]
-                         [message-tfield (send add-friend-message-tfield get-value)]
-                         [domain (send dns-domain-choice get-string
-                                       (send dns-domain-choice get-selection))])
+                   (let* ([nick-tfield (send add-friend-txt-tfield get-value)]
+                          [hex-tfield (send add-friend-hex-tfield get-value)]
+                          [message-bytes (string->bytes/utf-8
+                                          (send add-friend-message-tfield get-value))]
+                          [domain (send dns-domain-choice get-string-selection)])
                      ; add the friend to the friend list
                      (cond [(or
                              ; the hex field is empty, nick field cannot be empty
@@ -961,9 +961,15 @@ val is a value that corresponds to the value of the key
                                          (hex-string->bytes
                                           friend-hex
                                           TOX_FRIEND_ADDRESS_SIZE))])
-                            (let ((err (add-friend my-tox
+                            (cond [(> (bytes-length message-bytes)
+                                      TOX_MAX_FRIENDREQUEST_LENGTH)
+                                   (set! message-bytes
+                                         (subbytes message-bytes
+                                                   0
+                                                   TOX_MAX_FRIENDREQUEST_LENGTH))])
+                            (let ([err (add-friend my-tox
                                                    nick-bytes
-                                                   message-tfield)))
+                                                   message-bytes)])
                               ; check for all the friend add errors
                               (cond [(= err (_TOX_FAERR 'TOOLONG))
                                      (displayln "ERROR: TOX_FAERR_TOOLONG")
@@ -1000,18 +1006,18 @@ val is a value that corresponds to the value of the key
                                     [else (displayln "All okay!")
                                           ; save the tox data
                                           (blight-save-data)
-
+                                          
                                           (let* ([newfn (sub1 (friendlist-length my-tox))]
-                                                  [key (friend-key my-tox newfn)])
-                                             (if (string=? hex-tfield "")
-                                              (create-buddy nick-tfield key)
-                                              (create-buddy
-                                               (format "Anonymous (~a)"
-                                                       (substring hex-tfield 0 5))  key)))
+                                                 [key (friend-key my-tox newfn)])
+                                            (if (string=? hex-tfield "")
+                                                (create-buddy nick-tfield key)
+                                                (create-buddy
+                                                 (format "Anonymous (~a)"
+                                                         (substring hex-tfield 0 5)) key)))
                                           
                                           ; update friend list, but don't mess up
                                           ; the numbering we already have
-
+                                          
                                           ; zero-out some fields
                                           (send add-friend-hex-tfield set-value "")
                                           (send add-friend-txt-tfield set-value "")
@@ -1024,11 +1030,11 @@ val is a value that corresponds to the value of the key
                            ; something went wrong!
                            [else (unless (false? make-noise)
                                    (play-sound (last sounds) #t))
-                                 (let ((mbox (message-box
+                                 (let ([mbox (message-box
                                               "Blight - Invalid Tox ID"
                                               "Sorry, that is an invalid Tox ID or DNS nick."
                                               add-friend-error-dialog
-                                              (list 'ok 'stop))))
+                                              (list 'ok 'stop))])
                                    (when (eq? mbox 'ok)
                                      (send add-friend-error-dialog show #f)))])))]))
 #| ##################### END ADD FRIEND STUFF ####################### |#
@@ -1421,23 +1427,25 @@ val is a value that corresponds to the value of the key
 
 (define on-group-invite
   (λ (mtox friendnumber type data len userdata)
-      (let* ((friendname (get-contact-name friendnumber))
-             (mbox (message-box "Blight - Groupchat Invite"
+      (let* ([friendname (get-contact-name friendnumber)]
+             [mbox (message-box "Blight - Groupchat Invite"
                                 (string-append friendname
                                                " has invited you to a groupchat!")
                                 #f
-                                (list 'ok-cancel 'caution))))
+                                (list 'ok-cancel 'caution))])
         (when (eq? mbox 'ok)
           
           (define grp-number
             (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
                    (join-groupchat mtox friendnumber data len)]
                   [(= type (_TOX_GROUPCHAT_TYPE 'AV))
-                   (join-av-groupchat mtox (λ (avtox grnum peernum pcm
-                                                     samples channels sample-rate
-                                                     userdata)
-                                             (void)))]))
-          
+                   (displayln "type 'AV")
+                   (join-av-groupchat mtox friendnumber data len
+                                      (λ (avtox grpnum peernum pcm
+                                                samples channels sample-rate
+                                                userdata)
+                                        (void)))]))
+          (printf "grp-number: ~a~n" grp-number)
           (cond [(= grp-number -1)
                  (message-box "Blight - Groupchat Failure"
                               "Failed to add groupchat!"
