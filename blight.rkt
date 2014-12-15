@@ -176,6 +176,11 @@ val is a value that corresponds to the value of the key
                    [stretchable-width #t]
                    [height 600]))
 
+; set the frame icon
+(let ([icon-bmp (make-bitmap 32 32)])
+  (send icon-bmp load-file logo)
+  (send frame set-icon icon-bmp))
+
 ; make a static text message in the frame
 (define frame-msg (new message%
                        [parent frame]

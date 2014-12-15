@@ -97,6 +97,10 @@
 
 (define avatar-dir (build-path tox-path "avatars"))
 
+(define logo-dir (build-path "img"))
+
+(define logo (build-path logo-dir "blight-logo-128px.png"))
+
 ; tox-path doesn't exist? create it
 (unless (directory-exists? tox-path)
   (make-directory tox-path))

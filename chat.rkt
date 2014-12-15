@@ -172,6 +172,11 @@
                             [width this-width]
                             [height this-height]))
     
+    ; set the frame icon
+    (let ([icon-bmp (make-bitmap 32 32)])
+      (send icon-bmp load-file logo)
+      (send chat-frame set-icon icon-bmp))
+    
     ; menu bar for chat-frame
     (define chat-frame-menu-bar (new menu-bar%
                                      [parent chat-frame]))
