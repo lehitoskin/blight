@@ -42,6 +42,7 @@ Unported\", all credit attributed to Adam Reid.")
 and bug the dev! Alternatively, you could join #tox-dev on freenode and see
 if people have a similar problem.")
 
+#| #################### BEGIN TOX STUFF ######################## |#
 ; instantiate Tox session
 (define my-tox (tox-new #f))
 (define my-av (av-new my-tox 1))
@@ -75,10 +76,8 @@ val is a value that corresponds to the value of the key
       (close-input-port new-input-port)
       (close-output-port config-port-out))))
 
-#| ############ BEGIN TOX STUFF ############ |#
 ; these here are for keeping track of file transfers
 ; we have 0 transfers right now
-
 (define total-len 0) ; total length of file
 (define sent 0) ; number of bytes sent
 (define percent 0) ; percent of bytes sent
@@ -167,8 +166,9 @@ val is a value that corresponds to the value of the key
     ; log out sound
     (unless (false? make-noise)
       (play-sound (fifth sounds) #f))))
+#| ##################### END TOX STUFF ######################### |#
 
-#| ############### BEGIN GUI STUFF ################## |#
+#| #################### BEGIN GUI STUFF ######################## |#
 ; create a new top-level window
 ; make a frame by instantiating the frame% class
 (define frame (new frame%
@@ -261,7 +261,6 @@ val is a value that corresponds to the value of the key
                    (set-user-status my-tox (send choice get-selection)))]))
 
 #| ################## BEGIN FRIEND LIST STUFF #################### |#
-
 (define cs-style (new cs-style-manager))
 
 (define sml
@@ -323,7 +322,6 @@ val is a value that corresponds to the value of the key
   (send sn set-status con-status)
   (send sn set-status-msg status-msg)
   (send window set-status-msg status-msg))
-
 
 ; helper to avoid spamming notification sounds
 (define status-checker
@@ -492,7 +490,7 @@ val is a value that corresponds to the value of the key
 (define menu-copy-id
   (new menu-item%
        [parent menu-file]
-       [label "Copy ID to Clipboard"]
+       [label "Copy My ID to Clipboard"]
        [help-string "Copies your Tox ID to the clipboard"]
        [callback (λ (button event)
                    ; copy id to clipboard
@@ -845,7 +843,7 @@ val is a value that corresponds to the value of the key
                    (send profiles-box show #f))]))
 #| ################## END PROFILE STUFF ################# |#
 
-#| #################### BEGIN ADD FRIEND STUFF ####################### |#
+#| #################### BEGIN FRIEND STUFF ####################### |#
 (define add-friend-box (new dialog%
                             [label "Blight - Add a new Tox friend"]
                             [style (list 'close-button)]))
@@ -1042,12 +1040,53 @@ val is a value that corresponds to the value of the key
                                               (list 'ok 'stop))])
                                    (when (eq? mbox 'ok)
                                      (send add-friend-error-dialog show #f)))])))]))
-#| ##################### END ADD FRIEND STUFF ####################### |#
 
+; send friend request
+(define add-friend-button (new button%
+                               [parent panel]
+                               [label "Add friend"]
+                               [callback (λ (button event)
+                                           (send add-friend-box show #t))]))
 
+; remove a friend
+(define del-friend-dialog (new dialog%
+                               [label "Remove a Tox friend"]
+                               [style (list 'close-button)]))
+
+(define (do-delete-friend friend-num)
+                       ; delete from tox friend list
+                       (del-friend! my-tox friend-num)
+                       ; save the blight data
+                       (blight-save-data)
+                       ; remove from list-box
+
+                       (send sml remove-entry (get-contact-snip friend-num))
+                       (hash-remove! cur-buddies friend-num)
+
+                       ; the invite list needs to be updated for
+                       ; the groupchat windows that still exist
+                       (unless (zero? (hash-count cur-groups))
+                         (update-invite-list)))
+
+(define (delete-friend friend-number)
+  (let ([mbox (message-box "Blight - Deleting Friend"
+                            "Are you sure you want to delete?"
+                            del-friend-dialog
+                            (list 'ok-cancel))])
+    (when (eq? mbox 'ok)
+      (do-delete-friend friend-number))))
+
+; remove friend from list
+(define delete-friend-button
+  (new button%
+       [parent panel]
+       [label "Del friend"]
+       [callback (λ (button event)
+                    (let ([friend-num (contact-data-tox-num (send sml get-selection-cd))])
+                     (delete-friend friend-num)))]))
+#| ##################### END FRIEND STUFF ####################### |#
 
 #| ####################### BEGIN GROUP STUFF ######################## |#
-
 (define add-group-button
   (new button%
        [parent panel]
@@ -1120,74 +1159,12 @@ val is a value that corresponds to the value of the key
        [parent panel]
        [label "Del group"]
        [callback (λ (button event)
-                    (send sml call-delete-entry-cb (send sml get-selection-cd)))]))
-
-
+                   (send sml call-delete-entry-cb (send sml get-selection-cd)))]))
 #| ####################### END GROUP STUFF ########################## |#
 
-; send friend request
-(define add-friend-button (new button%
-                               [parent panel]
-                               [label "Add friend"]
-                               [callback (λ (button event)
-                                           (send add-friend-box show #t))]))
-
-; remove a friend
-(define del-friend-dialog (new dialog%
-                               [label "Remove a Tox friend"]
-                               [style (list 'close-button)]))
-
-(define (do-delete-friend friend-num)
-                       ; delete from tox friend list
-                       (del-friend! my-tox friend-num)
-                       ; save the blight data
-                       (blight-save-data)
-                       ; remove from list-box
-
-                       (send sml remove-entry (get-contact-snip friend-num))
-                       (hash-remove! cur-buddies friend-num)
-
-                       ; the invite list needs to be updated for
-                       ; the groupchat windows that still exist
-                       (unless (zero? (hash-count cur-groups))
-                         (update-invite-list)))
-
-(define (delete-friend friend-number)
-  (let ((mbox (message-box "Blight - Deleting Friend"
-                            "Are you sure you want to delete?"
-                            del-friend-dialog
-                            (list 'ok-cancel))))
-    (when (eq? mbox 'ok)
-      (do-delete-friend friend-number))))
-
-; remove friend from list
-(define delete-friend-button
-  (new button%
-       [parent panel]
-       [label "Del friend"]
-       [callback (λ (button event)
-                    (let ((friend-num (contact-data-tox-num (send sml get-selection-cd)))
-                         (mbox (message-box "Blight - Deleting Friend"
-                                            "Are you sure you want to delete?"
-                                            del-friend-dialog
-                                            (list 'ok-cancel))))
-                     (when (eq? mbox 'ok)
-
-                       ; delete from tox friend list
-                       (del-friend! my-tox friend-num)
-                       ; save the blight data
-                       (blight-save-data)
-
-                       (send sml remove-entry (get-contact-snip friend-num))
-
-                       ; the invite list needs to be updated for
-                       ; the groupchat windows that still exist
-                       (unless (zero? (hash-count cur-groups))
-                         (update-invite-list)))))]))
-
-#| ############### START THE GUI, YO ############### |#
 ; show the frame by calling its show method
 (send frame show #t)
+#| ##################### END GUI STUFF ######################### |#
 
 #| ################# START CALLBACK PROCEDURE DEFINITIONS ################# |#
 ; set all the callback functions
@@ -1568,6 +1545,7 @@ val is a value that corresponds to the value of the key
         (close-output-port png-port-out)
         ; tell the buddy window to update the avatar
         (send window set-friend-avatar png-file)))))
+#| ################# END CALLBACK PROCEDURE DEFINITIONS ################# |#
 
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
