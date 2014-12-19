@@ -147,9 +147,7 @@ arg: list of files to copy to tox-path as .tox files
                 ((db-file))])]
    [("-l" "--list") "List available Tox profiles to load."
                     (for-each (λ (f)
-                                (let ([name (path->string f)])
-                                  (displayln
-                                   (substring name 0 (- (string-length name) 4)))))
+				 (displayln f))
                               ((profiles)))
                     (exit)]
    #:args import-files
