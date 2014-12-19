@@ -7,8 +7,7 @@
          "config.rkt"
          "chat.rkt"
          "msg-editor.rkt"
-         "msg-history.rkt"
-         rsound)
+         "msg-history.rkt")
 (provide (all-defined-out))
 
 (define group-window%
