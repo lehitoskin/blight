@@ -1262,7 +1262,7 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber action len userdata)
     (let* ([window (get-contact-window friendnumber)]
            [msg-history (send window get-msg-history)]
-           (name (send window get-name)))
+           [name (send window get-name)])
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
 
@@ -1361,10 +1361,9 @@ val is a value that corresponds to the value of the key
 
 (define on-file-control
   (λ (mtox friendnumber sending? filenumber control-type data-ptr len userdata)
-    (let* ((window (get-contact-window friendnumber))
-           (receive-editor (send window get-receive-editor))
-           [msg-history (send window get-msg-history)]
-           )
+    (let* ([window (get-contact-window friendnumber)]
+           [receive-editor (send window get-receive-editor)]
+           [msg-history (send window get-msg-history)])
       (with-handlers
           ([exn:blight:rtransfer?
             (lambda (ex)
@@ -1439,33 +1438,39 @@ val is a value that corresponds to the value of the key
                                grp-number)])))))
 
 (define on-group-message
-  (λ (mtox groupnumber friendgroupnumber message len userdata)
+  (λ (mtox groupnumber peernumber message len userdata)
     (let* ([window (contact-data-window (hash-ref cur-groups groupnumber))]
-           (editor (send window get-receive-editor))
-           (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
-           (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
-           (name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+           [name-buf (make-bytes TOX_MAX_NAME_LENGTH)]
+           [len (get-group-peername! mtox groupnumber peernumber name-buf)]
+           [name (bytes->string/utf-8 (subbytes name-buf 0 len))]
            [msg-history (send window get-msg-history)])
       (send msg-history add-recv-message message name (get-time)))))
 
 (define on-group-action
-  (λ (mtox groupnumber friendgroupnumber action len userdata)
+  (λ (mtox groupnumber peernumber action len userdata)
     (let* ([window (contact-data-window (hash-ref cur-groups groupnumber))]
-           (editor (send window get-receive-editor))
-           (name-buf (make-bytes TOX_MAX_NAME_LENGTH))
-           (len (get-group-peername! mtox groupnumber friendgroupnumber name-buf))
+           [name-buf (make-bytes TOX_MAX_NAME_LENGTH)]
+           [len (get-group-peername! mtox groupnumber peernumber name-buf)]
            [msg-history (send window get-msg-history)]
-           (name (bytes->string/utf-8 (subbytes name-buf 0 len))))
-
+           [name (bytes->string/utf-8 (subbytes name-buf 0 len))])
+      
       (send msg-history add-recv-action action name (get-time)))))
 
 (define on-group-title-change
   (λ (mtox groupnumber peernumber title len userdata)
-    (let ([window (contact-data-window (hash-ref cur-groups groupnumber))]
-          [gsnip (get-group-snip groupnumber)]
-          [newname (bytes->string/utf-8 (subbytes title 0 len))])
-      (send gsnip set-status-msg newname)
-      (send window set-new-label (format "Blight - Groupchat #~a: ~a" groupnumber newname)))))
+    (let* ([window (contact-data-window (hash-ref cur-groups groupnumber))]
+           [editor (send window get-receive-editor)]
+           [gsnip (get-group-snip groupnumber)]
+           [newtitle (bytes->string/utf-8 (subbytes title 0 len))])
+      (unless (= -1 peernumber)
+        (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
+        (define len (get-group-peername! mtox groupnumber peernumber name-buf))
+        (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+        (send editor insert (format "** [~a]: ~a has set the title to `~a'~n"
+                                    (get-time) name newtitle)))
+      (send gsnip set-status-msg newtitle)
+      (send window set-new-label
+            (format "Blight - Groupchat #~a: ~a" groupnumber newtitle)))))
 
 (define on-group-namelist-change
   (λ (mtox groupnumber peernumber change userdata)
