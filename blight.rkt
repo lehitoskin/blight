@@ -43,6 +43,9 @@ and bug the dev! Alternatively, you could join #tox-dev on freenode and see
 if people have a similar problem.")
 
 #| #################### BEGIN TOX STUFF ######################## |#
+; proxy options
+; NOT YET NEEDED BECAUSE WE'RE ONLY GOING FOR DEFAULTS AT THE MOMENT
+;(define my-opts (make-Tox-Options #t #f (_TOX_PROXY_TYPE 'NONE) "" 0))
 ; instantiate Tox session
 (define my-tox (tox-new #f))
 (define my-av (av-new my-tox 1))
