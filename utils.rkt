@@ -4,7 +4,6 @@
 
 (require racket/gui
          "helpers.rkt")
-(require file/sha1)
 
 
 ;;; TODO: use structure type properties here
@@ -140,3 +139,31 @@
 
 (define (format-anonymous public-key)
   (format "Anonymous (~a)" (substring public-key 0 5)))
+
+; REPL server/client stuff
+
+(define debug-prefix (make-parameter ""))
+
+(define blight-tcp-port 7654)
+
+(define (print-wait msg . args)
+  (apply printf msg args)
+  (display " ... ")
+  (flush-output))
+
+(define (dprint-wait . args)
+  (display (debug-prefix)))
+
+(define dprint-ok
+  (λ ()
+    (display (debug-prefix))
+    (displayln "Ok.")))
+
+(define (dprintf fmt . args)
+  (display (debug-prefix))
+  (apply printf fmt args))
+
+(define (write-data/flush data [out (current-output-port)])
+  (write data out)
+  (display "  " out)
+  (flush-output out))
