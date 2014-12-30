@@ -44,10 +44,10 @@ if people have a similar problem.")
 
 #| #################### BEGIN TOX STUFF ######################## |#
 ; proxy options
-; NOT YET NEEDED BECAUSE WE'RE ONLY GOING FOR DEFAULTS AT THE MOMENT
-;(define my-opts (make-Tox-Options #t #f (_TOX_PROXY_TYPE 'NONE) "" 0))
+(define my-opts
+  (make-Tox-Options (ipv6?) (udp-disabled?) (proxy-type) (proxy-address) (proxy-port)))
 ; instantiate Tox session
-(define my-tox (tox-new #f))
+(define my-tox (tox-new my-opts))
 (define my-av (av-new my-tox 1))
 
 ; chat entity holding group or contact data
@@ -79,6 +79,26 @@ val is a value that corresponds to the value of the key
       (close-input-port new-input-port)
       (close-output-port config-port-out))))
 
+; same as above, but for multiple saves at a time
+(define-syntax blight-save-config*
+  (syntax-rules ()
+    ((_ k1 v1 k2 v2 ...)
+     (let* ([new-input-port (open-input-file ((config-file))
+                                             #:mode 'text)]
+            [json (read-json new-input-port)]
+            [modified-json (hash-set* json
+                                      k1 v1
+                                      k2 v2
+                                      ...)]
+            (config-port-out (open-output-file ((config-file))
+                                               #:mode 'text
+                                               #:exists 'truncate/replace)))
+       (json-null 'null)
+       (write-json modified-json config-port-out)
+       (write-json (json-null) config-port-out)
+       (close-input-port new-input-port)
+       (close-output-port config-port-out)))))
+
 ; these here are for keeping track of file transfers
 ; we have 0 transfers right now
 (define total-len 0) ; total length of file
@@ -98,9 +118,10 @@ val is a value that corresponds to the value of the key
        ; no conversions necessary because bytes-ref reports a decimal value
        (define my-bytes (file->bytes ((data-file)) #:mode 'binary))
        (display "Loading from data file... ")
-       (if (zero? (tox-load my-tox my-bytes size))
-           (displayln "Done!")
-           (displayln "Loading failed!"))])
+       (let ([result (tox-load my-tox my-bytes size)])
+         (if (zero? result)
+             (displayln "Done!")
+             (displayln "Loading failed!")))])
 
 ; obtain our tox id
 (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
@@ -637,13 +658,34 @@ val is a value that corresponds to the value of the key
                              [height 200]
                              [width 400]))
 
+(define tab-panel (new tab-panel%
+                       [parent preferences-box]
+                       [choices (list "Preferences"
+                                      "Proxy")]
+                       [callback (λ (l e)
+                                   (cond [(zero? (send l get-selection))
+                                          (send l delete-child proxy-panel)
+                                          (send l add-child pref-panel)]
+                                         [else
+                                          (send l delete-child pref-panel)
+                                          (send l add-child proxy-panel)]))]))
+
+(define pref-panel (new vertical-panel%
+                       [parent tab-panel]))
+
+(define proxy-panel (new vertical-panel%
+                        [parent tab-panel]))
+
+; remove proxy-panel from the window for now
+(send tab-panel delete-child proxy-panel)
+
 (define Username_msg (new message%
-                          [parent preferences-box]
+                          [parent pref-panel]
                           [label "New Username:"]))
 
 ;;Define a panel so stuff is aligned
 (define User_panel (new horizontal-panel%
-                        [parent preferences-box]
+                        [parent pref-panel]
                         [alignment '(center center)]))
 
 (define putfield (new text-field%
@@ -653,7 +695,7 @@ val is a value that corresponds to the value of the key
                       [callback (λ (l e)
                                   (when (eq? (send e get-event-type)
                                              'text-field-enter)
-                                    (let ((username (send l get-value)))
+                                    (let ([username (send l get-value)])
                                       ; refuse to set the status if it's empty
                                       (unless (string=? username "")
                                         ; set the new username
@@ -667,7 +709,7 @@ val is a value that corresponds to the value of the key
   (new button% [parent User_panel]
        [label "Set"]
        [callback (λ (button event)
-                   (let ((username (send putfield get-value)))
+                   (let ([username (send putfield get-value)])
                      ; refuse to set the username if it's empty
                      (unless (string=? username "")
                        (blight-save-config 'my-name-last username)
@@ -678,12 +720,12 @@ val is a value that corresponds to the value of the key
 
 ;;Status
 (define Status_msg (new message%
-                        [parent preferences-box]
+                        [parent pref-panel]
                         [label "New Status:"]))
 
 ;;Same
 (define Status_panel(new horizontal-panel%
-                         [parent preferences-box]
+                         [parent pref-panel]
                          [alignment '(center center)]))
 
 (define pstfield (new text-field%
@@ -691,7 +733,7 @@ val is a value that corresponds to the value of the key
                       [label ""] 
                       [style (list 'single)]
                       [callback (λ (l e)
-                                  (let ((status (send l get-value)))
+                                  (let ([status (send l get-value)])
                                     (when (eq? (send e get-event-type)
                                                'text-field-enter)
                                       ; refuse to set the status if it's empty
@@ -708,7 +750,7 @@ val is a value that corresponds to the value of the key
        [parent Status_panel]
        [label "Set"]
        [callback (λ (button event)
-                   (let ((status (send pstfield get-value)))
+                   (let ([status (send pstfield get-value)])
                      ; refuse to set status if it's empty
                      (unless (string=? status "")
                        (blight-save-config 'my-status-last status)
@@ -719,14 +761,14 @@ val is a value that corresponds to the value of the key
 
 (define change-nospam-button
   (new button%
-       [parent preferences-box]
+       [parent pref-panel]
        [label "Change nospam value"]
        [callback (λ (button event)
-                   (let ((mbox (message-box "Blight - Change nospam"
+                   (let ([mbox (message-box "Blight - Change nospam"
                                             (string-append "Are you certain you want to"
                                                            " change your nospam value?")
                                             #f
-                                            (list 'ok-cancel 'stop))))
+                                            (list 'ok-cancel 'stop))])
                      (when (eq? mbox 'ok)
                        (set-nospam! my-tox
                                     ; largest (random) can accept
@@ -741,24 +783,115 @@ val is a value that corresponds to the value of the key
 
 (define make-sounds-button
   (new check-box%
-       [parent preferences-box]
+       [parent pref-panel]
        [label "Make sounds"]
        [value (not (false? make-noise))]
        [callback (λ (l e)
-                   (let ((noise (send l get-value)))
+                   (let ([noise (send l get-value)])
                      (toggle-noise)
                      (blight-save-config 'make-noise-last noise)))]))
 
 ; Close button for preferences dialog box
 (define preferences-close-button
   (new button%
-       [parent preferences-box]
+       [parent pref-panel]
        [label "Close"]
        [callback (λ (button event)
                    (send preferences-box show #f))]))
+
+; proxy options
+
+(define ipv6-button (new check-box%
+                         [parent proxy-panel]
+                         [label "Enable IPv6"]
+                         [value (ipv6?)]))
+
+(define udp-button (new check-box%
+                        [parent proxy-panel]
+                        [label "Disable UDP"]
+                        [value (udp-disabled?)]))
+
+(define proxy-type-msg
+  (new message%
+       [parent proxy-panel]
+       [label "Note: Proxy Type None will negate the other proxy options."]))
+
+(define proxy-type-choice
+  (new choice%
+       [parent proxy-panel]
+       [label "Proxy Type"]
+       [choices '("None" "SOCKS5" "HTTP")]
+       [selection (proxy-type)]))
+
+(define proxy-address-port-panel
+  (new horizontal-panel% [parent proxy-panel]))
+
+(define proxy-address-tfield
+  (new text-field%
+       [parent proxy-address-port-panel]
+       [label ""]
+       [init-value (if (string=? "" (proxy-address))
+                       "example.com"
+                       (proxy-address))]
+       [min-width 250]))
+
+(define proxy-port-tfield
+  (new text-field%
+       [parent proxy-address-port-panel]
+       [label ""]
+       [init-value (if (zero? (proxy-port))
+                       "0 ~ 60000"
+                       (number->string (proxy-port)))]))
+
+(define proxy-ok-cancel-hpanel
+  (new horizontal-panel%
+       [parent proxy-panel]
+       [alignment '(right center)]))
+
+(define proxy-cancel-button
+  (new button%
+       [parent proxy-ok-cancel-hpanel]
+       [label "Cancel"]
+       [callback (λ (button event)
+                   ; reset all the old values
+                   (send ipv6-button set-value (ipv6?))
+                   (send udp-button set-value (udp-disabled?))
+                   (send proxy-type-choice set-selection (proxy-type))
+                   (send proxy-address-tfield set-value (proxy-address))
+                   (send proxy-port-tfield set-value (number->string (proxy-port)))
+                   ; close the window
+                   (send preferences-box show #f))]))
+
+(define proxy-ok-button
+  (new button%
+       [parent proxy-ok-cancel-hpanel]
+       [label "OK"]
+       [callback (λ (button event)
+                   ; set all the new values
+                   (ipv6? (send ipv6-button get-value))
+                   (udp-disabled? (send udp-button get-value))
+                   (proxy-type (send proxy-type-choice get-selection))
+                   (proxy-address (send proxy-address-tfield get-value))
+                   ; only integers allowed inside port tfield
+                   (let ([num (string->number (send proxy-port-tfield get-value))]
+                         [port-max 60000])
+                     (cond [(and (integer? num) (<= num port-max) (positive? num))
+                            (proxy-port num)
+                            ; record the new values to the config file
+                            (blight-save-config* 'ipv6?-last (ipv6?)
+                                                 'udp-disabled?-last (udp-disabled?)
+                                                 'proxy-type-last (proxy-type)
+                                                 'proxy-address-last (proxy-address)
+                                                 'proxy-port-last (proxy-port))
+                            ; close the window
+                            (send preferences-box show #f)]
+                           [else
+                            (printf "Invalid port number! Valid range: ~a ~~ ~a~n" 0 port-max)
+                            (send proxy-port-tfield set-value
+                                  (format "~a ~~ ~a" 0 port-max))])))]))
 #| #################### END PREFERENCES STUFF ################### |#
 
-#| #################### PROFILE STUFF ################### |#
+#| #################### PROFILE STUFF #################### |#
 (define profiles-box (new dialog%
                           [label "Blight - Manage Profiles"]
                           [style (list 'close-button)]
@@ -846,7 +979,7 @@ val is a value that corresponds to the value of the key
                    (blight-save-config 'profile-last
                                        (send profiles-choice get-string-selection))
                    (send profiles-box show #f))]))
-#| ################## END PROFILE STUFF ################# |#
+#| #################### END PROFILE STUFF #################### |#
 
 #| #################### BEGIN FRIEND STUFF ####################### |#
 (define add-friend-box (new dialog%
@@ -1576,6 +1709,8 @@ val is a value that corresponds to the value of the key
 (callback-avatar-data my-tox on-avatar-data)
 
 #| ################# BEGIN REPL SERVER ################# |#
+; code straight tooken from rwind
+; https://github.com/Metaxal/rwind
 (define-namespace-anchor server-namespace-anchor)
 
 (define server-namespace (namespace-anchor->namespace server-namespace-anchor))

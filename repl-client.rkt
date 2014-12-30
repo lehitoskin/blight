@@ -1,5 +1,7 @@
 #lang racket
 ; repl-client.rkt
+; code straight tooken from rwind
+; https://github.com/Metaxal/rwind
 (require racket/tcp
          "utils.rkt")
 
@@ -22,10 +24,8 @@ If you do not know what you are doing, please (exit) immediately!***\n\n")
    (define exit? #f)
    (for ([e (in-port read)]
          #:break (or exit? (equal? e '(exit))))
-     #;(print-wait "Sending: ~a" e)
      ; Wrap the output in a list, otherwise it may not be sent/flushed (bug?)
      (write-data/flush e out)
-     #;(print-ok)
      ; receiving from server, unwrap
      (define res (read in))
      (if (eof-object? res)

@@ -182,8 +182,13 @@ arg: list of files to copy to tox-path as .tox files
          (let* ([config-port-in (open-input-file new-config-file
                                                  #:mode 'text)]
                 [json-info-old (read-json config-port-in)]
-                [json-info-new (hash-set json-info-old
-                                         'profile-last default-profile)]
+                [json-info-new (hash-set* json-info-old
+                                          'profile-last default-profile
+                                          'ipv6?-last ipv6?-default
+                                          'udp-disabled?-last udp-disabled?-default
+                                          'proxy-type-last proxy-type-default
+                                          'proxy-address-last proxy-address-default
+                                          'proxy-port-last proxy-port-default)]
                 [config-port-out (open-output-file new-config-file
                                                    #:mode 'text
                                                    #:exists 'truncate/replace)])
@@ -244,6 +249,11 @@ arg: list of files to copy to tox-path as .tox files
 (define dht-port-default 33445)
 (define dht-public-key-default
   "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074")
+(define ipv6?-default #t)
+(define udp-disabled?-default #f)
+(define proxy-type-default 0) ; (_TOX_PROXY_TYPE 'NONE)
+(define proxy-address-default "") ; ignored if proxy type is 'NONE
+(define proxy-port-default 0) ; ignored if proxy type is 'NONE
 
 ; if blight-config.json does not exist, initalize it to default values
 (define json-default
@@ -253,7 +263,12 @@ arg: list of files to copy to tox-path as .tox files
           'my-name-last my-name-default
           'my-status-last my-status-message-default
           'make-noise-last make-noise-default
-          'profile-last default-profile))
+          'profile-last default-profile
+          'ipv6?-last ipv6?-default
+          'udp-disabled?-last udp-disabled?-default
+          'proxy-type-last proxy-type-default
+          'proxy-address-last proxy-address-default
+          'proxy-port-last proxy-port-default))
 
 ; <profile>.json is empty, initialize with default values for variables
 (unless (not (zero? (file-size ((config-file)))))
@@ -280,6 +295,21 @@ arg: list of files to copy to tox-path as .tox files
 (define my-status-message (hash-ref json-info 'my-status-last))
 (define make-noise (hash-ref json-info 'make-noise-last))
 (define toggle-noise (λ () (set! make-noise (not make-noise))))
+(define ipv6? (make-parameter (if (hash-has-key? json-info 'ipv6?-last)
+                                  (hash-ref json-info 'ipv6?-last)
+                                  ipv6?-default)))
+(define udp-disabled? (make-parameter (if (hash-has-key? json-info 'udp-disabled?-last)
+                                          (hash-ref json-info 'udp-disabled?-last)
+                                          udp-disabled?-default)))
+(define proxy-type (make-parameter (if (hash-has-key? json-info 'proxy-type-last)
+                                       (hash-ref json-info 'proxy-type-last)
+                                       proxy-type-default)))
+(define proxy-address (make-parameter (if (hash-has-key? json-info 'proxy-address-last)
+                                          (hash-ref json-info 'proxy-address-last)
+                                          proxy-address-default)))
+(define proxy-port (make-parameter (if (hash-has-key? json-info 'proxy-port-last)
+                                       (hash-ref json-info 'proxy-port-last)
+                                       proxy-port-default)))
 
 ; list of unicode emoticons
 (define emojis (list "😁" "😂" "😃" "😄" "😅" "😇"
