@@ -277,7 +277,7 @@ val is a value that corresponds to the value of the key
 (define status-choice
   (new choice%
        [parent frame]
-       [label ""]
+       [label #f]
        [stretchable-width #t]
        [choices '("Available"
                   "Away"
@@ -673,11 +673,10 @@ val is a value that corresponds to the value of the key
 (define pref-panel (new vertical-panel%
                        [parent tab-panel]))
 
-(define proxy-panel (new vertical-panel%
-                        [parent tab-panel]))
-
 ; remove proxy-panel from the window for now
-(send tab-panel delete-child proxy-panel)
+(define proxy-panel (new vertical-panel%
+                        [parent tab-panel]
+                        [style '(deleted)]))
 
 (define Username_msg (new message%
                           [parent pref-panel]
@@ -690,7 +689,7 @@ val is a value that corresponds to the value of the key
 
 (define putfield (new text-field%
                       [parent User_panel]
-                      [label ""]
+                      [label #f]
                       [style (list  'single)]
                       [callback (λ (l e)
                                   (when (eq? (send e get-event-type)
@@ -730,7 +729,7 @@ val is a value that corresponds to the value of the key
 
 (define pstfield (new text-field%
                       [parent Status_panel] 
-                      [label ""] 
+                      [label #f] 
                       [style (list 'single)]
                       [callback (λ (l e)
                                   (let ([status (send l get-value)])
@@ -829,7 +828,7 @@ val is a value that corresponds to the value of the key
 (define proxy-address-tfield
   (new text-field%
        [parent proxy-address-port-panel]
-       [label ""]
+       [label #f]
        [init-value (if (string=? "" (proxy-address))
                        "example.com"
                        (proxy-address))]
@@ -838,7 +837,7 @@ val is a value that corresponds to the value of the key
 (define proxy-port-tfield
   (new text-field%
        [parent proxy-address-port-panel]
-       [label ""]
+       [label #f]
        [init-value (if (zero? (proxy-port))
                        "0 ~ 60000"
                        (number->string (proxy-port)))]))
@@ -911,7 +910,7 @@ val is a value that corresponds to the value of the key
   (let ([profile-last (hash-ref json-info 'profile-last)])
     (new choice%
          [parent profiles-box]
-         [label ""]
+         [label #f]
          [stretchable-width #t]
          [choices ((profiles))]))) ; list of available profiles
 
@@ -996,14 +995,14 @@ val is a value that corresponds to the value of the key
 
 (define add-friend-txt-tfield (new text-field%
                                    [parent dns-panel]
-                                   [label ""]
+                                   [label #f]
                                    [min-width 38]))
 
 ; choices for status type changes
 (define dns-domain-choice
   (new choice%
        [parent dns-panel]
-       [label ""]
+       [label #f]
        [choices '("toxme.se"
                   "utox.org")]))
 
@@ -1018,7 +1017,7 @@ val is a value that corresponds to the value of the key
 ; add friend with Tox ID
 (define add-friend-hex-tfield (new text-field%
                                    [parent hex-panel]
-                                   [label ""]
+                                   [label #f]
                                    [min-width 38]
                                    [callback (λ (l e)
                                                (if (tox-id? (send l get-value))
@@ -1039,7 +1038,7 @@ val is a value that corresponds to the value of the key
 (define add-friend-message-tfield
   (new text-field%
        [parent message-panel]
-       [label ""]
+       [label #f]
        [min-width 38]
        [init-value "Please let me add you to my contact list"]))
 
@@ -1501,13 +1500,14 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber sending? filenumber control-type data-ptr len userdata)
     (let* ([window (get-contact-window friendnumber)]
            [receive-editor (send window get-receive-editor)]
+           [fc-receiving-lb (send window get-fc-receiving-lb)]
+           [fc-sending-lb (send window get-fc-sending-lb)]
            [msg-history (send window get-msg-history)])
       (with-handlers
           ([exn:blight:rtransfer?
             (lambda (ex)
-	      (blight-handle-exception ex)
+              (blight-handle-exception ex)
               (send msg-history send-file-recv-error (exn-message ex)))])
-
         ; we've finished receiving the file
         (cond [(and (= control-type (_TOX_FILECONTROL 'FINISHED))
                     (false? sending?))
@@ -1519,17 +1519,28 @@ val is a value that corresponds to the value of the key
                (send msg-history
                      end-recv-file (get-time) sent)
                ; remove transfer from list
-               (rt-del! filenumber)]
-
+               (rt-del! filenumber)
+               ; update file control receiving list box
+               (send fc-receiving-lb set
+                     (sort (map (λ (x) (symbol->string (car x))) (hash->list rt)) string<?))]
               ; cue that we're going to be sending the data now
-              [(and (= control-type (_TOX_FILECONTROL 'ACCEPT))
-                    (not (false? sending?)))
-
-               (send window send-data filenumber)])))))
+              [(and (= control-type (_TOX_FILECONTROL 'ACCEPT)) sending?)
+               ; update file control sending list box
+               (send fc-sending-lb set
+                     (sort (map (λ (x) (symbol->string (car x))) (hash->list st)) string<?))
+               (send window send-data filenumber)]
+              [else
+               ; catch everything else and just update both of the list boxes
+               (send fc-receiving-lb set
+                     (sort (map (λ (x) (symbol->string (car x))) (hash->list rt)) string<?))
+               (send fc-sending-lb set
+                     (sort (map 
+                            (λ (x) (symbol->string (car x)))
+                            (hash->list st)) string<?))])))))
 
 (define on-file-data
   (λ (mtox friendnumber filenumber data-ptr len userdata)
-
+    
     (define data-bytes (make-sized-byte-string data-ptr len))
     (define window (get-contact-window friendnumber))
     (define msg-history (send window get-msg-history))

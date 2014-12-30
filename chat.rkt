@@ -106,12 +106,19 @@
         (send transfer-gauge set-value 0)
 	(st-read-file! filenumber)))
     
+    (define data-control
+      (λ (filenumber sending? type)
+        (send-file-control this-tox friend-num
+                           sending? filenumber
+                           (_TOX_FILECONTROL type)
+                           #f 0)))
+    
     (define/public send-data
       (λ (filenumber)
         (define path (st-ref-path filenumber))
         
         (send message-history
-                   begin-send-file path (get-time))
+              begin-send-file path (get-time))
         
         (define size (file-size path))
         (define sent 0)
@@ -123,8 +130,8 @@
         (add-file-sender path filenumber)
         (do ((i 0 (+ i 1)))
           ((= i num-pieces))
-          (let ((piece (subbytes (st-ref-data filenumber)
-                                 (* max-size i) (* max-size (+ i 1)))))
+          (let ([piece (subbytes (st-ref-data filenumber)
+                                 (* max-size i) (* max-size (+ i 1)))])
             ; send our piece
             ; if there is an error, sleep and then try again.
             (let loop ()
@@ -139,8 +146,8 @@
             (send transfer-gauge set-value percent)))
         ; if there is a remainder, send the very last piece
         (unless (zero? (quotient size max-size))
-          (let ((piece (subbytes (st-ref-data filenumber)
-                                 (- size (remainder size max-size)) size)))
+          (let ([piece (subbytes (st-ref-data filenumber)
+                                 (- size (remainder size max-size)) size)])
             ; send our piece
             ; if there is an error, sleep and then try again.
             (let loop ()
@@ -154,16 +161,13 @@
             (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
             (send transfer-gauge set-value percent)))
         ; tell our friend we're done sending
-        (send-file-control this-tox friend-num
-                           #f filenumber
-                           (_TOX_FILECONTROL 'FINISHED)
-                           #f 0)
-
-             (send message-history
-                   end-send-file path (get-time))
-
-             (unless (false? make-noise)
-                 (play-sound (eighth sounds) #t))))
+        (data-control filenumber #f 'FINISHED)
+        
+        (send message-history
+              end-send-file path (get-time))
+        
+        (unless (false? make-noise)
+          (play-sound (eighth sounds) #t))))
     
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
@@ -202,7 +206,121 @@
                             (define filename (path->string (last (explode-path path))))
                             (define filenumber
                               (new-file-sender this-tox friend-num size filename))
-			    (st-add! path filenumber))))))])
+                            (st-add! path filenumber))))))])
+    
+    (new menu-item% [parent menu-file]
+         [label "File Controls"]
+         [help-string "Control active file transfers"]
+         [callback (λ (button event)
+                     (send file-control-dialog show #t))])
+    
+    ; control active transfers
+    (define file-control-dialog (new dialog%
+                                     [label (format "~a - File Control" this-label)]
+                                     [width 300]
+                                     [height 200]))
+    
+    (define fc-tab-panel
+      (new tab-panel%
+           [parent file-control-dialog]
+           [choices '("Receiving"
+                      "Sending")]
+           [callback (λ (l e)
+                       (cond [(zero? (send l get-selection))
+                              (send l delete-child fc-sending-hpanel)
+                              (send l add-child fc-receiving-hpanel)]
+                             [else (send l delete-child fc-receiving-hpanel)
+                                   (send l add-child fc-sending-hpanel)]))]))
+    
+    (define fc-receiving-hpanel
+      (new horizontal-panel%
+           [parent fc-tab-panel]))
+    
+    (define fc-sending-hpanel
+      (new horizontal-panel%
+           [parent fc-tab-panel]
+           [style '(deleted)]))
+    
+    (define fc-receiving-list-box
+      (new list-box%
+           [parent fc-receiving-hpanel]
+           [label "Files Available for Control"]
+           [style '(single vertical-label)]
+           [choices (list "")]))
+    
+    (define fc-receiving-rbox
+      (new radio-box%
+           [parent fc-receiving-hpanel]
+           [label #f]
+           [choices (list "Pause"
+                          "Kill"
+                          "Resume_Broken")]))
+    
+    (define fc-sending-list-box
+      (new list-box%
+           [parent fc-sending-hpanel]
+           [label "Files Available for Control"]
+           [style '(single vertical-label)]
+           [choices (list "")]))
+    
+    (define fc-sending-rbox
+      (new radio-box%
+           [parent fc-sending-hpanel]
+           [label #f]
+           [choices (list "Pause"
+                          "Kill"
+                          "Resume_Broken")]))
+    
+    (define fc-button-hpanel
+      (new horizontal-panel%
+           [parent file-control-dialog]
+           [alignment '(right center)]))
+    
+    (define fc-cancel-button
+      (new button%
+           [parent fc-button-hpanel]
+           [label "Cancel"]
+           [callback (λ (button event)
+                       (send file-control-dialog show #f))]))
+    
+    (define fc-ok-button
+      (new button%
+           [parent fc-button-hpanel]
+           [label "OK"]
+           [callback (λ (button event)
+                       (let* ([sel (send fc-tab-panel get-selection)]
+                              [fc-lb (if (zero? sel)
+                                         fc-receiving-list-box
+                                         fc-sending-list-box)]
+                              [fc-rb (if (zero? sel)
+                                         fc-receiving-rbox
+                                         fc-sending-rbox)]
+                              [filenumber (send fc-lb get-selection)]
+                              [control-type (string->symbol
+                                             (string-upcase
+                                              (send fc-rb get-item-label
+                                                    (send fc-rb get-selection))))])
+                         ; no file transfers going on, do nothing
+                         (cond [(and (hash-empty? rt) (hash-empty? st))]
+                               ; we are sending files
+                               [(and (hash-empty? rt)
+                                     (not (hash-empty? st)))
+                                (data-control filenumber #f control-type)]
+                               ; we are receiving files
+                               [(and (hash-empty? st)
+                                     (not (hash-empty? rt)))
+                                (data-control filenumber #t control-type)]
+                               ; we have sending and receiving files, but controlling sending
+                               [(and (not (hash-empty? rt))
+                                     (not (hash-empty? st))
+                                     (> filenumber (- (hash-count rt) 1)))
+                                (data-control filenumber #f control-type)]
+                               ; we are sending and receiving files, but controlling receiving
+                               [(and (not (hash-empty? rt))
+                                     (not (hash-empty? st))
+                                     (<= filenumber (- (hash-count rt) 1)))
+                                (data-control filenumber #t control-type)])
+                         (send file-control-dialog show #f)))]))
     
     ; frame for when we want to view our chat history
     (define history-frame (new frame%
@@ -681,21 +799,17 @@
              ; set the avatar to the new one
              (set! friend-avatar avatar-bitmap)
              ; set the button to the scaled avatar
-             (send friend-avatar-button set-label (pict->bitmap avatar-pict-small))
-             ; destroy old canvas and create a new one reflecting the new avatar
-             #;(set! avatar-view-canvas
-                   (new canvas%
-                        [parent avatar-view-frame]
-                        [min-width (send avatar-bitmap get-width)]
-                        [min-height (send avatar-bitmap get-height)]
-                        [paint-callback
-                         (λ (l e)
-                           (let ([dc (send l get-dc)])
-                             (send dc draw-bitmap avatar-bitmap 0 0)))]))]
+             (send friend-avatar-button set-label (pict->bitmap avatar-pict-small))]
             [else (send friend-avatar-button set-label (make-bitmap 40 40))]))
     
     (define/public (get-friend-avatar)
       friend-avatar)
+    
+    (define/public (get-fc-sending-lb)
+      fc-sending-list-box)
+    
+    (define/public (get-fc-receiving-lb)
+      fc-receiving-list-box)
     
     (super-new
      [label this-label]
