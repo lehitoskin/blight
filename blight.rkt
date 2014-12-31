@@ -1502,7 +1502,19 @@ val is a value that corresponds to the value of the key
            [receive-editor (send window get-receive-editor)]
            [fc-receiving-lb (send window get-fc-receiving-lb)]
            [fc-sending-lb (send window get-fc-sending-lb)]
-           [msg-history (send window get-msg-history)])
+           [msg-history (send window get-msg-history)]
+           [update-fc-receiving (λ ()
+                                  (send fc-receiving-lb set
+                                        (sort (map (λ (x)
+                                                     (number->string (car x)))
+                                                   (hash->list rt))
+                                              string<?)))]
+           [update-fc-sending (λ ()
+                                (send fc-sending-lb set
+                                      (sort (map (λ (x)
+                                                   (number->string (car x)))
+                                                 (hash->list st))
+                                            string<?)))])
       (with-handlers
           ([exn:blight:rtransfer?
             (lambda (ex)
@@ -1521,22 +1533,28 @@ val is a value that corresponds to the value of the key
                ; remove transfer from list
                (rt-del! filenumber)
                ; update file control receiving list box
-               (send fc-receiving-lb set
-                     (sort (map (λ (x) (symbol->string (car x))) (hash->list rt)) string<?))]
+               (update-fc-receiving)]
               ; cue that we're going to be sending the data now
               [(and (= control-type (_TOX_FILECONTROL 'ACCEPT)) sending?)
                ; update file control sending list box
-               (send fc-sending-lb set
-                     (sort (map (λ (x) (symbol->string (car x))) (hash->list st)) string<?))
+               (update-fc-sending)
                (send window send-data filenumber)]
+              [(= control-type (_TOX_FILECONTROL 'KILL))
+               ; remove transfer from list
+               (cond [sending?
+                      (st-del! filenumber)
+                      (update-fc-sending)]
+                     [else
+                      (close-output-port (rt-ref filenumber))
+                      (rt-del! filenumber)
+                      (update-fc-receiving)])]
+              ; resume sending file
+              [(and (= control-type (_TOX_FILECONTROL 'RESUME_BROKEN)) sending?)
+               (send window resume-data filenumber sent percent)]
+              ; catch everything else and just update both of the list boxes
               [else
-               ; catch everything else and just update both of the list boxes
-               (send fc-receiving-lb set
-                     (sort (map (λ (x) (symbol->string (car x))) (hash->list rt)) string<?))
-               (send fc-sending-lb set
-                     (sort (map 
-                            (λ (x) (symbol->string (car x)))
-                            (hash->list st)) string<?))])))))
+               (update-fc-receiving)
+               (update-fc-sending)])))))
 
 (define on-file-data
   (λ (mtox friendnumber filenumber data-ptr len userdata)

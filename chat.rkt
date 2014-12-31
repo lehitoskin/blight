@@ -169,6 +169,49 @@
         (unless (false? make-noise)
           (play-sound (eighth sounds) #t))))
     
+    (define/public resume-data
+      (λ (filenumber sent percent)
+        (let* ([path (st-ref-path filenumber)]
+               [size (file-size path)]
+               [max-size (file-data-size this-tox friend-num)]
+               [num-pieces (quotient size max-size)]
+               [num-left (- num-pieces sent)])
+          ; send the data!
+          (do ((i 0 (+ i 1)))
+            ((= i num-left))
+            (let ([piece (subbytes (st-ref-data filenumber)
+                                   (* max-size i) (* max-size (+ i 1)))])
+              (let loop ()
+                ; if there was an error, try again!
+                (cond [(= -1 (send-file-data this-tox friend-num
+                                             filenumber piece (bytes-length piece)))
+                       (tox-do this-tox)
+                       (sleep (/ (tox-do-interval this-tox) 1000))
+                       (loop)]))
+              (set! sent (+ sent (bytes-length piece)))
+              (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
+              (send transfer-gauge set-value percent)))
+          ; if there's a remainder, send that last bit
+          (unless (zero? (quotient size max-size))
+            (let ([piece (subbytes (st-ref-data filenumber)
+                                   (- size (remainder size max-size)) size)])
+              ; if there was an error, try again
+              (let loop ()
+                (cond [(= -1 (send-file-data this-tox friend-num
+                                             filenumber piece (bytes-length piece)))
+                       (tox-do this-tox)
+                       (sleep (/ (tox-do-interval this-tox) 1000))
+                       (loop)]))
+              (set! sent (+ sent (bytes-length piece)))
+              (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
+              (send transfer-gauge set-value percent)))
+          ; tell our friend we're done sending
+          (data-control filenumber #f 'FINISHED)
+          (send message-history
+                end-send-file path (get-time))
+          (unless (false? make-noise)
+            (play-sound (eighth sounds) #t)))))
+    
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
     (define chat-frame (new frame%
@@ -300,26 +343,13 @@
                                              (string-upcase
                                               (send fc-rb get-item-label
                                                     (send fc-rb get-selection))))])
-                         ; no file transfers going on, do nothing
-                         (cond [(and (hash-empty? rt) (hash-empty? st))]
-                               ; we are sending files
-                               [(and (hash-empty? rt)
-                                     (not (hash-empty? st)))
-                                (data-control filenumber #f control-type)]
-                               ; we are receiving files
-                               [(and (hash-empty? st)
-                                     (not (hash-empty? rt)))
-                                (data-control filenumber #t control-type)]
-                               ; we have sending and receiving files, but controlling sending
-                               [(and (not (hash-empty? rt))
-                                     (not (hash-empty? st))
-                                     (> filenumber (- (hash-count rt) 1)))
-                                (data-control filenumber #f control-type)]
-                               ; we are sending and receiving files, but controlling receiving
-                               [(and (not (hash-empty? rt))
-                                     (not (hash-empty? st))
-                                     (<= filenumber (- (hash-count rt) 1)))
-                                (data-control filenumber #t control-type)])
+                         (cond
+                           ; no file transfers going on, do nothing
+                           [(and (hash-empty? rt) (hash-empty? st))]
+                           ; receiving file control
+                           [(zero? sel) (data-control filenumber #t control-type)]
+                           ; sending file control
+                           [(= sel 1) (data-control filenumber #f control-type)])
                          (send file-control-dialog show #f)))]))
     
     ; frame for when we want to view our chat history
