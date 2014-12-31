@@ -78,14 +78,15 @@
   (send error-dialog show #t))
 
 ;; FILE TRANSFERS
-(struct send-transfer-data (path contents) #:mutable)
+(struct send-transfer-data (path contents sent) #:mutable)
 
 (define rt (make-hash))
 (define st (make-hash))
+(define st-sent (make-hash))
 
-(struct	 exn:blight:rtransfer exn ()
-         #:extra-constructor-name make-exn:blight:rtransfer
-         #:transparent)
+(struct exn:blight:rtransfer exn ()
+  #:extra-constructor-name make-exn:blight:rtransfer
+  #:transparent)
 
 (define (transfer-raise msg)
   (raise (make-exn:blight:rtransfer
@@ -125,12 +126,18 @@
 (define (st-ref-path num)
   (send-transfer-data-path (transfer-ref st num)))
 
+(define (st-ref-sent num)
+  (send-transfer-data-sent (transfer-ref st num)))
+
+(define (set-st-sent! num val)
+  (set-send-transfer-data-sent! (transfer-ref st num) val))
+
 (define (st-del! num)
   (transfer-del! st num))
 
 (define (st-add! path id)
   (transfer-set! st id
-		 (send-transfer-data path #f)))
+		 (send-transfer-data path #f 0)))
 
 (define (st-read-file! id)
   (define cur-st (st-ref id))

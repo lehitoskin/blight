@@ -121,7 +121,6 @@
               begin-send-file path (get-time))
         
         (define size (file-size path))
-        (define sent 0)
         (define percent 0)
         ; maximum piece size we can send at one time
         (define max-size (file-data-size this-tox friend-num))
@@ -141,8 +140,11 @@
                      (sleep (/ (tox-do-interval this-tox) 1000))
                      (loop)]))
             ; update file-send gauge
-            (set! sent (+ sent (bytes-length piece)))
-            (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
+            (set-st-sent! filenumber
+                          (+ (st-ref-sent filenumber) (bytes-length piece)))
+            (set! percent (fl->exact-integer
+                           (truncate (* (exact->inexact
+                                         (/ (st-ref-sent filenumber) size)) 100))))
             (send transfer-gauge set-value percent)))
         ; if there is a remainder, send the very last piece
         (unless (zero? (quotient size max-size))
@@ -157,8 +159,10 @@
                      (sleep (/ (tox-do-interval this-tox) 1000))
                      (loop)]))
             ; update file-send gauge
-            (set! sent (+ sent (bytes-length piece)))
-            (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
+            (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length piece)))
+            (set! percent (fl->exact-integer (truncate
+                                              (* (exact->inexact
+                                                  (/ (st-ref-sent filenumber) size)) 100))))
             (send transfer-gauge set-value percent)))
         ; tell our friend we're done sending
         (data-control filenumber #f 'FINISHED)
@@ -170,12 +174,15 @@
           (play-sound (eighth sounds) #t))))
     
     (define/public resume-data
-      (λ (filenumber sent percent)
+      (λ (filenumber)
         (let* ([path (st-ref-path filenumber)]
                [size (file-size path)]
                [max-size (file-data-size this-tox friend-num)]
                [num-pieces (quotient size max-size)]
-               [num-left (- num-pieces sent)])
+               [num-left (- num-pieces (st-ref-sent filenumber))]
+               [percent (fl->exact-integer (truncate
+                                            (* (exact->inexact
+                                                (/ (st-ref-sent filenumber) size)) 100)))])
           ; send the data!
           (do ((i 0 (+ i 1)))
             ((= i num-left))
@@ -188,8 +195,10 @@
                        (tox-do this-tox)
                        (sleep (/ (tox-do-interval this-tox) 1000))
                        (loop)]))
-              (set! sent (+ sent (bytes-length piece)))
-              (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
+              (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length piece)))
+              (set! percent (fl->exact-integer (truncate
+                                                (* (exact->inexact
+                                                    (/ (st-ref-sent filenumber) size)) 100))))
               (send transfer-gauge set-value percent)))
           ; if there's a remainder, send that last bit
           (unless (zero? (quotient size max-size))
@@ -202,8 +211,10 @@
                        (tox-do this-tox)
                        (sleep (/ (tox-do-interval this-tox) 1000))
                        (loop)]))
-              (set! sent (+ sent (bytes-length piece)))
-              (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent size)) 100))))
+              (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length piece)))
+              (set! percent (fl->exact-integer (truncate
+                                                (* (exact->inexact
+                                                    (/ (st-ref-sent filenumber) size)) 100))))
               (send transfer-gauge set-value percent)))
           ; tell our friend we're done sending
           (data-control filenumber #f 'FINISHED)

@@ -99,12 +99,6 @@ val is a value that corresponds to the value of the key
        (close-input-port new-input-port)
        (close-output-port config-port-out)))))
 
-; these here are for keeping track of file transfers
-; we have 0 transfers right now
-(define total-len 0) ; total length of file
-(define sent 0) ; number of bytes sent
-(define percent 0) ; percent of bytes sent
-
 ; data-file is empty, use default settings
 (cond [(zero? (file-size ((data-file))))
        ; set username
@@ -1484,10 +1478,7 @@ val is a value that corresponds to the value of the key
                     (define receive-editor
                       (send window get-receive-editor))
                     (send-file-control mtox friendnumber #t filenumber message-id #f 0)
-                    (set! sent 0)
-                    (set! total-len filesize)
-                    (set! percent 0)
-                    (send window set-gauge-pos percent)
+                    (send window set-gauge-pos 0)
                     (rt-add! path filenumber)
                     
                     (send msg-history
@@ -1529,7 +1520,7 @@ val is a value that corresponds to the value of the key
                (close-output-port (rt-ref filenumber))
                ; notify user transfer has completed
                (send msg-history
-                     end-recv-file (get-time) sent)
+                     end-recv-file (get-time) (st-ref-sent filenumber))
                ; remove transfer from list
                (rt-del! filenumber)
                ; update file control receiving list box
@@ -1550,7 +1541,7 @@ val is a value that corresponds to the value of the key
                       (update-fc-receiving)])]
               ; resume sending file
               [(and (= control-type (_TOX_FILECONTROL 'RESUME_BROKEN)) sending?)
-               (send window resume-data filenumber sent percent)]
+               (send window resume-data filenumber)]
               ; catch everything else and just update both of the list boxes
               [else
                (update-fc-receiving)
@@ -1560,6 +1551,7 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber filenumber data-ptr len userdata)
     
     (define data-bytes (make-sized-byte-string data-ptr len))
+    (define total-len (bytes-length data-bytes))
     (define window (get-contact-window friendnumber))
     (define msg-history (send window get-msg-history))
     
@@ -1568,9 +1560,10 @@ val is a value that corresponds to the value of the key
           (lambda (ex)
             (send msg-history send-file-recv-error (exn-message ex)))])
       (write-bytes data-bytes (rt-ref filenumber))
-      (set! sent (+ sent len))
-      (set! percent (fl->exact-integer (truncate (* (exact->inexact (/ sent total-len)) 100))))
-      (send window set-gauge-pos percent))))
+      (set-st-sent! filenumber (+ (st-ref-sent filenumber) len))
+      (send window set-gauge-pos
+            (fl->exact-integer (truncate (* (exact->inexact
+                                             (/ (st-ref-sent filenumber) total-len)) 100)))))))
 
 
 (define on-group-invite
