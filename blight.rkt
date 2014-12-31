@@ -1480,12 +1480,8 @@ val is a value that corresponds to the value of the key
                     (send-file-control mtox friendnumber #t filenumber message-id #f 0)
                     (send window set-gauge-pos 0)
                     (rt-add! path filenumber)
-                    
                     (send msg-history
-                          begin-recv-file path (get-time))
-                    
-                    (unless (false? make-noise)
-                      (play-sound (eighth sounds) #t))))]))))))
+                          begin-recv-file path (get-time))))]))))))
 
 (define on-file-control
   (λ (mtox friendnumber sending? filenumber control-type data-ptr len userdata)
@@ -1515,12 +1511,12 @@ val is a value that corresponds to the value of the key
         (cond [(and (= control-type (_TOX_FILECONTROL 'FINISHED))
                     (false? sending?))
                (define data-bytes (make-sized-byte-string data-ptr len))
-               (write-bytes data-bytes (rt-ref filenumber))
+               (write-bytes data-bytes (rt-ref-fhandle filenumber))
                ; close receive transfer
-               (close-output-port (rt-ref filenumber))
+               (close-output-port (rt-ref-fhandle filenumber))
                ; notify user transfer has completed
                (send msg-history
-                     end-recv-file (get-time) (st-ref-sent filenumber))
+                     end-recv-file (get-time) (rt-ref-received filenumber))
                ; remove transfer from list
                (rt-del! filenumber)
                ; update file control receiving list box
@@ -1536,7 +1532,7 @@ val is a value that corresponds to the value of the key
                       (st-del! filenumber)
                       (update-fc-sending)]
                      [else
-                      (close-output-port (rt-ref filenumber))
+                      (close-output-port (rt-ref-fhandle filenumber))
                       (rt-del! filenumber)
                       (update-fc-receiving)])]
               ; resume sending file
@@ -1551,7 +1547,6 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber filenumber data-ptr len userdata)
     
     (define data-bytes (make-sized-byte-string data-ptr len))
-    (define total-len (bytes-length data-bytes))
     (define window (get-contact-window friendnumber))
     (define msg-history (send window get-msg-history))
     
@@ -1559,11 +1554,12 @@ val is a value that corresponds to the value of the key
         ([exn:blight:rtransfer?
           (lambda (ex)
             (send msg-history send-file-recv-error (exn-message ex)))])
-      (write-bytes data-bytes (rt-ref filenumber))
-      (set-st-sent! filenumber (+ (st-ref-sent filenumber) len))
+      (write-bytes data-bytes (rt-ref-fhandle filenumber))
+      (set-rt-received! filenumber len)
       (send window set-gauge-pos
             (fl->exact-integer (truncate (* (exact->inexact
-                                             (/ (st-ref-sent filenumber) total-len)) 100)))))))
+                                             (/ (rt-ref-received filenumber)
+                                                len)) 100)))))))
 
 
 (define on-group-invite
@@ -1575,7 +1571,6 @@ val is a value that corresponds to the value of the key
                                 #f
                                 (list 'ok-cancel 'caution))])
         (when (eq? mbox 'ok)
-          
           (define grp-number
             (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
                    (join-groupchat mtox friendnumber data len)]

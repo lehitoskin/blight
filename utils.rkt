@@ -79,10 +79,10 @@
 
 ;; FILE TRANSFERS
 (struct send-transfer-data (path contents sent) #:mutable)
+(struct receive-transfer-data (fhandle received) #:mutable)
 
 (define rt (make-hash))
 (define st (make-hash))
-(define st-sent (make-hash))
 
 (struct exn:blight:rtransfer exn ()
   #:extra-constructor-name make-exn:blight:rtransfer
@@ -107,15 +107,25 @@
 (define (rt-ref num)
   (transfer-ref rt num))
 
+(define (rt-ref-fhandle num)
+  (receive-transfer-data-fhandle (rt-ref num)))
+
+(define (rt-ref-received num)
+  (receive-transfer-data-received (rt-ref num)))
+
+(define (set-rt-received! num val)
+  (set-receive-transfer-data-received! (rt-ref num) val))
+
 (define (rt-del! num)
   (transfer-del! rt num))
 
 (define (rt-add! path id)
   (transfer-set! rt id
-             (open-output-file
-              path
-              #:mode 'binary
-              #:exists 'replace)))
+                 (receive-transfer-data (open-output-file
+                                         path
+                                         #:mode 'binary
+                                         #:exists 'replace)
+                                        0)))
 
 (define (st-ref num)
   (transfer-ref st num))
@@ -130,7 +140,7 @@
   (send-transfer-data-sent (transfer-ref st num)))
 
 (define (set-st-sent! num val)
-  (set-send-transfer-data-sent! (transfer-ref st num) val))
+  (set-send-transfer-data-sent! (st-ref num) val))
 
 (define (st-del! num)
   (transfer-del! st num))
