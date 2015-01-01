@@ -5,7 +5,7 @@ Blight
 Blight is a cross-platform graphical user interface for [Tox](https://github.com/irungentoo/toxcore) written in [Racket](http://racket-lang.org/) that utilizes [libtoxcore-racket](https://github.com/lehitoskin/libtoxcore-racket).
 In very early pre-alpha stage. All help and testing appreciated.
 
-[![Blight Screenshot](https://wiki.tox.im/images/a/ac/Blight.png)](https://wiki.tox.im/images/a/ac/Blight.png)
+[![Blight Screenshot](https://raw.github.com/lehitoskin/blight/master/screenshot-2015-01-01.png "Blight Screenshot")]
 
 
 ## Installation
@@ -29,6 +29,14 @@ In very early pre-alpha stage. All help and testing appreciated.
 - ® (U+00AE) is mapped to ctrl+2
 
 - ™ (U+2122) is mapped to ctrl+3
+
+## Read Eval Print Loop (REPL) Client
+
+Blight now contains a REPL server built in, which you can access through the repl-client.rkt program.
+This REPL client will allow you to access the internals of Blight while it is running and you can modify the program on the fly.
+While this does give you a great amount of power, it also requires a great amount of knowledge of the program's internals
+and good amount responsibility in how you use that knowledge. It is always a danger that you could corrupt the data file,
+so be sure to backup your files frequently!
 
 ## Contributing
 
