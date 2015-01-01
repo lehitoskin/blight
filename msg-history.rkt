@@ -48,12 +48,18 @@
               (lambda (editor kev)
                 (send editor move-position 'end)))
         
+        ; replace with (send an-editor-canvas get-scroll-pos) ...
+        ; scroll-to local-x local-y w h
+        ; (define/public (get-pos)
+        ;   (values x y w h))
+        ; (define-values (x y w h) (send ecanvas get-pos))
         (send km add-function "wheel-up"
               (lambda (editor kev)
                 (repeat
                  (λ () (send editor move-position 'up))
                  (send (send editor get-canvas) wheel-step))))
         
+        ; replace with (send an-editor-canvas get-scroll-pos) ...
         (send km add-function "wheel-down"
               (lambda (editor kev)
                 (repeat

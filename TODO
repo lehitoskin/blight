@@ -1,14 +1,16 @@
 TODO:
 
+- popup menus in chat (receive/send) and group (receive-send)
+	+ &Copy
+	+ &Paste
+	+ Select All
+- Allow drag-and-drop for file sending in chat window
 - Fix implications to revert back to black text
-- Investigate futures as a possible replacement to threads
+- Bold line sent when user says "your name" at the beginning of the message
 
 - Links blue, underlined, and clickable
 - Drag link into chat, prettify to title with link
 - Spellcheck
 - Embedding of video, images, audio, etc. (both p2p and links posted) (?)
-
-...
-
 - Audio chat
 - Video chat
