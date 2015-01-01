@@ -249,7 +249,11 @@ val is a value that corresponds to the value of the key
                               (build-path avatar-dir (string-append my-client-id ".png"))
                               #t)
                    ; reset the avatar as this button's label
-                   (send button set-label my-avatar)))))))]))
+                   (send button set-label my-avatar)
+                   ; broadcast to our friends we've changed our avatar
+                   (for ([count (hash-count cur-buddies)])
+                     (when (= 1 (get-friend-connection-status my-tox count))
+                       (send-avatar-info my-tox count)))))))))]))
 
 (define frame-vpanel (new vertical-panel%
                           [parent frame-hpanel]
@@ -346,7 +350,7 @@ val is a value that corresponds to the value of the key
 ; helper to avoid spamming notification sounds
 (define status-checker
   (λ (friendnumber status)
-    (let ((type (get-user-status my-tox friendnumber)))
+    (let ([type (get-user-status my-tox friendnumber)])
       (cond [(zero? status)
              (send (get-contact-snip friendnumber) set-status 'offline)
              (update-contact-status friendnumber 'offline)]
@@ -532,14 +536,14 @@ val is a value that corresponds to the value of the key
        [shortcut #\Q]
        [help-string "Quit Blight"]
        [callback (λ (button event)
-                   (let ((mbox (message-box/custom
+                   (let ([mbox (message-box/custom
                                 "Blight - Quit Blight"
                                 "Are you sure you want to quit Blight?"
                                 "&OK"
                                 "&Cancel"
                                 #f
                                 exit-dialog
-                                (list 'caution 'no-default))))
+                                (list 'caution 'no-default))])
                      (cond [(= mbox 1) (clean-up) (exit)])))]))
 
 ; menu Edit for menu bar
@@ -1468,10 +1472,10 @@ val is a value that corresponds to the value of the key
               [msg-history (send window get-msg-history)])
          (cond [(eq? mbox 'ok)
                 
-                (let ((path (put-file "Select a file"
+                (let ([path (put-file "Select a file"
                                       #f
                                       download-path
-                                      filename))
+                                      filename)]
                       [window (get-contact-window friendnumber)])
                   (unless (false? path)
                     (define message-id (_TOX_FILECONTROL 'ACCEPT))
