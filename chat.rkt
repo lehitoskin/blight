@@ -492,7 +492,6 @@
                                    [auto-wrap #t]))
     (send chat-text-receive change-style black-style)
     
-    
     (define messages-keymap (init-messages-keymap this))
     
     (set-default-messages-bindings messages-keymap)
@@ -543,11 +542,16 @@
         ; unicode?
         ; wheel-up/wheel-down(?)
         (define/override (on-char key-event)
-
-          (when (not (send editor-keymap handle-key-event this-editor key-event))
-            (let ((key (send key-event get-key-code)))
-              (when (char? (send key-event get-key-code))
-                (send this-editor insert key)))))
+          (let ([key (send key-event get-key-code)])
+            (if (or (eq? key #\backspace)
+                    (eq? key #\rubout)
+                    (eq? key #\return))
+                (begin
+                  (set-user-is-typing this-tox friend-num #f)
+                  (send editor-keymap handle-key-event this-editor key-event))
+                (when (not (send editor-keymap handle-key-event this-editor key-event))
+                  (send this-editor insert key)
+                  (set-user-is-typing this-tox friend-num #t)))))
 
         (super-new
          [parent this-parent]
@@ -611,6 +615,11 @@
                        [parent chat-frame]
                        [stretchable-height #f]
                        [alignment '(right center)]))
+    
+    (define typing-msg (new message%
+                            [parent panel]
+                            [label ""]
+                            [enabled #f]))
     
     (define emoji-button (new button%
                               [parent panel]
@@ -816,7 +825,8 @@
     
     (define/public (set-name name)
       (set! friend-name name)
-      (send chat-frame-msg set-label name))
+      (send chat-frame-msg set-label name)
+      (send typing-msg set-label (string-append name " is typing... ")))
     
     (define/public (get-name)
       friend-name)
@@ -878,6 +888,9 @@
     
     (define/public (get-fc-receiving-lb)
       fc-receiving-list-box)
+    
+    (define/public (is-typing? bool)
+      (send typing-msg enable bool))
     
     (super-new
      [label this-label]

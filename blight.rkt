@@ -315,6 +315,7 @@ val is a value that corresponds to the value of the key
                    ; reset the avatar as this button's label
                    (send button set-label my-avatar)
                    ; broadcast to our friends we've changed our avatar
+                   (displayln "Broadcasting our avatar change to online friends...")
                    (for ([count (hash-count cur-buddies)])
                      (when (= 1 (get-friend-connection-status my-tox count))
                        (send-avatar-info my-tox count)))))))))]))
@@ -1684,7 +1685,6 @@ val is a value that corresponds to the value of the key
                                              (/ (rt-ref-received filenumber)
                                                 len)) 100)))))))
 
-
 (define on-group-invite
   (λ (mtox friendnumber type data len userdata)
       (let* ([friendname (get-contact-name friendnumber)]
@@ -1774,8 +1774,10 @@ val is a value that corresponds to the value of the key
 
 (define on-avatar-info
   (λ (mtox friendnumber img-format img-hash userdata)
-    ; if the img-format is 'NONE, do nothing
-    (unless (= (_TOX_AVATAR_FORMAT 'NONE) img-format)
+    ; if the img-format is 'NONE or the image hash isn't the right size,
+    ; ignore the whole thing and do nothing
+    (unless (and (= (_TOX_AVATAR_FORMAT 'NONE) img-format)
+                 (not (= (bytes-length img-hash) TOX_HASH_LENGTH)))
       (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
              [friend-id (send window get-key)]
              [hash-file (build-path
@@ -1828,6 +1830,11 @@ val is a value that corresponds to the value of the key
         (close-output-port png-port-out)
         ; tell the buddy window to update the avatar
         (send window set-friend-avatar png-file)))))
+
+(define on-typing-change
+  (λ (mtox friendnumber typing? userdata)
+    (let ([window (contact-data-window (hash-ref cur-buddies friendnumber))])
+      (send window is-typing? typing?))))
 #| ################# END CALLBACK PROCEDURE DEFINITIONS ################# |#
 
 ; register our callback functions
@@ -1847,6 +1854,7 @@ val is a value that corresponds to the value of the key
 (callback-group-namelist-change my-tox on-group-namelist-change)
 (callback-avatar-info my-tox on-avatar-info)
 (callback-avatar-data my-tox on-avatar-data)
+(callback-typing-change my-tox on-typing-change)
 
 #| ################# BEGIN REPL SERVER ################# |#
 ; code straight tooken from rwind
