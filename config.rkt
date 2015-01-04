@@ -188,7 +188,8 @@ arg: list of files to copy to tox-path as .tox files
                                           'udp-disabled?-last udp-disabled?-default
                                           'proxy-type-last proxy-type-default
                                           'proxy-address-last proxy-address-default
-                                          'proxy-port-last proxy-port-default)]
+                                          'proxy-port-last proxy-port-default
+                                          'encrypted?-last encrypted?-default)]
                 [config-port-out (open-output-file new-config-file
                                                    #:mode 'text
                                                    #:exists 'truncate/replace)])
@@ -254,6 +255,7 @@ arg: list of files to copy to tox-path as .tox files
 (define proxy-type-default 0) ; (_TOX_PROXY_TYPE 'NONE)
 (define proxy-address-default "") ; ignored if proxy type is 'NONE
 (define proxy-port-default 0) ; ignored if proxy type is 'NONE
+(define encrypted?-default #f)
 
 ; if blight-config.json does not exist, initalize it to default values
 (define json-default
@@ -268,7 +270,8 @@ arg: list of files to copy to tox-path as .tox files
           'udp-disabled?-last udp-disabled?-default
           'proxy-type-last proxy-type-default
           'proxy-address-last proxy-address-default
-          'proxy-port-last proxy-port-default))
+          'proxy-port-last proxy-port-default
+          'encrypted?-last encrypted?-default))
 
 ; <profile>.json is empty, initialize with default values for variables
 (unless (not (zero? (file-size ((config-file)))))
@@ -310,6 +313,9 @@ arg: list of files to copy to tox-path as .tox files
 (define proxy-port (make-parameter (if (hash-has-key? json-info 'proxy-port-last)
                                        (hash-ref json-info 'proxy-port-last)
                                        proxy-port-default)))
+(define encrypted? (make-parameter (if (hash-has-key? json-info 'encrypted?-last)
+                                       (hash-ref json-info 'encrypted?-last)
+                                       encrypted?-default)))
 
 ; list of unicode emoticons
 (define emojis (list "😁" "😂" "😃" "😄" "😅" "😇"

@@ -49,6 +49,9 @@ if people have a similar problem.")
 ; instantiate Tox session
 (define my-tox (tox-new my-opts))
 (define my-av (av-new my-tox 1))
+; is this kosher?
+; beats asking for the pass every time we save...
+(define encryption-pass "")
 
 ; chat entity holding group or contact data
 (define cur-groups (make-hash))
@@ -105,17 +108,60 @@ val is a value that corresponds to the value of the key
        (set-name my-tox my-name)
        ; set status message
        (set-status-message my-tox my-status-message)]
+      ; data-file is not empty, load from encrypted data-file
+      [(and (not (zero? (file-size ((data-file)))))
+            (data-encrypted? (file->bytes ((data-file)) #:mode 'binary)))
+       ; we've got an encrypted file, we should save it as encrypted
+       (encrypted? #t)
+       ; ask the user what the password is
+       (displayln "Loading encrypted data...")
+       (define loading-callback
+         (λ ()
+           (set! encryption-pass (send pass-tfield get-value))
+           (let ([err (encrypted-load my-tox
+                                      (file->bytes data-file #:mode 'binary)
+                                      (file-size data-file)
+                                      encryption-pass)])
+             (cond [(zero? err)
+                    (send pass-dialog show #f)
+                    (displayln "Loading successful!")]
+                   [else
+                    (let ([mbox (message-box "Blight - Incorrect Passphrase"
+                                             "Sorry! That was incorrect.")])
+                      (when (eq? mbox 'ok)
+                        (displayln "Incorrect password received, trying again.")))]))))
+       (define pass-dialog (new dialog%
+                                [label "Blight - Enter Passphrase"]
+                                [height 50]
+                                [width 400]
+                                [style (list 'close-button)]))
+       (define pass-tfield
+         (new text-field%
+              [label "Enter Passphrase: "]
+              [parent pass-dialog]
+              [callback (λ (l e)
+                          (when (eq? (send e get-event-type) 'text-field-enter)
+                            (loading-callback)))]))
+       (define pass-ok-button
+         (new button%
+              [label "OK"]
+              [parent pass-dialog]
+              [callback (λ (button event)
+                          (loading-callback))]))
+       (send pass-dialog show #t)]
       ; data-file is not empty, load from data-file
-      [(not (zero? (file-size ((data-file)))))
-       ; load the messenger from data of size length
+      [(nor (zero? (file-size ((data-file))))
+            (data-encrypted? (file->bytes ((data-file)) #:mode 'binary)))
        (define size (file-size ((data-file))))
-       ; no conversions necessary because bytes-ref reports a decimal value
        (define my-bytes (file->bytes ((data-file)) #:mode 'binary))
        (display "Loading from data file... ")
        (let ([result (tox-load my-tox my-bytes size)])
          (if (zero? result)
              (displayln "Done!")
-             (displayln "Loading failed!")))])
+             (begin
+               (displayln "Loading failed!")
+               (when make-noise
+                 (play-sound (last sounds) #t)))))])
 
 ; obtain our tox id
 (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
@@ -146,29 +192,47 @@ val is a value that corresponds to the value of the key
                                             dht-address
                                             dht-port
                                             dht-public-key)))
-       (unless (false? make-noise)
+       (when make-noise
          (play-sound (fourth sounds) #t))
        (displayln "Connected!")]
-      [else (unless (false? make-noise)
+      [else (when make-noise
               (play-sound (last sounds) #t))
             (displayln "Connection failed!")])
 
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
   (λ ()
-      (display "Saving data... ")
-      ; necessary for saving the messenger
-      (define size (tox-size my-tox))
-      (define data-bytes (make-bytes size))
-      ; place all tox info into data-bytes
-      (tox-save! my-tox data-bytes)
-      ; SAVE INFORMATION TO DATA
-      (let ([data-port-out (open-output-file ((data-file))
-                                             #:mode 'binary
-                                             #:exists 'truncate/replace)])
-        (write-bytes data-bytes data-port-out)
-        (close-output-port data-port-out))
-      (displayln "Done!")))
+    (display "Saving data... ")
+    (cond [(encrypted?)
+           (display "Saving data... ")
+           (define size (encrypted-size my-tox))
+           (define data-bytes (make-bytes size))
+           (define err (encrypted-save! my-tox
+                                        data-bytes
+                                        encryption-pass))
+           (if (zero? err)
+               (let ([data-port-out (open-output-file ((data-file))
+                                                      #:mode 'binary
+                                                      #:exists 'truncate/replace)])
+                 (write-bytes data-bytes data-port-out)
+                 (close-output-port data-port-out))
+               (begin
+                 (displayln "There was an error saving the encrypted data!")
+                 (when make-noise
+                   (play-sound (last sounds) #t))))]
+          [else
+           ; necessary for saving the messenger
+           (define size (tox-size my-tox))
+           (define data-bytes (make-bytes size))
+           ; place all tox info into data-bytes
+           (tox-save! my-tox data-bytes)
+           ; SAVE INFORMATION TO DATA
+           (let ([data-port-out (open-output-file ((data-file))
+                                                  #:mode 'binary
+                                                  #:exists 'truncate/replace)])
+             (write-bytes data-bytes data-port-out)
+             (close-output-port data-port-out))])
+    (displayln "Done!")))
 
 ; little procedure to wrap things up for us
 (define clean-up
@@ -184,7 +248,7 @@ val is a value that corresponds to the value of the key
     ; this kills the tox
     (tox-kill! my-tox)
     ; log out sound
-    (unless (false? make-noise)
+    (when make-noise
       (play-sound (fifth sounds) #f))))
 #| ##################### END TOX STUFF ######################### |#
 
@@ -559,7 +623,9 @@ val is a value that corresponds to the value of the key
                               [shortcut #\R]
                               [help-string "Modify Blight preferences"]
                               [callback (λ (button event)
-                                          (send preferences-box show #t))]))
+                                          (thread
+                                           (λ ()
+                                             (send preferences-box show #t))))]))
 
 (define menu-profile (new menu-item%
                           [parent menu-edit]
@@ -567,7 +633,9 @@ val is a value that corresponds to the value of the key
                           [shortcut #\P]
                           [help-string "Manage Tox profiles"]
                           [callback (λ (button event)
-                                      (send profiles-box show #t))]))
+                                      (thread
+                                       (λ ()
+                                         (send profiles-box show #t))))]))
 
 (define help-get-dialog (new dialog%
                              [label "Blight - Get Help"]
@@ -787,6 +855,57 @@ val is a value that corresponds to the value of the key
                    (let ([noise (send l get-value)])
                      (toggle-noise)
                      (blight-save-config 'make-noise-last noise)))]))
+
+(define encrypted-save-button
+  (new check-box%
+       [parent pref-panel]
+       [label "Encrypted save"]
+       [value (encrypted?)]
+       [callback
+        (λ (l e)
+          (let ([enc (send l get-value)])
+            (if enc
+                (let ([mbox
+                       (message-box
+                        "Blight - Encryption Warning"
+                        (string-append
+                         "WARNING! Encrypting your data file could be dangerous!\n"
+                         "If even one byte is incorrect in the saved file,\n"
+                         "it will be worthless!")
+                        #f
+                        (list 'ok-cancel 'stop))])
+                  (cond [(eq? mbox 'ok)
+                         (define enc-dialog
+                           (new dialog%
+                                [label "Blight - Encryption Passphrase"]
+                                [height 50]
+                                [width 400]))
+                         (define enc-tfield
+                           (new text-field%
+                                [parent enc-dialog]
+                                [label "New Passphrase: "]
+                                [callback (λ (l e)
+                                            (when (eq? (send e get-event-type)
+                                                       'text-field-enter)
+                                              (set! encryption-pass
+                                                    (send l get-value))
+                                              (send enc-dialog show #f)))]))
+                         (define enc-ok-button
+                           (new button%
+                                [parent enc-dialog]
+                                [label "OK"]
+                                [callback (λ (button event)
+                                            (set! encryption-pass
+                                                  (send enc-tfield get-value))
+                                            (send enc-dialog show #f))]))
+                         (encrypted? enc)
+                         (blight-save-config 'encrypted?-last enc)]
+                        [(eq? mbox 'cancel)
+                         (send l set-value #f)
+                         (encrypted? #f)]))
+                (begin
+                  (encrypted? #f)
+                  (blight-save-config 'encrypted?-last enc)))))]))
 
 ; Close button for preferences dialog box
 (define preferences-close-button
@@ -1111,35 +1230,35 @@ val is a value that corresponds to the value of the key
                               ; check for all the friend add errors
                               (cond [(= err (_TOX_FAERR 'TOOLONG))
                                      (displayln "ERROR: TOX_FAERR_TOOLONG")
-                                     (unless (false? make-noise)
+                                     (when make-noise
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'NOMESSAGE))
                                      (displayln "ERROR: TOX_FAERR_NOMESSAGE")
-                                     (unless (false? make-noise)
+                                     (when make-noise
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'OWNKEY))
                                      (displayln "ERROR: TOX_FAERR_OWNKEY")
-                                     (unless (false? make-noise)
+                                     (when make-noise
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'ALREADYSENT))
                                      (displayln "ERROR: TOX_FAERR_ALREADYSENT")
-                                     (unless (false? make-noise)
+                                     (when make-noise
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'UNKNOWN))
                                      (displayln "ERROR: TOX_FAERR_UNKNOWN")
-                                     (unless (false? make-noise)
+                                     (when make-noise
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'BADCHECKSUM))
                                      (displayln "ERROR: TOX_FAERR_BADCHECKSUM")
-                                     (unless (false? make-noise)
+                                     (when make-noise
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'SETNEWNOSPAM))
                                      (displayln "ERROR: TOX_FAERR_SETNEWNOSPAM")
-                                     (unless (false? make-noise)
+                                     (when make-noise
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'NOMEM))
                                      (displayln "ERROR: TOX_FAERR_NOMEM")
-                                     (unless (false? make-noise)
+                                     (when make-noise
                                        (play-sound (last sounds) #t))]
                                     [else (displayln "All okay!")
                                           ; save the tox data
@@ -1166,7 +1285,7 @@ val is a value that corresponds to the value of the key
                                           (unless (zero? (hash-count cur-groups))
                                             (update-invite-list))]))]
                            ; something went wrong!
-                           [else (unless (false? make-noise)
+                           [else (when make-noise
                                    (play-sound (last sounds) #t))
                                  (let ([mbox (message-box
                                               "Blight - Invalid Tox ID"
@@ -1353,7 +1472,7 @@ val is a value that corresponds to the value of the key
               ; save the tox data
               (blight-save-data)
               ; play a sound because we accepted
-              (unless (false? make-noise)
+              (when make-noise
                 (play-sound (sixth sounds) #f))
               
               ; append new friend to the list
@@ -1388,7 +1507,7 @@ val is a value that corresponds to the value of the key
       (send msg-history add-recv-message message name (get-time))
       
       ; make a noise
-      (unless (false? make-noise)
+      (when make-noise
         (play-sound (first sounds) #t))
       ; add message to the history database
       (add-history my-id-hex (send window get-key) message 0))))
@@ -1404,7 +1523,7 @@ val is a value that corresponds to the value of the key
       (send msg-history add-recv-action action name (get-time))
       
       ; make a noise
-      (unless (false? make-noise)
+      (when make-noise
         (play-sound (first sounds) #t))
       ; add message to the history database
       (add-history my-id-hex (send window get-key) (string-append "ACTION: " action) 0))))
@@ -1444,12 +1563,12 @@ val is a value that corresponds to the value of the key
     (cond [(zero? status)
            (send (get-contact-snip friendnumber) set-status 'offline)
            (update-contact-status friendnumber 'offline)
-           (unless (false? make-noise)
+           (when make-noise
              (play-sound (third sounds) #t))]
           [else
            (send (get-contact-snip friendnumber) set-status 'available)
            (update-contact-status friendnumber 'available)
-           (unless (false? make-noise)
+           (when make-noise
              (play-sound (second sounds) #t))])))
 
 ; needs to be in its own thread, otherwise we'll d/c(?)
@@ -1457,7 +1576,7 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber filenumber filesize filename len userdata)
     (thread
      (λ ()
-       (unless (false? make-noise)
+       (when make-noise
          (play-sound (seventh sounds) #t))
        (let* ([cd (get-contact-data friendnumber)]
               (mbox (message-box "Blight - File Send Request"
