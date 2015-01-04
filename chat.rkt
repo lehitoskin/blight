@@ -460,6 +460,33 @@
                                        [label ""]
                                        [auto-resize #t]))
     
+    #;(define etext%
+      (class text%
+        (super-new)
+        (define/override (on-default-event event)
+          (let ([evt (send event get-event-type)]
+                [editor this]
+                [x-mouse (send event get-x)]
+                [y-mouse (send event get-y)])
+            (cond [(eq? evt 'right-up)
+                   ; open the right-click menu
+                   (let* ([ecanvas (send editor get-canvas)])
+                     
+                     (define popup
+                       (new popup-menu% [title "Right Click Menu"]))
+                     
+                     (define copy-item
+                       (new menu-item%
+                            [label "Copy"]
+                            [parent popup]
+                            [help-string "Copy this selection"]
+                            [callback (λ (l e)
+                                        (send editor copy))]))
+                     
+                     (send ecanvas popup-menu popup x-mouse y-mouse))]
+                  [(eq? evt 'left-down)
+                   (send editor set-position x-mouse y-mouse)])))))
+    
     (define chat-text-receive (new text%
                                    [line-spacing 1.0]
                                    [auto-wrap #t]))

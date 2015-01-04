@@ -32,7 +32,7 @@ In very early pre-alpha stage. All help and testing appreciated.
 
 ## Read Eval Print Loop (REPL) Client
 
-Blight now contains a REPL server built in, which you can access through the repl-client.rkt program.
+Blight now contains a REPL server built in, which you can access through the `repl-client.rkt` program.
 This REPL client will allow you to access the internals of Blight while it is running and you can modify the program on the fly.
 While this does give you a great amount of power, it also requires a great amount of knowledge of the program's internals
 and good amount responsibility in how you use that knowledge. It is always a danger that you could corrupt the data file,
@@ -52,7 +52,7 @@ so be sure to backup your files frequently!
 
 - Email me: [lehi@tosk.in](mailto:lehi@tosk.in)
 
-- Tox me: 802D30E27746AE299FC2796D014C24700140574BFBFBB9397114D7CB82DC25728BA74CC378EF
+- Tox me: `802D30E27746AE299FC2796D014C24700140574BFBFBB9397114D7CB82DC25728BA74CC378EF`
 
 ## License
 

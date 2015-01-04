@@ -65,26 +65,51 @@
                 (repeat
                  (λ () (send editor move-position 'down))
                  (send (send editor get-canvas) wheel-step))))
+        
+        (send km add-function "menu"
+              (λ (editor kev)
+                (let ([evt (send kev get-key-code)])
+                  (printf "kev: ~a; evt: ~a" kev evt)
+                  (cond [(eq? evt 'right-up)
+                         ; open the right-click menu
+                         (let* ([x-mouse (send kev get-x)]
+                                [y-mouse (send kev get-y)]
+                                [ecanvas (send editor get-canvas)]
+                                [top-frame (send ecanvas get-top-level-window)])
+                           
+                           (define popup
+                             (new popup-menu% [title "Right Click Menu"]))
+                           
+                           (define copy-item
+                             (new menu-item%
+                                  [label "Copy"]
+                                  [parent popup]
+                                  [help-string "Copy this selection"]
+                                  [callback (λ (l e)
+                                              (send editor copy))]))
+                           
+                           (send top-frame popup-menu popup x-mouse (+ y-mouse 100)))]))))
         km))
 
 (define (set-default-messages-bindings km)
-      (send km map-function ":c:c" "copy")
-      (send km map-function ":c:с" "copy") ;; russian cyrillic
-      
-      (send km map-function ":c:a" "select-all")
-      (send km map-function ":c:ф" "select-all") ;; russian cyrillic
-      
-      (send km map-function ":left" "backward-char")
-      (send km map-function ":right" "forward-char")
-      (send km map-function ":c:left" "backward-word")
-      (send km map-function ":c:right" "forward-word")
-      (send km map-function ":up" "previous-line")
-      (send km map-function ":down" "next-line")
-      (send km map-function ":home" "beginning-of-buffer")
-      (send km map-function ":end" "end-of-buffer")
-      
-      (send km map-function ":wheelup" "wheel-up")
-      (send km map-function ":wheeldown" "wheel-down"))
+  (send km map-function ":c:c" "copy")
+  (send km map-function ":c:с" "copy") ;; russian cyrillic
+  
+  (send km map-function ":c:a" "select-all")
+  (send km map-function ":c:ф" "select-all") ;; russian cyrillic
+  
+  (send km map-function ":left" "backward-char")
+  (send km map-function ":right" "forward-char")
+  (send km map-function ":c:left" "backward-word")
+  (send km map-function ":c:right" "forward-word")
+  (send km map-function ":up" "previous-line")
+  (send km map-function ":down" "next-line")
+  (send km map-function ":home" "beginning-of-buffer")
+  (send km map-function ":end" "end-of-buffer")
+  
+  (send km map-function ":wheelup" "wheel-up")
+  (send km map-function ":wheeldown" "wheel-down")
+  (send km map-function ":rightbuttonseq" "menu"))
 
 ; normal black
 (define color-black (make-object color% "black"))

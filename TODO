@@ -7,6 +7,7 @@ TODO:
 - Allow drag-and-drop for file sending in chat window
 - Fix implications to revert back to black text
 - Bold line sent when user says "your name" at the beginning of the message
+- Encrypted data file
 
 - Links blue, underlined, and clickable
 - Drag link into chat, prettify to title with link
