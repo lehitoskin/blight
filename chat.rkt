@@ -619,7 +619,8 @@
     (define typing-msg (new message%
                             [parent panel]
                             [label ""]
-                            [enabled #f]))
+                            [enabled #f]
+                            [auto-resize #t]))
     
     (define emoji-button (new button%
                               [parent panel]
@@ -784,13 +785,13 @@
         ; split the message if it exceeds TOX_MAX_MESSAGE_LENGTH
         ; otherwise, just send it.
         (define split-message
-          (λ (msg-bytes)
-            (let ([len (bytes-length msg-bytes)])
+          (λ (mbytes)
+            (let ([len (bytes-length mbytes)])
               (cond [(<= len TOX_MAX_MESSAGE_LENGTH)
-                     (do-send msg-bytes)]
+                     (do-send mbytes)]
                     [(> len TOX_MAX_MESSAGE_LENGTH)
-                     (do-send (subbytes msg-bytes 0 TOX_MAX_MESSAGE_LENGTH))
-                     (split-message (subbytes msg-bytes TOX_MAX_MESSAGE_LENGTH))]))))
+                     (do-send (subbytes mbytes 0 TOX_MAX_MESSAGE_LENGTH))
+                     (split-message (subbytes mbytes TOX_MAX_MESSAGE_LENGTH))]))))
         
         (split-message msg-bytes)
         ; add messages to history
@@ -891,6 +892,9 @@
     
     (define/public (is-typing? bool)
       (send typing-msg enable bool))
+    
+    (define/public (get-typing-msg)
+      typing-msg)
     
     (super-new
      [label this-label]

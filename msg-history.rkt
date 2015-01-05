@@ -124,13 +124,6 @@
 ; make this style green, for the greentext
 (void (send green-style set-delta-foreground color-green))
 
-; procedure to imply things
-(define imply
-  (λ (editor msg)
-    (send editor change-style green-style)
-    (send editor insert (string-append msg "\n"))
-    (send editor change-style black-style)))
-
 ; if the current cursor position is not at the end, move there
 (define (save-move-cursor editor)
   (send editor move-position 'end))
@@ -142,16 +135,53 @@
 
     (super-new)
 
-    (define (async-insert message [before-insert void] [after-insert void])
+    #;(define (async-insert message [before-insert void] [after-insert void])
       (queue-callback
-       (lambda () (send editor begin-edit-sequence)
-               (insert message before-insert after-insert)
-               (send editor end-edit-sequence))))
+       (lambda ()
+         (send editor begin-edit-sequence)
+         (insert message before-insert after-insert)
+         (send editor end-edit-sequence))))
+    
+    (define (async-insert tag message [implying? #f] [referral? #f])
+      (queue-callback
+       (λ ()
+         (cond [implying?
+                (send editor begin-edit-sequence)
+                (save-move-cursor editor)
+                (unset-imply-style)
+                (send editor insert tag)
+                (set-imply-style)
+                (send editor insert (string-append message "\n"))
+                (send editor end-edit-sequence)]
+               [(and (not implying?) referral?)
+                (send editor begin-edit-sequence)
+                (save-move-cursor editor)
+                (send editor insert tag)
+                (set-refer-style)
+                (send editor insert (string-append message "\n"))
+                (unset-refer-style)
+                (send editor end-edit-sequence)]
+               [else
+                (send editor begin-edit-sequence)
+                (save-move-cursor editor)
+                (unset-imply-style)
+                (send editor insert tag)
+                (send editor insert (string-append message "\n"))
+                (send editor end-edit-sequence)]))))
 
     (define (set-imply-style)
       (send editor change-style green-style))
 
     (define (unset-imply-style)
+      (send editor change-style black-style))
+    
+    (define (set-refer-style)
+      (send black-style set-delta 'change-bold)
+      (send editor change-style black-style))
+    
+    (define (unset-refer-style)
+      (send black-style set-delta 'change-normal)
+      (send black-style set-delta 'change-size 10)
       (send editor change-style black-style))
 
     (define (insert message [before-insert void] [after-insert void])
@@ -178,11 +208,19 @@
     (define/public (add-recv-action action from time)
       (insert (string-append "** [" time "] " from " " action "\n")))
 
-    (define/public (add-recv-message message from time)
-      (let ([rstr (string-append "[" time "] " from ": " message "\n")])
-        (if (string=? (substring message 0 1) ">")
-            (async-insert rstr set-imply-style unset-imply-style)
-            (async-insert rstr))))
+    (define/public (add-recv-message my-name message from time)
+      (let ([tag (string-append "[" time "] " from ": ")])
+        (cond [(string=? (substring message 0 1) ">")
+               ; implying
+               (async-insert tag message #t)]
+              ; referring
+              [(and (>= (string-length message) (string-length my-name))
+                    (string=? (substring message 0 (string-length my-name))
+                              (string-append my-name)))
+               (async-insert tag message #f #t)]
+              [else
+               ; regular message
+               (async-insert tag message)])))
 
     (define/public (get-msg-type message)
       (if (and (>= (string-length message) 3)
@@ -204,9 +242,23 @@
 
           (set! pfx (string-append "[" time "] Me: ")))
 
-      (if (string=? (substring message 0 1) ">")
+      #;(if (string=? (substring message 0 1) ">")
           (insert (string-append pfx resmsg "\n") set-imply-style unset-imply-style)
           (insert (string-append pfx resmsg "\n")))
+      
+      (cond [(string=? (substring message 0 1) ">")
+             (send editor begin-edit-sequence)
+             (save-move-cursor editor)
+             (unset-imply-style)
+             (send editor insert pfx)
+             (set-imply-style)
+             (send editor insert (string-append resmsg "\n"))
+             (send editor end-edit-sequence)]
+            [else
+             (send editor begin-edit-sequence)
+             (save-move-cursor editor)
+             (unset-imply-style)
+             (send editor insert (string-append pfx resmsg "\n"))
+             (send editor end-edit-sequence)])
 
       msg-type)))
-

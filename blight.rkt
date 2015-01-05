@@ -1505,7 +1505,7 @@ val is a value that corresponds to the value of the key
       
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      (send msg-history add-recv-message message name (get-time))
+      (send msg-history add-recv-message my-name message name (get-time))
       
       ; make a noise
       (when make-noise
@@ -1722,7 +1722,7 @@ val is a value that corresponds to the value of the key
            [len (get-group-peername! mtox groupnumber peernumber name-buf)]
            [name (bytes->string/utf-8 (subbytes name-buf 0 len))]
            [msg-history (send window get-msg-history)])
-      (send msg-history add-recv-message message name (get-time)))))
+      (send msg-history add-recv-message my-name message name (get-time)))))
 
 (define on-group-action
   (λ (mtox groupnumber peernumber action len userdata)
