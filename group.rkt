@@ -427,6 +427,8 @@
         (set-default-editor-bindings editor-keymap)
     (send editor-keymap chain-to-keymap chatframe-keymap #t)
     
+    (define/public (get-tox)
+      this-tox)
 
     (define/public (set-new-label x)
       (send group-frame set-label x)

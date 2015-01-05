@@ -812,6 +812,9 @@
                                 [parent chat-frame]
                                 [range 100])) ; range in percentage
     
+    (define/public (get-tox)
+      this-tox)
+    
     (define/public (set-new-label x)
       (send chat-frame set-label x))
     

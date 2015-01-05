@@ -1355,9 +1355,43 @@ val is a value that corresponds to the value of the key
                           [label "Please enter a(n optional) Group Chat name"]
                           [parent add-group-frame]))
                    
-                   (define add-group-tfield (new text-field%
-                                                 [label "Group Chat name: "]
-                                                 [parent add-group-frame]))
+                   (define add-group-tfield
+                     (new text-field%
+                          [label "Group Chat name: "]
+                          [parent add-group-frame]
+                          [callback (λ (l e)
+                                      (when (eq? (send e get-event-type) 'text-field-enter)
+                                        (let* ([gcount (hash-count cur-groups)]
+                                               [str (send l get-value)]
+                                               [bstr (string->bytes/utf-8 str)]
+                                               [no-name #"Group Chat"])
+                                          ; no group name supplied, go with defaults
+                                          (cond [(string=? str "")
+                                                 (add-new-group
+                                                  (format "Groupchat #~a" gcount))
+                                                 (group-set-title my-tox gcount no-name
+                                                                  (bytes-length no-name))
+                                                 (send l set-value "")
+                                                 (send add-group-frame show #f)]
+                                                ; group name supplied, use that
+                                                [else
+                                                 ; add group with number and name
+                                                 (add-new-group
+                                                  (format "Groupchat #~a" gcount))
+                                                 (define window (contact-data-window
+                                                                 (hash-ref cur-groups gcount)))
+                                                 ; set the group title we chose
+                                                 (group-set-title my-tox
+                                                                  gcount
+                                                                  bstr
+                                                                  (bytes-length bstr))
+                                                 (send window set-new-label
+                                                       (format "Blight - Groupchat #~a: ~a"
+                                                               gcount str))
+                                                 (send (get-group-snip gcount)
+                                                       set-status-msg str)
+                                                 (send l set-value "")
+                                                 (send add-group-frame show #f)]))))]))
                    
                    ; TODO: tick box for audio capabilities
                    
@@ -1370,6 +1404,7 @@ val is a value that corresponds to the value of the key
                           [parent add-group-hpanel]
                           [label "Cancel"]
                           [callback (λ (button event)
+                                      (send add-group-tfield set-value "")
                                       (send add-group-frame show #f))]))
                    
                    (define add-group-ok-button
@@ -1379,27 +1414,31 @@ val is a value that corresponds to the value of the key
                           [callback
                            (λ (button event)
                              ; add the group
-                             (let* ([group-tfield (send add-group-tfield get-value)]
-                                    [byte-tfield (string->bytes/utf-8 group-tfield)]
-                                    [groups-count (hash-count cur-groups)]
+                             (let* ([str (send add-group-tfield get-value)]
+                                    [bstr (string->bytes/utf-8 str)]
+                                    [gcount (hash-count cur-groups)]
                                     [no-name #"Group Chat"])
                                ; no group name supplied, go with defaults
-                               (cond [(string=? group-tfield "")
-                                      (add-new-group (format "Groupchat #~a" groups-count))
-                                      (group-set-title my-tox groups-count no-name
+                               (cond [(string=? str "")
+                                      (add-new-group (format "Groupchat #~a" gcount))
+                                      (group-set-title my-tox gcount no-name
                                                        (bytes-length no-name))
+                                      (send add-group-tfield set-value "")
                                       (send add-group-frame show #f)]
                                      ; group name supplied, use that
                                      [else
                                       ; add group with number and name
-                                      (add-new-group (format "Groupchat #~a" groups-count))
+                                      (add-new-group (format "Groupchat #~a" gcount))
+                                      (define window
+                                        (contact-data-window (hash-ref cur-groups gcount)))
                                       ; set the group title we chose
                                       (group-set-title my-tox
-                                                       groups-count
-                                                       byte-tfield
-                                                       (bytes-length byte-tfield))
-                                      (send (get-group-snip groups-count)
-                                            set-status-msg group-tfield)
+                                                       gcount
+                                                       bstr
+                                                       (bytes-length bstr))
+                                      (send (get-group-snip gcount)
+                                            set-status-msg str)
+                                      (send add-group-tfield set-value "")
                                       (send add-group-frame show #f)])))]))
                    
                    (send add-group-frame show #t))]))

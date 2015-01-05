@@ -1,10 +1,13 @@
 #lang racket/base
 (require racket/gui
+         libtoxcore-racket/functions
          mrlib/aligned-pasteboard
          racket/contract
          "config.rkt"
          (only-in "chat.rkt"
-                  chat-clipboard))
+                  chat-clipboard)
+         (only-in "helpers.rkt"
+                  get-time))
 
 (provide (all-defined-out))
 
@@ -60,6 +63,7 @@
                      ; open the right-click menu
                      (let* ([x-mouse (send kev get-x)]
                             [y-mouse (send kev get-y)]
+                            [sel-cd (get-field contact cur-snp)]
                             [sml (get-field smart-list cur-snp)]
                             [top-frame (send sml get-top-level-window)])
                        ; select right-clicked item
@@ -74,11 +78,105 @@
                               [parent popup]
                               [help-string "Copy Tox ID of selected buddy"]
                               [callback (λ (l e)
-                                          (let ([window (contact-data-window
-                                                         (send sml get-selection-cd))])
+                                          (let ([window (contact-data-window sel-cd)])
                                             (send chat-clipboard set-clipboard-string
                                                   (send window get-key)
                                                   (current-seconds))))]))
+                       
+                       (define change-grp-title
+                         (new menu-item%
+                              [label "Change Group Title"]
+                              [parent popup]
+                              [help-string "Change the title of the selected group"]
+                              [callback
+                               (λ (l e)
+                                 (when (eq? (contact-data-type sel-cd) 'group)
+                                   (let* ([window (contact-data-window sel-cd)]
+                                          [tnum (contact-data-tox-num sel-cd)]
+                                          [dname (contact-data-name sel-cd)]
+                                          [editor (send window get-receive-editor)]
+                                          [gsnip (send sml get-entry-by-key dname)])
+                                     (define title-dialog
+                                       (new dialog%
+                                            [label "Blight - Set Group Title"]
+                                            [height 50]
+                                            [width 400]))
+                                     
+                                     (define title-msg (new message%
+                                                            [parent title-dialog]
+                                                            [label "Change Group Title"]))
+                                     
+                                     (define title-tfield
+                                       (new text-field%
+                                            [parent title-dialog]
+                                            [label #f]
+                                            [callback
+                                             (λ (l e)
+                                               (when (eq? (send e get-event-type)
+                                                          'text-field-enter)
+                                                 (let ([title (send l get-value)]
+                                                       [title-bytes (string->bytes/utf-8
+                                                                     (send l get-value))])
+                                                   (group-set-title
+                                                    (send window get-tox)
+                                                    tnum
+                                                    title-bytes
+                                                    (bytes-length title-bytes))
+                                                   (send editor insert
+                                                         (format "** [~a]: ~a `~a'~n"
+                                                                 (get-time)
+                                                                 "I have set the title to"
+                                                                 title))
+                                                   (send gsnip set-status-msg title)
+                                                   (send window set-new-label
+                                                         (format
+                                                          "Blight - Groupchat #~a: ~a"
+                                                          tnum title)))
+                                                 (send l set-value "")
+                                                 (send title-dialog show #f)))]))
+                                     
+                                     (define title-hpanel
+                                       (new horizontal-panel%
+                                            [parent title-dialog]
+                                            [alignment '(right center)]))
+                                     
+                                     (define title-cancel-button
+                                       (new button%
+                                            [parent title-hpanel]
+                                            [label "Cancel"]
+                                            [callback (λ (button event)
+                                                        (send title-tfield set-value "")
+                                                        (send title-dialog show #f))]))
+                                     
+                                     (define title-ok-button
+                                       (new button%
+                                            [parent title-hpanel]
+                                            [label "OK"]
+                                            [callback (λ (button event)
+                                                        (let* ([title
+                                                                (send title-tfield get-value)]
+                                                               [title-bytes
+                                                                (string->bytes/utf-8 title)])
+                                                          (group-set-title (send window get-tox)
+                                                                           tnum
+                                                                           title-bytes
+                                                                           (bytes-length
+                                                                            title-bytes))
+                                                          (send editor insert
+                                                                (format
+                                                                 "** [~a]: ~a `~a'~n"
+                                                                 (get-time)
+                                                                 "I have set the title to"
+                                                                 title))
+                                                          (send gsnip set-status-msg title)
+                                                          (send window set-new-label
+                                                                (format
+                                                                 "Blight - Groupchat #~a: ~a"
+                                                                 tnum title))
+                                                          (send title-tfield set-value "")
+                                                          (send title-dialog show #f)))]))
+                                     
+                                     (send title-dialog show #t))))]))
                        
                        (define delete-item
                          (new menu-item%
