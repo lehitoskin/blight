@@ -3,6 +3,7 @@
 ; blight.rkt
 ; GUI Tox client written in Racket
 (require libtoxcore-racket ; wrapper
+         ;rsound             ; play/record audio
          "chat.rkt"         ; contains definitions for chat window
          "group.rkt"        ; contains definitions for group window
          "config.rkt"       ; default config file
@@ -46,6 +47,20 @@ if people have a similar problem.")
 ; proxy options
 (define my-opts
   (make-Tox-Options (ipv6?) (udp-disabled?) (proxy-type) (proxy-address) (proxy-port)))
+; av settings
+; defaults copied from astonex:
+; https://github.com/Tox/jToxcore/blob/master/src/im/tox/jtoxcore/ToxCodecSettings.java
+(define my-csettings
+  (let ([type (_ToxAvCallType 'Audio)]
+        [video-bitrate 500] ; in kbits/s
+        [video-width 1280]
+        [video-height 720]
+        [audio-bitrate 64000] ; in bits/s - or 32000
+        [audio-frame-duration 20] ; in ms
+        [audio-sample-rate 48000] ; in Hz
+        [channels 2]) ; 1 for poor connection?
+    (make-ToxAvCSettings type video-bitrate video-width video-height
+                         audio-bitrate audio-frame-duration audio-sample-rate channels)))
 ; instantiate Tox session
 (define my-tox (tox-new my-opts))
 (define my-av (av-new my-tox 1))
@@ -241,10 +256,16 @@ val is a value that corresponds to the value of the key
     (blight-save-data)
     ; disconnect from the database
     (disconnect sqlc)
+    ; end any calls we might have
+    (unless (zero? (get-active-calls my-av))
+      (for ([i (get-active-calls my-av)])
+        (av-hangup my-av i)))
     ; kill tox thread
     (kill-thread tox-loop-thread)
     ; kill REPL thread
     (exit-repl)
+    ; kill av session
+    (av-kill! my-av)
     ; this kills the tox
     (tox-kill! my-tox)
     ; log out sound
@@ -501,7 +522,7 @@ val is a value that corresponds to the value of the key
                            [this-tox my-tox])]
          [friend-number (friend-number my-tox key)]
          [status-msg (friend-status-msg my-tox friend-number)]
-         [cd (contact-data name 'offline status-msg 'buddy chat-window friend-number)]
+         [cd (contact-data name 'offline status-msg 'buddy chat-window friend-number #f)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [contact cd])])
@@ -526,7 +547,7 @@ val is a value that corresponds to the value of the key
                             [this-width 800]
                             [this-tox my-tox]
                             [group-number number])]
-         [cd (contact-data name #f "" 'group group-window number)]
+         [cd (contact-data name #f "" 'group group-window number #f)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [contact cd])])
@@ -541,6 +562,15 @@ val is a value that corresponds to the value of the key
   (let ([number (count-chatlist my-tox)])
     (do-add-group name number)
     (add-groupchat my-tox)))
+
+(define (add-new-av-group name)
+  (let ([number (count-chatlist my-tox)]
+        [av-cb (λ (mtox groupnumber peernumber pcm samples channels sample-rate userdata)
+                 (printf "av-cb: gnum: ~a pnum: ~a pcm: ~a samples: ~a channels: ~a~n"
+                         groupnumber peernumber pcm samples channels)
+                 (printf "av-cb: srate: ~a userdata: ~a~n~n" sample-rate userdata))])
+    (do-add-group name number)
+    (add-av-groupchat my-tox av-cb)))
 
 (define (initial-fill-sml)
   (define an-id 1)
@@ -1367,8 +1397,11 @@ val is a value that corresponds to the value of the key
                                                [no-name #"Group Chat"])
                                           ; no group name supplied, go with defaults
                                           (cond [(string=? str "")
-                                                 (add-new-group
-                                                  (format "Groupchat #~a" gcount))
+                                                 (if (send add-group-av-check get-value)
+                                                     (add-new-av-group
+                                                      (format "Groupchat #~a" gcount))
+                                                     (add-new-group
+                                                      (format "Groupchat #~a" gcount)))
                                                  (group-set-title my-tox gcount no-name
                                                                   (bytes-length no-name))
                                                  (send l set-value "")
@@ -1376,8 +1409,11 @@ val is a value that corresponds to the value of the key
                                                 ; group name supplied, use that
                                                 [else
                                                  ; add group with number and name
-                                                 (add-new-group
-                                                  (format "Groupchat #~a" gcount))
+                                                 (if (send add-group-av-check get-value)
+                                                     (add-new-av-group
+                                                      (format "Groupchat #~a" gcount))
+                                                     (add-new-group
+                                                      (format "Groupchat #~a" gcount)))
                                                  (define window (contact-data-window
                                                                  (hash-ref cur-groups gcount)))
                                                  ; set the group title we chose
@@ -1392,6 +1428,12 @@ val is a value that corresponds to the value of the key
                                                        set-status-msg str)
                                                  (send l set-value "")
                                                  (send add-group-frame show #f)]))))]))
+                   
+                   (define add-group-av-check
+                     (new check-box%
+                          [parent add-group-frame]
+                          [label "Enable Audio"]
+                          [value #f]))
                    
                    ; TODO: tick box for audio capabilities
                    
@@ -1420,7 +1462,9 @@ val is a value that corresponds to the value of the key
                                     [no-name #"Group Chat"])
                                ; no group name supplied, go with defaults
                                (cond [(string=? str "")
-                                      (add-new-group (format "Groupchat #~a" gcount))
+                                      (if (send add-group-av-check get-value)
+                                          (add-new-av-group (format "Groupchat #~a" gcount))
+                                          (add-new-group (format "Groupchat #~a" gcount)))
                                       (group-set-title my-tox gcount no-name
                                                        (bytes-length no-name))
                                       (send add-group-tfield set-value "")
@@ -1428,7 +1472,9 @@ val is a value that corresponds to the value of the key
                                      ; group name supplied, use that
                                      [else
                                       ; add group with number and name
-                                      (add-new-group (format "Groupchat #~a" gcount))
+                                      (if (send add-group-av-check get-value)
+                                          (add-new-av-group (format "Groupchat #~a" gcount))
+                                          (add-new-group (format "Groupchat #~a" gcount)))
                                       (define window
                                         (contact-data-window (hash-ref cur-groups gcount)))
                                       ; set the group title we chose
@@ -1733,11 +1779,15 @@ val is a value that corresponds to the value of the key
                                 #f
                                 (list 'ok-cancel 'caution))])
         (when (eq? mbox 'ok)
+          #;(define join-av-cb
+            (λ (avtox grpnum peernum pcm samples channels sample-rate userdata)
+              (printf "join-av-cb: ~a ~a ~a ~a ~a ~a~n"
+                      grpnum peernum pcm samples channels sample-rate)))
           (define grp-number
             (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
                    (join-groupchat mtox friendnumber data len)]
                   [(= type (_TOX_GROUPCHAT_TYPE 'AV))
-                   (join-av-groupchat mtox friendnumber data len
+                   (join-av-groupchat mtox friendnumber data len ;join-av-cb
                                       (λ (avtox grpnum peernum pcm
                                                 samples channels sample-rate
                                                 userdata)
@@ -1816,7 +1866,7 @@ val is a value that corresponds to the value of the key
     ; if the img-format is 'NONE or the image hash isn't the right size,
     ; ignore the whole thing and do nothing
     (unless (and (= (_TOX_AVATAR_FORMAT 'NONE) img-format)
-                 (not (= (bytes-length img-hash) TOX_HASH_LENGTH)))
+                 (< (bytes-length img-hash) TOX_HASH_LENGTH))
       (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
              [friend-id (send window get-key)]
              [hash-file (build-path
@@ -1874,7 +1924,85 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber typing? userdata)
     (let ([window (contact-data-window (hash-ref cur-buddies friendnumber))])
       (send window is-typing? typing?))))
+
+; we are receiving a call, phone is ringing
+(define on-audio-invite
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-invite)
+    (printf "agent: ~a call-idx: ~a arg: ~a~n"
+            mav call-idx arg)
+    (when make-noise
+      (play-sound (ninth sounds) #t))
+    ;(av-answer my-av call-idx my-csettings)
+    #;(set-contact-data-pstream! (hash-ref cur-buddies call-idx) (make-pstream))))
+
+; we are calling someone, phone is ringing
+(define on-audio-ringing
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-ringing)
+    (printf "agent: ~a call-idx: ~a arg: ~a~n"
+            mav call-idx arg)
+    (when make-noise
+      (play-sound (tenth sounds) #t))))
+
+; call has connected, rtp transmission has started
+(define on-audio-start
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-start)
+    (printf "agent: ~a call-idx: ~a arg: ~a~n"
+            mav call-idx arg)
+    #;(set-contact-data-pstream! (hash-ref cur-buddies call-idx) (make-pstream))))
+
+; the side that initiated the call has canceled the invite
+(define on-audio-cancel
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-cancel)))
+
+; the side that was invited rejected the call
+(define on-audio-reject
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-reject)))
+
+; the call that was active has ended
+(define on-audio-end
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-end)
+    #;(set-contact-data-pstream! (hash-ref cur-buddies call-idx) #f)))
+
+; when the request didn't get a response in time
+(define on-audio-request-timeout
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-request-timeout)))
+
+; peer timed out, stop the call
+(define on-audio-peer-timeout
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-peer-timeout)))
+
+; peer changed csettings. prepare for changed av
+(define on-audio-peer-cschange
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-peer-cschange)))
+
+; csettings change confirmation. once triggered, peer will be ready
+; to receive changed av
+(define on-audio-self-cschange
+  (λ (mav call-idx arg)
+    (displayln 'on-audio-self-cschange)))
+
+; we are receiving audio
+(define on-audio-receive
+  (λ (mav call-idx pcm size data)
+    (displayln 'on-audio-receive)
+    (printf "agent: ~a call-idx: ~a pcm: ~a size: ~a data: ~a~n"
+            mav call-idx pcm size data)))
 #| ################# END CALLBACK PROCEDURE DEFINITIONS ################# |#
+
+#|
+join-av-groupchat: grpnum: 0 peernum: 2
+join-av-groupchat: pcm:  samples: 2880
+channels: 2 sample-rate: 48000
+|#
 
 ; register our callback functions
 (callback-friend-request my-tox on-friend-request)
@@ -1894,6 +2022,17 @@ val is a value that corresponds to the value of the key
 (callback-avatar-info my-tox on-avatar-info)
 (callback-avatar-data my-tox on-avatar-data)
 (callback-typing-change my-tox on-typing-change)
+(callback-callstate my-av on-audio-invite (_ToxAvCallbackID 'Invite))
+(callback-callstate my-av on-audio-ringing (_ToxAvCallbackID 'Ringing))
+(callback-callstate my-av on-audio-start (_ToxAvCallbackID 'Start))
+(callback-callstate my-av on-audio-cancel (_ToxAvCallbackID 'Cancel))
+(callback-callstate my-av on-audio-reject (_ToxAvCallbackID 'Reject))
+(callback-callstate my-av on-audio-end (_ToxAvCallbackID 'End))
+(callback-callstate my-av on-audio-request-timeout (_ToxAvCallbackID 'RequestTimeout))
+(callback-callstate my-av on-audio-peer-timeout (_ToxAvCallbackID 'PeerTimeout))
+(callback-callstate my-av on-audio-peer-cschange (_ToxAvCallbackID 'PeerCSChange))
+(callback-callstate my-av on-audio-self-cschange (_ToxAvCallbackID 'SelfCSChange))
+(callback-audio-recv my-av on-audio-receive)
 
 #| ################# BEGIN REPL SERVER ################# |#
 ; code straight tooken from rwind
@@ -1984,9 +2123,14 @@ val is a value that corresponds to the value of the key
        (call-with-exception-handler
         (lambda (exn)
           (blight-handle-exception exn))
-        (lambda () (tox-do my-tox)))
+        (lambda ()
+          (tox-do my-tox)
+          (toxav-do my-av)))
        
-       (sleep (/ (tox-do-interval my-tox) 1000))
+       (cond [(zero? (get-active-calls my-av))
+              (sleep (/ (tox-do-interval my-tox) 1000))]
+             [else
+              (sleep (/ (+ (tox-do-interval my-tox) (toxav-do-interval my-av)) 1000))])
        (loop)))))
 
 ; start REPL server

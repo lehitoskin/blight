@@ -12,7 +12,7 @@ In very early pre-alpha stage. All help and testing appreciated.
 
 - Precompiled binaries are automatically compiled after a Github commit. Navigate to the blight/bin directory and run blight. Please note that since these builds are taken from the latest git the program's behavior may have unintended side effects.
 
-- [Latest amd64 GNU/Linux](http://jenkins.libtoxcore.so/job/Blight-Debian/lastSuccessfulBuild/artifact/blight-latest-linux-amd64.tar.xz)
+- [Latest amd64 GNU/Linux](https://jenkins.libtoxcore.so/job/Blight-Debian/lastSuccessfulBuild/artifact/blight-latest-linux-amd64.tar.xz)
 
 - [Latest amd64 OSX](https://jenkins.libtoxcore.so/job/Blight-OS_X/lastSuccessfulBuild/artifact/blight-latest-darwin-x86_64.tar.gz)
 

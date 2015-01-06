@@ -1,3 +1,4 @@
+#!/usr/bin/env racket
 #lang racket
 ; repl-client.rkt
 ; code straight tooken from rwind
