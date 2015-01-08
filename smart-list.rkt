@@ -95,8 +95,7 @@
                                    (let* ([window (contact-data-window sel-cd)]
                                           [tnum (contact-data-tox-num sel-cd)]
                                           [dname (contact-data-name sel-cd)]
-                                          [editor (send window get-receive-editor)]
-                                          [gsnip (send sml get-entry-by-key dname)])
+                                          [editor (send window get-receive-editor)])
                                      (define title-dialog
                                        (new dialog%
                                             [label "Blight - Set Group Title"]
@@ -111,6 +110,7 @@
                                        (new text-field%
                                             [parent title-dialog]
                                             [label #f]
+                                            [init-value (send cur-snp get-status-msg)]
                                             [callback
                                              (λ (l e)
                                                (when (eq? (send e get-event-type)
@@ -128,12 +128,13 @@
                                                                  (get-time)
                                                                  "I have set the title to"
                                                                  title))
-                                                   (send gsnip set-status-msg title)
+                                                   (send cur-snp set-status-msg title)
                                                    (send window set-new-label
                                                          (format
                                                           "Blight - Groupchat #~a: ~a"
                                                           tnum title)))
-                                                 (send l set-value "")
+                                                 (send l set-value
+                                                       (send cur-snp get-status-msg))
                                                  (send title-dialog show #f)))]))
                                      
                                      (define title-hpanel
@@ -146,7 +147,8 @@
                                             [parent title-hpanel]
                                             [label "Cancel"]
                                             [callback (λ (button event)
-                                                        (send title-tfield set-value "")
+                                                        (send title-tfield set-value
+                                                              (send cur-snp get-status-msg))
                                                         (send title-dialog show #f))]))
                                      
                                      (define title-ok-button
@@ -169,12 +171,13 @@
                                                                  (get-time)
                                                                  "I have set the title to"
                                                                  title))
-                                                          (send gsnip set-status-msg title)
+                                                          (send cur-snp set-status-msg title)
                                                           (send window set-new-label
                                                                 (format
                                                                  "Blight - Groupchat #~a: ~a"
                                                                  tnum title))
-                                                          (send title-tfield set-value "")
+                                                          (send title-tfield set-value
+                                                                (send cur-snp get-status-msg))
                                                           (send title-dialog show #f)))]))
                                      
                                      (send title-dialog show #t))))]))
@@ -187,6 +190,7 @@
                               [callback (λ (l e)
                                           (send sml call-delete-entry-cb
                                                 (send sml get-selection-cd)))]))
+                       
                        (send top-frame popup-menu popup x-mouse (+ y-mouse 100)))]))))
     km))
 

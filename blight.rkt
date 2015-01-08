@@ -55,10 +55,10 @@ if people have a similar problem.")
         [video-bitrate 500] ; in kbits/s
         [video-width 1280]
         [video-height 720]
-        [audio-bitrate 64000] ; in bits/s - or 32000
+        [audio-bitrate 32000] ; in bits/s - (64000 or 32000)
         [audio-frame-duration 20] ; in ms
         [audio-sample-rate 48000] ; in Hz
-        [channels 2]) ; 1 for poor connection?
+        [channels 1]) ; (2 or 1 for poor connection)
     (make-ToxAvCSettings type video-bitrate video-width video-height
                          audio-bitrate audio-frame-duration audio-sample-rate channels)))
 ; instantiate Tox session
@@ -1226,7 +1226,7 @@ val is a value that corresponds to the value of the key
                              (and (string=? hex-tfield "")
                                   (and (not (string=? nick-tfield ""))
                                        ; make sure we get a response from the DNS
-                                       (not (false? (tox-dns1 nick-tfield domain)))))
+                                       (not (false? (tox-dns3 nick-tfield domain)))))
                              ; the nick field is empty, hex field cannot be empty
                              (and (string=? nick-tfield "")
                                   ; make sure hex field is a proper tox id
@@ -1243,7 +1243,7 @@ val is a value that corresponds to the value of the key
                                   ; we're doing a dns lookup
                                   [(string=? hex-tfield "")
                                    ; obtain the id from the dns query
-                                   (define friend-hex (tox-dns1 nick-tfield domain))
+                                   (define friend-hex (tox-dns3 nick-tfield domain))
                                    ; obtain the byte form of the id
                                    (set! nick-bytes
                                          (hex-string->bytes
@@ -1509,78 +1509,106 @@ val is a value that corresponds to the value of the key
 #| ################# START CALLBACK PROCEDURE DEFINITIONS ################# |#
 ; set all the callback functions
 (define on-friend-request
-  (λ (mtox public-key data len userdata)
+  (λ (mtox key-ptr message len userdata)
+    (define public-key (make-sized-byte-string key-ptr TOX_CLIENT_ID_SIZE))
     ; convert public-key from bytes to string so we can display it
     (define id-hex (bytes->hex-string public-key))
     ; friend request dialog
-    (define friend-request-dialog (new dialog%
-                                       [label "Blight - Friend Request"]
-                                       [style (list 'close-button)]))
+    (define fr-dialog
+      (new dialog%
+           [label "Blight - Friend Request"]
+           [style (list 'close-button)]))
     
     ; friend request text with modified text size
-    (define friend-request-text (new text%
-                                     [line-spacing 1.0]
-                                     [auto-wrap #t]))
-    (send friend-request-text change-style black-style)
+    (define fr-text
+      (new text%
+           [line-spacing 1.0]
+           [auto-wrap #t]))
+    (send fr-text change-style black-style)
     
     ; canvas to print the friend request message
-    (define friend-request-editor-canvas (new editor-canvas%
-                                              [parent friend-request-dialog]
-                                              [min-height 150]
-                                              [min-width 600]
-                                              [vert-margin 10]
-                                              [editor friend-request-text]
-                                              [style (list 'control-border 'no-hscroll
-                                                           'auto-vscroll 'no-focus)]))
+    (define fr-ecanvas
+      (new editor-canvas%
+           [parent fr-dialog]
+           [min-height 150]
+           [min-width 650]
+           [vert-margin 10]
+           [editor fr-text]
+           [style (list 'control-border 'no-hscroll
+                        'auto-vscroll 'no-focus)]))
     
     ; panel to right-align our buttons
-    (define friend-request-panel (new horizontal-panel%
-                                      [parent friend-request-dialog]
-                                      [alignment (list 'right 'center)]))
+    (define fr-hpanel
+      (new horizontal-panel%
+           [parent fr-dialog]
+           [alignment (list 'right 'center)]))
     
-    (define cancel (new button% [parent friend-request-panel]
-                        [label "Cancel"]
-                        [callback (λ (button event)
-                                    ; close and reset the friend request dialog
-                                    (send friend-request-dialog show #f)
-                                    (send friend-request-text clear)
-                                    (send friend-request-text change-style black-style))]))
+    (define fr-cancel-button
+      (new button%
+           [parent fr-hpanel]
+           [label "Cancel"]
+           [callback (λ (button event)
+                       ; close and reset the friend request dialog
+                       (send fr-dialog show #f))]))
     
-    (define ok
-      (new button% [parent friend-request-panel]
+    (define fr-ok-button
+      (new button%
+           [parent fr-hpanel]
            [label "OK"]
            [callback
             (λ (button event)
-              (send friend-request-dialog show #f)
               ; add the friend
-              (add-friend-norequest mtox public-key)
-              (define friendnumber (sub1 (friendlist-length my-tox)))
-              ; save the tox data
-              (blight-save-data)
-              ; play a sound because we accepted
-              (when make-noise
-                (play-sound (sixth sounds) #f))
-              
-              ; append new friend to the list
-              (create-buddy (format-anonymous id-hex) (friend-key my-tox friendnumber))
-              
-              ; update friend list
-              ; add connection status icons to each friend
-              (do ((i 0 (+ i 1)))
-                ((= i (friendlist-length mtox)))
-                (status-checker
-                 i
-                 (get-friend-connection-status mtox i)))
-              ; the invite list needs to be updated for
-              ; the groupchat windows that still exist
-              (unless (zero? (hash-count cur-groups))
-                (update-invite-list)))]))
+              (define friendnumber (add-friend-norequest mtox public-key))
+              (display "Adding friend... ")
+              ; reused code to add friend on success
+              (define (add-friend-success)
+                ; play a sound because we accepted
+                (when make-noise
+                  (play-sound (sixth sounds) #f))
+                (printf "Added friend number ~a~n" friendnumber)
+                ; append new friend to the list
+                (create-buddy (format-anonymous id-hex)
+                              (friend-key my-tox friendnumber))
+                
+                ; update friend list
+                ; add connection status icons to each friend
+                (do ((i 0 (+ i 1)))
+                  ((= i (friendlist-length mtox)))
+                  (status-checker
+                   i
+                   (get-friend-connection-status mtox i)))
+                ; the invite list needs to be updated for
+                ; the groupchat windows that still exist
+                (unless (zero? (hash-count cur-groups))
+                  (update-invite-list))
+                ; save the tox data
+                (blight-save-data))
+              ; catch errors
+              (cond [(= -1 friendnumber)
+                     (display "There was an error accepting the friend request! ")
+                     ; if we've failed, try again 3(?) more times
+                     (let loop ([tries 0])
+                       (cond [(= tries 3)
+                              (displayln "Failed!")
+                              (when make-noise
+                                (play-sound (last sounds) #t))]
+                             [else
+                              (display "Retrying... ")
+                              (tox-do mtox)
+                              (sleep (/ (tox-do-interval mtox) 1000))
+                              (if (= -1 (add-friend-norequest mtox public-key))
+                                  (loop (add1 tries))
+                                  (begin
+                                    (displayln "Success!")
+                                    (add-friend-success)))]))]
+                    [else (add-friend-success)])
+              (send fr-dialog show #f))]))
     
-    (send friend-request-text insert (string-append
-                                      id-hex
-                                      "\nwould like to add you as a friend!\n"
-                                      "Message: " data))
-    (send friend-request-dialog show #t)))
+    (send fr-text insert (string-append
+                          id-hex
+                          "\nwould like to add you as a friend!\n"
+                          "Message: " message))
+    (send fr-dialog show #t)))
 
 (define on-friend-message
   (λ (mtox friendnumber message len userdata)
@@ -1865,8 +1893,8 @@ val is a value that corresponds to the value of the key
   (λ (mtox friendnumber img-format img-hash userdata)
     ; if the img-format is 'NONE or the image hash isn't the right size,
     ; ignore the whole thing and do nothing
-    (unless (and (= (_TOX_AVATAR_FORMAT 'NONE) img-format)
-                 (< (bytes-length img-hash) TOX_HASH_LENGTH))
+    (unless (or (= (_TOX_AVATAR_FORMAT 'NONE) img-format)
+                (< (bytes-length img-hash) TOX_HASH_LENGTH))
       (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
              [friend-id (send window get-key)]
              [hash-file (build-path
