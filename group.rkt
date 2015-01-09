@@ -7,7 +7,11 @@
          "config.rkt"
          "chat.rkt"
          "msg-editor.rkt"
-         "msg-history.rkt")
+         "msg-history.rkt"
+         (only-in pict
+                  bitmap
+                  scale-to-fit
+                  pict->bitmap))
 (provide (all-defined-out))
 
 (define group-window%
@@ -18,6 +22,9 @@
                 this-height
                 this-tox
                 group-number)
+    
+    (define mute-mic? #f)
+    (define mute-speakers? #f)
     
     (set-default-chatframe-bindings chatframe-keymap)
     
@@ -231,7 +238,7 @@
                                 [label "0 Peers   "]
                                 [style (list 'single 'vertical-label)]
                                 [stretchable-width 200]
-                                [choices (list "Me")]
+                                [choices (list "")]
                                 [callback (λ (list-box control-event)
                                             (match (send control-event get-event-type)
                                               ['list-box-dclick
@@ -241,13 +248,40 @@
                                                (send group-text-send insert nick)]
                                               [_ (void)]))]))
     
-    (define panel (new horizontal-panel%
-                       [parent group-frame]
-                       [stretchable-height #f]
-                       [alignment '(right center)]))
+    (define hpanel (new horizontal-panel%
+                        [parent group-frame]
+                        [stretchable-height #f]
+                        [alignment '(right center)]))
+    
+    ; bitmap stuff for the un/mute button
+    (define unmuted-speaker-bitmap (make-object bitmap%
+                                    (sixth icons)
+                                    'png/alpha
+                                    (make-object color% "white")))
+    
+    (define muted-speaker-bitmap (make-object bitmap%
+                                  (last icons)
+                                  'png/alpha
+                                  (make-object color% "white")))
+    
+    (define unmuted-speaker-pict
+      (scale-to-fit (bitmap unmuted-speaker-bitmap) 18 18))
+    
+    (define muted-speaker-pict
+      (scale-to-fit (bitmap muted-speaker-bitmap) 18 18))
+    
+    (define mute-speakers
+      (new button%
+           [parent hpanel]
+           [label (pict->bitmap unmuted-speaker-pict)]
+           [callback (λ (button event)
+                       (set! mute-speakers? (not mute-speakers?))
+                       (if mute-speakers?
+                           (send button set-label (pict->bitmap muted-speaker-pict))
+                           (send button set-label (pict->bitmap unmuted-speaker-pict))))]))
     
     (define emoji-button (new button%
-                              [parent panel]
+                              [parent hpanel]
                               [label "Enter Emoji"]
                               [callback (λ (button event)
                                           (send emoji-dialog show #t))]))
@@ -460,6 +494,12 @@
     
     (define/public (get-list-box)
       group-list-box)
+    
+    (define/public (speakers-muted?)
+      mute-speakers?)
+    
+    (define/public (mic-muted?)
+      mute-mic?)
     
     (super-new
      [label this-label]

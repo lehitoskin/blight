@@ -216,7 +216,7 @@
              (cons 'busy (make-object bitmap% (second icons)))
              (cons 'away (make-object bitmap% (third icons)))
              (cons 'groupchat (make-object bitmap% (fourth icons)))
-             (cons 'available (make-object bitmap% (last icons))))))
+             (cons 'available (make-object bitmap% (fifth icons))))))
     
     (define/public (get-text-font)
       (make-font #:size 12))

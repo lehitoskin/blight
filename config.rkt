@@ -93,7 +93,9 @@
                (build-path icon-dir "busy.png")
                (build-path icon-dir "away.png")
                (build-path icon-dir "groupchat.png")
-               (build-path icon-dir "available.png")))
+               (build-path icon-dir "available.png")
+               (build-path icon-dir "speaker-unmuted.png")
+               (build-path icon-dir "speaker-muted.png")))
 
 (define avatar-dir (build-path tox-path "avatars"))
 

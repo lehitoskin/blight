@@ -3,12 +3,14 @@
 ; blight.rkt
 ; GUI Tox client written in Racket
 (require libtoxcore-racket ; wrapper
-         ;rsound             ; play/record audio
+         rsound             ; play/record audio
+         portaudio
          "chat.rkt"         ; contains definitions for chat window
          "group.rkt"        ; contains definitions for group window
          "config.rkt"       ; default config file
          "helpers.rkt"      ; various useful functions
          ffi/unsafe         ; needed for neat pointer shenanigans
+         ffi/vector         ; needed for make-s16vector
          json               ; for reading and writing to config file
          "history.rkt"      ; access sqlite db for stored history
          "utils.rkt"
@@ -91,11 +93,13 @@ val is a value that corresponds to the value of the key
            [config-port-out (open-output-file ((config-file))
                                               #:mode 'text
                                               #:exists 'truncate/replace)])
+      (display "Saving config... ")
       (json-null 'null)
       (write-json modified-json config-port-out)
       (write-json (json-null) config-port-out)
       (close-input-port new-input-port)
-      (close-output-port config-port-out))))
+      (close-output-port config-port-out)
+      (displayln "Done!"))))
 
 ; same as above, but for multiple saves at a time
 (define-syntax blight-save-config*
@@ -111,11 +115,13 @@ val is a value that corresponds to the value of the key
             (config-port-out (open-output-file ((config-file))
                                                #:mode 'text
                                                #:exists 'truncate/replace)))
+       (display "Saving config... ")
        (json-null 'null)
        (write-json modified-json config-port-out)
        (write-json (json-null) config-port-out)
        (close-input-port new-input-port)
-       (close-output-port config-port-out)))))
+       (close-output-port config-port-out)
+       (displayln "Done!")))))
 
 ; data-file is empty, use default settings
 (cond [(zero? (file-size ((data-file))))
@@ -1807,24 +1813,46 @@ val is a value that corresponds to the value of the key
                                 #f
                                 (list 'ok-cancel 'caution))])
         (when (eq? mbox 'ok)
-          #;(define join-av-cb
-            (λ (avtox grpnum peernum pcm samples channels sample-rate userdata)
-              (printf "join-av-cb: ~a ~a ~a ~a ~a ~a~n"
-                      grpnum peernum pcm samples channels sample-rate)))
+          
+          ; are threads needed?
+          (define join-av-cb
+            (λ (avtox grpnum peernum pcm-ptr samples channels sample-rate userdata)
+              (let ([window (contact-data-window (hash-ref cur-groups grpnum))])
+                (thread
+                 (λ ()
+                   (unless (send window speakers-muted?)
+                     ;(define veclen (* samples channels))
+                     ;(define pcm (make-sized-byte-string pcm-ptr veclen))
+                     ; create an empty list
+                     ;(define lst empty)
+                     ; set the vector with data from pcm
+                     #;(for ([i (in-range (* samples 2))])
+                       (set! lst (append lst (list (ptr-ref pcm-ptr _int16 i)
+                                                   (ptr-ref pcm-ptr _int16 i)))))
+                     ;(s16vector-set! vec (* i channels) (bytes-ref pcm i))
+                     #;(define lst (build-list (* samples channels)
+                                             (λ (i) (ptr-ref pcm-ptr _int16 i))))
+                     (define vec (make-s16vector (* samples 2)))
+                     (for ([i (in-range (/ samples 2))])
+                       (s16vector-set! vec (* i 2) (ptr-ref pcm-ptr _int16 i))
+                       (s16vector-set! vec (add1 (* i 2)) (ptr-ref pcm-ptr _int16 i)))
+                     ; convert the vector to an rsound
+                     ;(define snd (vec->rsound (list->s16vector lst) sample-rate))
+                     (s16vec-play vec 0 samples sample-rate)
+                     ; play the rsound
+                     #;(play snd)))))))
+          
           (define grp-number
             (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
                    (join-groupchat mtox friendnumber data len)]
                   [(= type (_TOX_GROUPCHAT_TYPE 'AV))
-                   (join-av-groupchat mtox friendnumber data len ;join-av-cb
-                                      (λ (avtox grpnum peernum pcm
-                                                samples channels sample-rate
-                                                userdata)
-                                        (void)))]))
+                   (join-av-groupchat mtox friendnumber data len join-av-cb)]))
+          
           (cond [(= grp-number -1)
                  (message-box "Blight - Groupchat Failure"
                               "Failed to add groupchat!"
                               #f
-                              (list 'ok 'caution))]
+                              (list 'ok 'stop))]
                 [else
                  (printf "adding GC: ~a\n" grp-number)
                  (flush-output)
@@ -2022,8 +2050,10 @@ val is a value that corresponds to the value of the key
 (define on-audio-receive
   (λ (mav call-idx pcm size data)
     (displayln 'on-audio-receive)
-    (printf "agent: ~a call-idx: ~a pcm: ~a size: ~a data: ~a~n"
-            mav call-idx pcm size data)))
+    (printf "on-audio-receive: agent: ~a call-idx: ~a pcm: ~a size: ~a data: ~a~n"
+            mav call-idx pcm size data)
+    (define snd (rsound pcm 0 size 48000))
+    (play snd)))
 #| ################# END CALLBACK PROCEDURE DEFINITIONS ################# |#
 
 #|
