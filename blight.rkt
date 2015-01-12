@@ -3,8 +3,7 @@
 ; blight.rkt
 ; GUI Tox client written in Racket
 (require libtoxcore-racket ; wrapper
-         rsound             ; play/record audio
-         libopenal-racket
+         libopenal-racket   ; play audio
          "chat.rkt"         ; contains definitions for chat window
          "group.rkt"        ; contains definitions for group window
          "config.rkt"       ; default config file
@@ -2140,9 +2139,7 @@ val is a value that corresponds to the value of the key
   (λ (mav call-idx pcm size data)
     (displayln 'on-audio-receive)
     (printf "on-audio-receive: agent: ~a call-idx: ~a pcm: ~a size: ~a data: ~a~n"
-            mav call-idx pcm size data)
-    (define snd (rsound pcm 0 size 48000))
-    (play snd)))
+            mav call-idx pcm size data)))
 #| ################# END CALLBACK PROCEDURE DEFINITIONS ################# |#
 
 #|
