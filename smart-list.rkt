@@ -37,7 +37,7 @@
     get-selected set-style-manager get-style-manager))
 
 (struct cs-data (name status-msg) #:mutable)
-(struct contact-data (name status status-msg type window tox-num pstream)
+(struct contact-data (name status status-msg type window tox-num alsources)
   #:transparent #:mutable)
 
 (define smart-snip-style-manager<%>

@@ -776,8 +776,9 @@
             (cond
              ; we're sending an action!
              [(eq? msg-type 'action)
+              ; "/me " -> 4 bytes
               (send-action this-tox friend-num
-                           (subbytes byte-str 4) (bytes-length byte-str))]
+                           (subbytes byte-str 4) (- (bytes-length byte-str) 4))]
              ; we're not doing anything special
              [else (send-message this-tox friend-num byte-str
                                  (bytes-length byte-str))])))
@@ -894,6 +895,11 @@
       fc-receiving-list-box)
     
     (define/public (is-typing? bool)
+      (if bool
+          (send typing-msg set-label
+                (string-append friend-name " is typing..."))
+          (send typing-msg set-label
+                (string-append friend-name " is not typing")))
       (send typing-msg enable bool))
     
     (define/public (get-typing-msg)

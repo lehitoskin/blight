@@ -4,7 +4,7 @@
 ; GUI Tox client written in Racket
 (require libtoxcore-racket ; wrapper
          rsound             ; play/record audio
-         portaudio
+         libopenal-racket
          "chat.rkt"         ; contains definitions for chat window
          "group.rkt"        ; contains definitions for group window
          "config.rkt"       ; default config file
@@ -73,6 +73,10 @@ if people have a similar problem.")
 ; chat entity holding group or contact data
 (define cur-groups (make-hash))
 (define cur-buddies (make-hash))
+
+(define device (open-device #f))
+(define context (create-context device))
+(set-current-context context)
 
 #|
 reusable procedure to save information to <profile>.json
@@ -225,7 +229,6 @@ val is a value that corresponds to the value of the key
   (λ ()
     (display "Saving data... ")
     (cond [(encrypted?)
-           (display "Saving data... ")
            (define size (encrypted-size my-tox))
            (define data-bytes (make-bytes size))
            (define err (encrypted-save! my-tox
@@ -266,10 +269,24 @@ val is a value that corresponds to the value of the key
     (unless (zero? (get-active-calls my-av))
       (for ([i (get-active-calls my-av)])
         (av-hangup my-av i)))
-    ; kill tox thread
+    ; kill tox threads
+    (kill-thread av-loop-thread)
     (kill-thread tox-loop-thread)
     ; kill REPL thread
     (exit-repl)
+    ; clean up AL stuff
+    ; for buddies
+    #;(for ([i (in-range (hash-count cur-buddies))])
+      (let ([alsources (contact-data-alsources (hash-ref cur-buddies i))])
+        (delete-sources! alsources)))
+    ; for groups
+    (for ([i (in-range (hash-count cur-groups))])
+      (let ([alsources (contact-data-alsources (hash-ref cur-groups i))])
+        (unless (false? alsources)
+          (delete-sources! alsources))))
+    (set-current-context #f)
+    (destroy-context! context)
+    (close-device! device)
     ; kill av session
     (av-kill! my-av)
     ; this kills the tox
@@ -317,8 +334,12 @@ val is a value that corresponds to the value of the key
                                    null ; style
                                    '(("PNG" "*.png")))]) ; filters
                (unless (false? path)
-                 (let ([img-data (file->bytes path)]
-                       [my-client-id (substring my-id-hex 0 (* TOX_CLIENT_ID_SIZE 2))])
+                 (let* ([img-data (file->bytes path)]
+                        [my-client-id (substring my-id-hex 0 (* TOX_CLIENT_ID_SIZE 2))]
+                        [avatar-file (build-path avatar-dir
+                                                 (string-append my-client-id ".png"))]
+                        [hash-file (build-path avatar-dir
+                                               (string-append my-client-id ".hash"))])
                    (displayln "Setting avatar...")
                    ; create a temp bitmap
                    (define avatar-bitmap (make-bitmap 40 40))
@@ -336,9 +357,16 @@ val is a value that corresponds to the value of the key
                    ; set the avatar to the new one
                    (set! my-avatar (pict->bitmap avatar-pict-small))
                    ; save the avatar to avatar directory
-                   (copy-file path
-                              (build-path avatar-dir (string-append my-client-id ".png"))
-                              #t)
+                   (copy-file path avatar-file #t)
+                   ; save the hash to the same dir
+                   (let ([hash-port-out (open-output-file hash-file
+                                                        #:mode 'binary
+                                                        #:exists 'truncate/replace)]
+                         [hash-buf (make-bytes TOX_HASH_LENGTH)])
+                     (define len (tox-hash hash-buf img-data (bytes-length img-data)))
+                     (define cropped-hash (subbytes hash-buf 0 len))
+                     (write-bytes cropped-hash hash-port-out)
+                     (close-output-port hash-port-out))
                    ; reset the avatar as this button's label
                    (send button set-label my-avatar)
                    ; broadcast to our friends we've changed our avatar
@@ -546,14 +574,17 @@ val is a value that corresponds to the value of the key
     
     (update-contact-status friend-number 'offline)))
 
-(define (do-add-group name number)
+(define (do-add-group name number type)
   (let* ([group-window (new group-window%
                             [this-label (format "Blight - ~a" name)]
                             [this-height 600]
                             [this-width 800]
                             [this-tox my-tox]
                             [group-number number])]
-         [cd (contact-data name #f "" 'group group-window number #f)]
+         [cd (contact-data name #f "" 'group group-window number
+                           (if (= type (_TOX_GROUPCHAT_TYPE 'AV))
+                               (gen-sources 1)
+                               #f))]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]
                    [contact cd])])
@@ -566,7 +597,7 @@ val is a value that corresponds to the value of the key
     (do-add-group (format "Groupchat #~a" number) number)))|#
 (define (add-new-group name)
   (let ([number (count-chatlist my-tox)])
-    (do-add-group name number)
+    (do-add-group name number (_TOX_GROUPCHAT_TYPE 'TEXT))
     (add-groupchat my-tox)))
 
 (define (add-new-av-group name)
@@ -575,7 +606,7 @@ val is a value that corresponds to the value of the key
                  (printf "av-cb: gnum: ~a pnum: ~a pcm: ~a samples: ~a channels: ~a~n"
                          groupnumber peernumber pcm samples channels)
                  (printf "av-cb: srate: ~a userdata: ~a~n~n" sample-rate userdata))])
-    (do-add-group name number)
+    (do-add-group name number (_TOX_GROUPCHAT_TYPE 'AV))
     (add-av-groupchat my-tox av-cb)))
 
 (define (initial-fill-sml)
@@ -1496,9 +1527,13 @@ val is a value that corresponds to the value of the key
                    (send add-group-frame show #t))]))
 
 (define (do-delete-group! grp-number)
-  (del-groupchat! my-tox grp-number)
-  (send sml remove-entry (get-group-snip grp-number))
-  (hash-remove! cur-groups grp-number))
+  (let* ([grp (hash-ref cur-groups grp-number)]
+         [sources (contact-data-alsources grp)])
+    (for-each (λ (i) (stop-source i)) sources)
+    (delete-sources! sources)
+    (del-groupchat! my-tox grp-number)
+    (send sml remove-entry (get-group-snip grp-number))
+    (hash-remove! cur-groups grp-number)))
 
 (define del-group-button
   (new button%
@@ -1515,8 +1550,8 @@ val is a value that corresponds to the value of the key
 #| ################# START CALLBACK PROCEDURE DEFINITIONS ################# |#
 ; set all the callback functions
 (define on-friend-request
-  (λ (mtox key-ptr message len userdata)
-    (define public-key (make-sized-byte-string key-ptr TOX_CLIENT_ID_SIZE))
+  (λ (mtox public-key message len userdata)
+    ;(define public-key (make-sized-byte-string key-ptr TOX_CLIENT_ID_SIZE))
     ; convert public-key from bytes to string so we can display it
     (define id-hex (bytes->hex-string public-key))
     ; friend request dialog
@@ -1804,61 +1839,108 @@ val is a value that corresponds to the value of the key
                                              (/ (rt-ref-received filenumber)
                                                 len)) 100)))))))
 
+; cannot be threaded, group adding will fail if threaded
 (define on-group-invite
   (λ (mtox friendnumber type data len userdata)
-      (let* ([friendname (get-contact-name friendnumber)]
-             [mbox (message-box "Blight - Groupchat Invite"
-                                (string-append friendname
-                                               " has invited you to a groupchat!")
-                                #f
-                                (list 'ok-cancel 'caution))])
-        (when (eq? mbox 'ok)
-          
-          ; are threads needed?
-          (define join-av-cb
-            (λ (avtox grpnum peernum pcm-ptr samples channels sample-rate userdata)
-              (let ([window (contact-data-window (hash-ref cur-groups grpnum))])
-                (thread
-                 (λ ()
-                   (unless (send window speakers-muted?)
-                     ;(define veclen (* samples channels))
-                     ;(define pcm (make-sized-byte-string pcm-ptr veclen))
-                     ; create an empty list
-                     ;(define lst empty)
-                     ; set the vector with data from pcm
-                     #;(for ([i (in-range (* samples 2))])
-                       (set! lst (append lst (list (ptr-ref pcm-ptr _int16 i)
-                                                   (ptr-ref pcm-ptr _int16 i)))))
-                     ;(s16vector-set! vec (* i channels) (bytes-ref pcm i))
-                     #;(define lst (build-list (* samples channels)
-                                             (λ (i) (ptr-ref pcm-ptr _int16 i))))
-                     (define vec (make-s16vector (* samples 2)))
-                     (for ([i (in-range (/ samples 2))])
-                       (s16vector-set! vec (* i 2) (ptr-ref pcm-ptr _int16 i))
-                       (s16vector-set! vec (add1 (* i 2)) (ptr-ref pcm-ptr _int16 i)))
-                     ; convert the vector to an rsound
-                     ;(define snd (vec->rsound (list->s16vector lst) sample-rate))
-                     (s16vec-play vec 0 samples sample-rate)
-                     ; play the rsound
-                     #;(play snd)))))))
-          
-          (define grp-number
-            (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
-                   (join-groupchat mtox friendnumber data len)]
-                  [(= type (_TOX_GROUPCHAT_TYPE 'AV))
-                   (join-av-groupchat mtox friendnumber data len join-av-cb)]))
-          
-          (cond [(= grp-number -1)
-                 (message-box "Blight - Groupchat Failure"
-                              "Failed to add groupchat!"
+    (let* ([friendname (get-contact-name friendnumber)]
+           [mbox (message-box "Blight - Groupchat Invite"
+                              (string-append friendname
+                                             " has invited you to a groupchat!")
                               #f
-                              (list 'ok 'stop))]
-                [else
-                 (printf "adding GC: ~a\n" grp-number)
-                 (flush-output)
-                 (do-add-group (format "Groupchat #~a"
-                                       (hash-count cur-groups))
-                               grp-number)])))))
+                              (list 'ok-cancel 'caution))])
+      (when (eq? mbox 'ok)
+        ; cannot have its own thread
+        ; audio.cpp, line 257
+        (define join-av-cb
+          (λ (mtox-cb grpnum peernum pcm samples channels sample-rate userdata)
+            (let ([window (contact-data-window (hash-ref cur-groups grpnum))]
+                  [alsource
+                   (list-ref (contact-data-alsources
+                              (hash-ref cur-groups grpnum)) peernum)])
+                 (unless (send window speakers-muted?)
+                   ;(call/cc
+                   ;(λ (break)
+                   #|(define lst (build-list (* 2 samples channels)
+                                          (λ (i) (ptr-ref data-ptr _int16 i))))
+                  ; convert the vector to an rsound
+                  (define snd (vec->rsound (list->s16vector lst) sample-rate))
+                  ; play the rsound
+                  (play snd)|#
+                   
+                   #|(buffer-data albuf (if (= channels 1)
+                                         AL_FORMAT_MONO16
+                                         AL_FORMAT_STEREO16)
+                               data sample-rate)
+                  (set-source-buffer! alsource albuf)
+                  (play-source alsource)|#
+                   
+                   ; the qtox way
+                   ; threaded processed , queued 
+                   ; unthreaded processed , queued 
+                   #|(define processed (source-buffers-processed alsource))
+                        (define queued (source-buffers-queued alsource))
+                        (define albuf #f)
+                        
+                        (set-source-looping! alsource AL_FALSE)
+                        
+                        (printf "join-av-cb: processed: ~a, queued: ~a "
+                                processed queued)
+                        
+                        (cond [(> processed 0)
+                               (define albufs (make-list processed 0))
+                               ;(define albufs (gen-sources processed))
+                               ;(define albuf-ptr (malloc processed 'atomic))
+                               ;(source-unqueue-buffers!! alsource processed albufs)
+                               (source-unqueue-buffers! alsource albufs)
+                               #;(define albufs (build-list processed
+                                                                 (λ (i)
+                                                                 (ptr-ref albuf-ptr _int i))))
+                               (printf "albufs: ~a " albufs)
+                               (delete-buffers! albufs)
+                               (set! albuf (car (gen-sources 1)))
+                               ;(set! albuf (car (gen-sources 1)))
+                               (printf "albuf: ~a " albuf)]
+                              [(< queued 16)
+                               (set! albuf (car (gen-sources 1)))]
+                              [else
+                               (displayln "Audio: frame dropped.")
+                               (break)])
+                        
+                        (buffer-data albuf
+                                     (if (= channels 1)
+                                         AL_FORMAT_MONO16
+                                         AL_FORMAT_STEREO16)
+                                     data
+                                     sample-rate)
+                        (source-queue-buffers! alsource (list albuf))
+                        (define state (source-source-state alsource))
+                        (printf "state: ~a~n" state)
+                        
+                        (unless (= state AL_PLAYING)
+                          (play-source alsource))|#
+                   
+                   ; the libblight way (outsourced qtox way)
+                   (play-audio-buffer alsource pcm samples channels sample-rate)
+                   
+                   (tox-do mtox-cb)
+                   (sleep (/ (tox-do-interval mtox-cb) 1000))))))
+        
+        (define grp-number
+          (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
+                 (join-groupchat mtox friendnumber data len)]
+                [(= type (_TOX_GROUPCHAT_TYPE 'AV))
+                 (join-av-groupchat mtox friendnumber data len join-av-cb)]))
+        
+        (cond [(= grp-number -1)
+               (message-box "Blight - Groupchat Failure"
+                            "Failed to add groupchat!"
+                            #f
+                            (list 'ok 'stop))]
+              [else
+               (printf "adding GC: ~a\n" grp-number)
+               (flush-output)
+               (do-add-group (format "Groupchat #~a" (hash-count cur-groups))
+                             grp-number (_TOX_GROUPCHAT_TYPE 'AV))])))))
 
 (define on-group-message
   (λ (mtox groupnumber peernumber message len userdata)
@@ -1897,20 +1979,27 @@ val is a value that corresponds to the value of the key
 
 (define on-group-namelist-change
   (λ (mtox groupnumber peernumber change userdata)
-     (let* ([group-window (contact-data-window (hash-ref cur-groups groupnumber))]
-            [lbox (send group-window get-list-box)])
-
+     (let* ([grp (hash-ref cur-groups groupnumber)]
+            [group-window (contact-data-window grp)]
+            [lbox (send group-window get-list-box)]
+            [sources (contact-data-alsources grp)])
        (cond [(= change (_TOX_CHAT_CHANGE_PEER 'ADD))
               (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
               (define len (get-group-peername! mtox groupnumber peernumber name-buf))
               (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
               (send lbox append name)
               (send lbox set-label
-                    (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
+                    (format "~a Peers" (get-group-number-peers mtox groupnumber)))
+              ; add an al source
+              (set-contact-data-alsources! grp (append sources (gen-sources 1)))]
              [(= change (_TOX_CHAT_CHANGE_PEER 'DEL))
               (send lbox delete peernumber)
               (send lbox set-label
-                    (format "~a Peers" (get-group-number-peers mtox groupnumber)))]
+                    (format "~a Peers" (get-group-number-peers mtox groupnumber)))
+              ; delete an al source
+              (let-values ([(h t) (split-at sources peernumber)])
+                (delete-sources! (list (car t)))
+                (set-contact-data-alsources! grp (append h (cdr t))))]
              [(= change (_TOX_CHAT_CHANGE_PEER 'NAME))
               (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
               (define len (get-group-peername! mtox groupnumber peernumber name-buf))
@@ -2179,16 +2268,22 @@ channels: 2 sample-rate: 48000
    (λ ()
      (let loop ()
        (call-with-exception-handler
-        (lambda (exn)
-          (blight-handle-exception exn))
-        (lambda ()
-          (tox-do my-tox)
-          (toxav-do my-av)))
+        (λ (exn) (blight-handle-exception exn))
+        (λ () (tox-do my-tox)))
        
-       (cond [(zero? (get-active-calls my-av))
-              (sleep (/ (tox-do-interval my-tox) 1000))]
-             [else
-              (sleep (/ (+ (tox-do-interval my-tox) (toxav-do-interval my-av)) 1000))])
+       (sleep (/ (tox-do-interval my-tox) 1000))
+       (loop)))))
+
+; tox av loop
+(define av-loop-thread
+  (thread
+   (λ ()
+     (let loop ()
+       (call-with-exception-handler
+        (λ (exn) (blight-handle-exception exn))
+        (λ () (toxav-do my-av)))
+       
+       (sleep (/ (toxav-do-interval my-av) 1000))
        (loop)))))
 
 ; start REPL server

@@ -5,6 +5,7 @@
          "ip.rkt"
          "chat.rkt"
          libtoxcore-racket/dns
+         libtoxcore-racket/blight
          libtoxcore-racket/functions
          racket/bool
          racket/list)
@@ -63,66 +64,45 @@
   (λ (nick domain)
     ; we're sending to toxme.se
     (cond [(string=? domain "toxme.se")
-           (let* ([dns3 (dns3-new toxme-pubkey-bytes)]
-                  [bstr-max-len 256]
-                  [bstr (make-bytes bstr-max-len)]
-                  [request-id (make-bytes 4)])
+           (let* ([dns3 (dns3-new toxme-pubkey-bytes)])
              ; obtain the length of the resultant dns3 string
-             (define bstr-len
-               (dns3-generate-string dns3 bstr bstr-max-len request-id nick
-                                     (string-length nick)))
-             ; if bstr-len is -1 then the procedure failed, return #f
-             (cond [(= -1 bstr-len) #f]
+             (define-values (request-id bstr) (dns3-encrypt dns3 nick))
+             ; if bstr is #f then the procedure failed, return #f
+             (cond [(false? bstr) #f]
                    [else
                     (define query
                       (bytes->string/utf-8
-                       (bytes-append #"_" (subbytes bstr 0 bstr-len) #"._tox.toxme.se")))
+                       (bytes-append #"_" bstr #"._tox.toxme.se")))
                     (define enc-response
                       (string->bytes/utf-8
                        (custom-dns-query nameserver query 11 98)))
-                    #;(define request-id-num
-                      (string->number
-                       (let loop ([lst (bytes->list request-id)])
-                         (cond [(empty? lst) ""]
-                               [else
-                                (string-append
-                                 (number->string (car lst))
-                                 (loop (cdr lst)))]))))
                     (if (false? enc-response)
                         #f
-                        (let ([tox-id (make-bytes TOX_FRIEND_ADDRESS_SIZE)])
-                          (dns3-decrypt-TXT dns3
-                                            tox-id
-                                            enc-response
-                                            (bytes-length enc-response)
-                                            request-id)
+                        (let ([result
+                               (dns3-decrypt dns3 enc-response request-id)])
                           (dns3-kill! dns3)
-                          (bytes->hex-string tox-id)))]))]
+                          (if (false? result)
+                              #f
+                              (bytes->hex-string result))))]))]
           ; we're sending to utox.org
           [(string=? domain "utox.org")
-           (let* ([dns3 (dns3-new utox-pubkey-bytes)]
-                  [bstr-max-len 256]
-                  [bstr (make-bytes bstr-max-len)]
-                  [request-id (make-bytes 4)])
+           (let* ([dns3 (dns3-new utox-pubkey-bytes)])
              ; obtain length of the resultant dns3 string
-             (define bstr-len
-               (dns3-generate-string dns3 bstr bstr-max-len request-id nick
-                                     (string-length nick)))
-             (cond [(= -1 bstr-len) #f]
+             (define-values (request-id bstr) (dns3-encrypt dns3 nick))
+             (cond [(false? bstr) #f]
                    [else
                     (define query
                       (bytes->string/utf-8
-                       (bytes-append #"_" (subbytes bstr 0 bstr-len) #"._tox.utox.org")))
+                       (bytes-append #"_" bstr #"._tox.utox.org")))
                     (define enc-response
                       (string->bytes/utf-8
                        (custom-dns-query nameserver query 11 98)))
                     (if (false? enc-response)
                         #f
-                        (let ([tox-id (make-bytes TOX_FRIEND_ADDRESS_SIZE)])
-                          (dns3-decrypt-TXT dns3
-                                            tox-id
-                                            enc-response
-                                            (bytes-length enc-response)
-                                            request-id)
+                        (let ([result (dns3-decrypt dns3
+                                                    enc-response
+                                                    request-id)])
                           (dns3-kill! dns3)
-                          (bytes->hex-string tox-id)))]))])))
+                          (if (false? result)
+                              #f
+                              (bytes->hex-string result))))]))])))

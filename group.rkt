@@ -433,8 +433,9 @@
              (cond
              ; we're sending an action!
              [(eq? msg-type 'action)
+              ; "/me " -> 4 bytes
               (group-action-send this-tox group-number (subbytes byte-str 4)
-                                      (bytes-length byte-str))]
+                                      (- (bytes-length byte-str) 4))]
              ; we're not doing anything special
              [else (group-message-send this-tox group-number byte-str
                                             (bytes-length byte-str))])))
@@ -466,7 +467,7 @@
 
     (define/public (set-new-label x)
       (send group-frame set-label x)
-      (send group-frame-msg set-label x))
+      (send group-frame-msg set-label (substring x 8)))
     
     (define/override (show x)
       (send group-frame show x))
@@ -500,6 +501,12 @@
     
     (define/public (mic-muted?)
       mute-mic?)
+    
+    (define/public (set-speakers-muted! bool)
+      (set! mute-speakers? bool))
+    
+    (define/public (set-mic-muted! bool)
+      (set! mute-mic? bool))
     
     (super-new
      [label this-label]
