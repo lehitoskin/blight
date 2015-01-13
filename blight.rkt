@@ -9,7 +9,6 @@
          "config.rkt"       ; default config file
          "helpers.rkt"      ; various useful functions
          ffi/unsafe         ; needed for neat pointer shenanigans
-         ffi/vector         ; needed for make-s16vector
          json               ; for reading and writing to config file
          "history.rkt"      ; access sqlite db for stored history
          "utils.rkt"
