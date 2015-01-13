@@ -831,7 +831,7 @@
     (define/public (set-name name)
       (set! friend-name name)
       (send chat-frame-msg set-label name)
-      (send typing-msg set-label (string-append name " is typing... ")))
+      (send typing-msg set-label (string-append name " is not typing ")))
     
     (define/public (get-name)
       friend-name)
@@ -897,9 +897,9 @@
     (define/public (is-typing? bool)
       (if bool
           (send typing-msg set-label
-                (string-append friend-name " is typing..."))
+                (string-append friend-name " is typing... "))
           (send typing-msg set-label
-                (string-append friend-name " is not typing")))
+                (string-append friend-name " is not typing ")))
       (send typing-msg enable bool))
     
     (define/public (get-typing-msg)

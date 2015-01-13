@@ -1,9 +1,9 @@
-#lang racket
+#lang racket/gui
 
 (provide (all-defined-out))
 
-(require racket/gui
-         "helpers.rkt")
+(require json
+         "config.rkt")
 
 
 ;;; TODO: use structure type properties here
@@ -184,3 +184,52 @@
   (write data out)
   (display "  " out)
   (flush-output out))
+
+#|
+reusable procedure to save information to <profile>.json
+
+1. read from <profile>.json to get the most up-to-date info
+2. modify the hash
+3. save the modified hash to <profile>.json
+
+key is a symbol corresponding to the key in the hash
+val is a value that corresponds to the value of the key
+|#
+(define blight-save-config
+  (λ (key val)
+    (let* ([new-input-port (open-input-file ((config-file))
+                                            #:mode 'text)]
+           [json (read-json new-input-port)]
+           [modified-json (hash-set json key val)]
+           [config-port-out (open-output-file ((config-file))
+                                              #:mode 'text
+                                              #:exists 'truncate/replace)])
+      (display "Saving config... ")
+      (json-null 'null)
+      (write-json modified-json config-port-out)
+      (write-json (json-null) config-port-out)
+      (close-input-port new-input-port)
+      (close-output-port config-port-out)
+      (displayln "Done!"))))
+
+; same as above, but for multiple saves at a time
+(define-syntax blight-save-config*
+  (syntax-rules ()
+    ((_ k1 v1 k2 v2 ...)
+     (let* ([new-input-port (open-input-file ((config-file))
+                                             #:mode 'text)]
+            [json (read-json new-input-port)]
+            [modified-json (hash-set* json
+                                      k1 v1
+                                      k2 v2
+                                      ...)]
+            (config-port-out (open-output-file ((config-file))
+                                               #:mode 'text
+                                               #:exists 'truncate/replace)))
+       (display "Saving config... ")
+       (json-null 'null)
+       (write-json modified-json config-port-out)
+       (write-json (json-null) config-port-out)
+       (close-input-port new-input-port)
+       (close-output-port config-port-out)
+       (displayln "Done!")))))
