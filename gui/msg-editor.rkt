@@ -1,7 +1,7 @@
 #lang racket/gui
 ; msg-editor.rkt
 ; contains common message editor functions and keymaps
-(require "utils.rkt")
+(require "../utils.rkt")
 
 (provide (all-defined-out))
 
@@ -161,10 +161,10 @@
         
         (send km add-function "special-insert-symbol"
               (lambda (editor kev)
-                (let ((key (send kev get-key-code))
-                      (control (send kev get-control-down))
-                      (shift (send kev get-shift-down))
-                      (alt (send kev get-alt-down)))
+                (let ([key (send kev get-key-code)]
+                      [control (send kev get-control-down)]
+                      [shift (send kev get-shift-down)]
+                      [alt (send kev get-alt-down)])
                   (cond
                     [(and (eqv? key #\\) (eq? control #t))
                      (send editor insert "\u03BB")] ; λ

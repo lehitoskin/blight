@@ -1,7 +1,7 @@
 #lang racket
 ; toxdns-test.rkt
 (require rackunit
-         "../toxdns.rkt"
+         "../dns/toxdns.rkt"
          "../helpers.rkt")
 
 (define groupbot-id

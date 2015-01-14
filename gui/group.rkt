@@ -2,9 +2,7 @@
 ; group.rkt
 ; contains group-window definitions
 (require libtoxcore-racket/functions
-         "helpers.rkt"
-         "number-conversions.rkt"
-         "config.rkt"
+         "../config.rkt"
          "chat.rkt"
          "msg-editor.rkt"
          "msg-history.rkt"
@@ -66,7 +64,7 @@
                                  [callback (λ (l e)
                                              (when (eq? (send e get-event-type)
                                                         'list-box-dclick)
-                                               (let ((selection (send l get-selection)))
+                                               (let ([selection (send l get-selection)])
                                                  (invite-friend this-tox selection group-number)
                                                  (send invite-frame show #f))))]))
     
@@ -80,14 +78,11 @@
         (define num-friends (friendlist-length this-tox))
         (unless (zero? num-friends)
           (send invite-list-box clear)
-          (define friend-name-buf (make-bytes TOX_FRIEND_ADDRESS_SIZE))
-          (define friend-key-buf (make-bytes TOX_CLIENT_ID_SIZE))
           ; loop until we get all our friends
           (do ((num 0 (+ num 1)))
             ((= num num-friends))
-            (let* ((friend-name-length (get-name this-tox num friend-name-buf))
-                   (friend-name-text (bytes->string/utf-8
-                                      (subbytes friend-name-buf 0 friend-name-length))))
+            (let* ([friend-name-bytes (get-name this-tox num)]
+                   [friend-name-text (bytes->string/utf-8 friend-name-bytes)])
               ; add to the invite list
               (send invite-list-box append friend-name-text))))))
     (update-invite-list)
@@ -171,7 +166,7 @@
         (define/override (on-char key-event)
 
           (when (not (send editor-keymap handle-key-event this-editor key-event))
-            (let ((key (send key-event get-key-code)))
+            (let ([key (send key-event get-key-code)])
               (when (char? (send key-event get-key-code))
                 (send this-editor insert key)))))
 
@@ -421,24 +416,24 @@
     ; send the message through tox and then add to history
     (define/public do-send-message
       (λ (editor message)
-      ; get message type
-      (define msg-type
-        (send message-history get-msg-type message))
-
-      (define msg-bytes (string->bytes/utf-8 message))      
-         
+        ; get message type
+        (define msg-type
+          (send message-history get-msg-type message))
+        
+        (define mbytes (if (string? message)
+                           (string->bytes/utf-8 message)
+                           message))
+        
         ; procedure to send to the editor and to tox
         (define do-send
           (λ (byte-str)
-             (cond
-             ; we're sending an action!
-             [(eq? msg-type 'action)
-              ; "/me " -> 4 bytes
-              (group-action-send this-tox group-number (subbytes byte-str 4)
-                                      (- (bytes-length byte-str) 4))]
-             ; we're not doing anything special
-             [else (group-message-send this-tox group-number byte-str
-                                            (bytes-length byte-str))])))
+            (cond
+              ; we're sending an action!
+              [(eq? msg-type 'action)
+               ; "/me " -> 4 bytes
+               (group-action-send this-tox group-number (subbytes byte-str 4))]
+              ; we're not doing anything special
+              [else (group-message-send this-tox group-number byte-str)])))
         
         ; split the message if it exceeds TOX_MAX_MESSAGE_LENGTH
         ; otherwise, just send it.
@@ -451,7 +446,7 @@
                      (do-send (subbytes msg-bytes 0 TOX_MAX_MESSAGE_LENGTH))
                      (split-message (subbytes msg-bytes TOX_MAX_MESSAGE_LENGTH))]))))
         
-        (split-message msg-bytes)))
+        (split-message mbytes)))
     
     (send group-text-send change-style black-style)
     

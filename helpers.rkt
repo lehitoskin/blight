@@ -67,10 +67,10 @@
 ; get the current time formatted to HH:MM:SS
 (define get-time
   (λ ()
-    (let* ((timestamp (current-date))
-           (ts-hour (date-hour timestamp))
-           (ts-minute (date-minute timestamp))
-           (ts-second (date-second timestamp)))
+    (let* ([timestamp (current-date)]
+           [ts-hour (date-hour timestamp)]
+           [ts-minute (date-minute timestamp)]
+           [ts-second (date-second timestamp)])
       (define hour (if (< ts-hour 10)
                        (string-append "0" (number->string ts-hour))
                        (number->string ts-hour)))
