@@ -6,7 +6,6 @@
          "../utils.rkt"
          libtoxcore-racket/dns
          libtoxcore-racket/blight
-         libtoxcore-racket/functions
          racket/bool
          racket/list)
 
