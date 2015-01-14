@@ -4,13 +4,12 @@
 (require libtoxcore-racket
          (only-in racket/flonum
                   fl->exact-integer)
-         "helpers.rkt"
-         "number-conversions.rkt"
-         "history.rkt"
-         "config.rkt"
          "msg-editor.rkt"
          "msg-history.rkt"
-         "utils.rkt"
+         "../helpers.rkt"
+         "../history.rkt"
+         "../config.rkt"
+         "../utils.rkt"
          (only-in pict
                   bitmap
                   scale-to-fit
@@ -25,24 +24,6 @@
 (define chat-clipboard-client (new clipboard-client%))
 (define chat-clipboard the-clipboard)
 (send chat-clipboard-client add-type "TEXT")
-
-(define bytes->hex-string
-  (λ (bstr)
-    (define blist (bytes->list bstr))
-    (define stuff (λ (item)
-                    (string->list (string-upcase (dec->hex item)))))
-    (list->string (flatten (map stuff blist)))))
-
-; recursion! whee!
-(define hex-string->bytes
-  (λ (hexstr len)
-    (cond [(zero? len) #""]
-          [else
-           (bytes-append
-            (bytes
-             (hex->dec
-              (substring hexstr 0 2)))
-            (hex-string->bytes (substring hexstr 2) (- len 1)))])))
 
 (define (init-chatframe-keymap)
   (let ([km (new keymap%)])
@@ -87,8 +68,7 @@
     (define friend-key "")
     (define friend-num -1)
     ; obtain our tox id
-    (define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
-    (get-address this-tox my-id-bytes)
+    (define my-id-bytes (get-self-address this-tox))
     (define my-id-hex (bytes->hex-string my-id-bytes))
     (define friend-avatar (make-bitmap 40 40))
     
@@ -134,8 +114,8 @@
             ; send our piece
             ; if there is an error, sleep and then try again.
             (let loop ()
-              (cond [(= -1 (send-file-data this-tox friend-num
-                                           filenumber piece (bytes-length piece)))
+              (cond [(false? (send-file-data this-tox friend-num
+					     filenumber piece))
                      (tox-do this-tox)
                      (sleep (/ (tox-do-interval this-tox) 1000))
                      (loop)]))
@@ -153,8 +133,8 @@
             ; send our piece
             ; if there is an error, sleep and then try again.
             (let loop ()
-              (cond [(= -1 (send-file-data this-tox friend-num
-                                           filenumber piece (bytes-length piece)))
+              (cond [(false? (send-file-data this-tox friend-num
+					     filenumber piece))
                      (tox-do this-tox)
                      (sleep (/ (tox-do-interval this-tox) 1000))
                      (loop)]))
@@ -190,8 +170,8 @@
                                    (* max-size i) (* max-size (+ i 1)))])
               (let loop ()
                 ; if there was an error, try again!
-                (cond [(= -1 (send-file-data this-tox friend-num
-                                             filenumber piece (bytes-length piece)))
+                (cond [(false? (send-file-data this-tox friend-num
+					       filenumber piece))
                        (tox-do this-tox)
                        (sleep (/ (tox-do-interval this-tox) 1000))
                        (loop)]))
@@ -206,8 +186,8 @@
                                    (- size (remainder size max-size)) size)])
               ; if there was an error, try again
               (let loop ()
-                (cond [(= -1 (send-file-data this-tox friend-num
-                                             filenumber piece (bytes-length piece)))
+                (cond [(false? (send-file-data this-tox friend-num
+					       filenumber piece))
                        (tox-do this-tox)
                        (sleep (/ (tox-do-interval this-tox) 1000))
                        (loop)]))
@@ -547,11 +527,11 @@
                     (eq? key #\rubout)
                     (eq? key #\return))
                 (begin
-                  (set-user-is-typing this-tox friend-num #f)
+                  (set-user-is-typing! this-tox friend-num #f)
                   (send editor-keymap handle-key-event this-editor key-event))
                 (when (not (send editor-keymap handle-key-event this-editor key-event))
                   (send this-editor insert key)
-                  (set-user-is-typing this-tox friend-num #t)))))
+                  (set-user-is-typing! this-tox friend-num #t)))))
 
         (super-new
          [parent this-parent]
@@ -777,11 +757,9 @@
              ; we're sending an action!
              [(eq? msg-type 'action)
               ; "/me " -> 4 bytes
-              (send-action this-tox friend-num
-                           (subbytes byte-str 4) (- (bytes-length byte-str) 4))]
+              (send-action this-tox friend-num (subbytes byte-str 4))]
              ; we're not doing anything special
-             [else (send-message this-tox friend-num byte-str
-                                 (bytes-length byte-str))])))
+             [else (send-message this-tox friend-num byte-str)])))
         
         ; split the message if it exceeds TOX_MAX_MESSAGE_LENGTH
         ; otherwise, just send it.

@@ -13,4 +13,4 @@
 
 (define device (open-device #f))
 (define context (create-context device))
-(set-current-context context)
+(void (set-current-context context))

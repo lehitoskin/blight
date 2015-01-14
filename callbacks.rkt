@@ -4,24 +4,24 @@
          ffi/unsafe
          "audio.rkt"
          "blight.rkt"
-         "chat.rkt"
          "config.rkt"
          "helpers.rkt"
          "history.rkt"
-         "msg-history.rkt"
-         "smart-list.rkt"
          "tox.rkt"
          "utils.rkt"
+         "gui/chat.rkt"
          "gui/frame.rkt"
-         "gui/friend-list.rkt")
+         "gui/friend-list.rkt"
+         "gui/msg-history.rkt"
+         "gui/smart-list.rkt")
 
 (provide on-status-type-change)
 
 #| ################# START CALLBACK PROCEDURE DEFINITIONS ################# |#
 ; set all the callback functions
 (define on-friend-request
-  (λ (mtox public-key message len userdata)
-    ;(define public-key (make-sized-byte-string key-ptr TOX_CLIENT_ID_SIZE))
+  (λ (mtox key-ptr message len userdata)
+    (define public-key (make-sized-byte-string key-ptr TOX_CLIENT_ID_SIZE))
     ; convert public-key from bytes to string so we can display it
     (define id-hex (bytes->hex-string public-key))
     ; friend request dialog
@@ -95,7 +95,7 @@
                 ; save the tox data
                 (blight-save-data))
               ; catch errors
-              (cond [(= -1 friendnumber)
+              (cond [(false? friendnumber)
                      (display "There was an error accepting the friend request! ")
                      ; if we've failed, try again 3(?) more times
                      (let loop ([tries 0])
@@ -107,7 +107,7 @@
                               (display "Retrying... ")
                               (tox-do mtox)
                               (sleep (/ (tox-do-interval mtox) 1000))
-                              (if (= -1 (add-friend-norequest mtox public-key))
+                              (if (false? (add-friend-norequest mtox public-key))
                                   (loop (add1 tries))
                                   (begin
                                     (displayln "Success!")
@@ -401,7 +401,7 @@
                 [(= type (_TOX_GROUPCHAT_TYPE 'AV))
                  (join-av-groupchat mtox friendnumber data len join-av-cb)]))
         
-        (cond [(= grp-number -1)
+        (cond [(false? grp-number)
                (message-box "Blight - Groupchat Failure"
                             "Failed to add groupchat!"
                             #f
@@ -415,19 +415,17 @@
 (define on-group-message
   (λ (mtox groupnumber peernumber message len userdata)
     (let* ([window (contact-data-window (hash-ref cur-groups groupnumber))]
-           [name-buf (make-bytes TOX_MAX_NAME_LENGTH)]
-           [len (get-group-peername! mtox groupnumber peernumber name-buf)]
-           [name (bytes->string/utf-8 (subbytes name-buf 0 len))]
+           [name-bytes (get-group-peername mtox groupnumber peernumber)]
+           [name (bytes->string/utf-8 name-bytes)]
            [msg-history (send window get-msg-history)])
       (send msg-history add-recv-message my-name message name (get-time)))))
 
 (define on-group-action
   (λ (mtox groupnumber peernumber action len userdata)
     (let* ([window (contact-data-window (hash-ref cur-groups groupnumber))]
-           [name-buf (make-bytes TOX_MAX_NAME_LENGTH)]
-           [len (get-group-peername! mtox groupnumber peernumber name-buf)]
+           [name-bytes (get-group-peername mtox groupnumber peernumber)]
            [msg-history (send window get-msg-history)]
-           [name (bytes->string/utf-8 (subbytes name-buf 0 len))])
+           [name (bytes->string/utf-8 name-bytes)])
       
       (send msg-history add-recv-action action name (get-time)))))
 
@@ -438,9 +436,8 @@
            [gsnip (get-group-snip groupnumber)]
            [newtitle (bytes->string/utf-8 (subbytes title 0 len))])
       (unless (= -1 peernumber)
-        (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
-        (define len (get-group-peername! mtox groupnumber peernumber name-buf))
-        (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+        (define name-bytes (get-group-peername mtox groupnumber peernumber))
+        (define name (bytes->string/utf-8 name-bytes))
         (send editor insert (format "** [~a]: ~a has set the title to `~a'~n"
                                     (get-time) name newtitle)))
       (send gsnip set-status-msg newtitle)
@@ -454,9 +451,8 @@
             [lbox (send group-window get-list-box)]
             [sources (contact-data-alsources grp)])
        (cond [(= change (_TOX_CHAT_CHANGE_PEER 'ADD))
-              (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
-              (define len (get-group-peername! mtox groupnumber peernumber name-buf))
-              (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+              (define name-bytes (get-group-peername mtox groupnumber peernumber))
+              (define name (bytes->string/utf-8 name-bytes))
               (send lbox append name)
               (send lbox set-label
                     (format "~a Peers" (get-group-number-peers mtox groupnumber)))
@@ -471,9 +467,8 @@
                 (delete-sources! (list (car t)))
                 (set-contact-data-alsources! grp (append h (cdr t))))]
              [(= change (_TOX_CHAT_CHANGE_PEER 'NAME))
-              (define name-buf (make-bytes TOX_MAX_NAME_LENGTH))
-              (define len (get-group-peername! mtox groupnumber peernumber name-buf))
-              (define name (bytes->string/utf-8 (subbytes name-buf 0 len)))
+              (define name-bytes (get-group-peername mtox groupnumber peernumber))
+              (define name (bytes->string/utf-8 name-bytes))
               (send lbox set-string peernumber name)]))))
 
 (define on-avatar-info

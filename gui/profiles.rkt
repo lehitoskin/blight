@@ -6,7 +6,6 @@
 
 (provide (all-defined-out))
 
-#| #################### PROFILE STUFF #################### |#
 (define profiles-box (new dialog%
                           [label "Blight - Manage Profiles"]
                           [style (list 'close-button)]
@@ -94,4 +93,3 @@
                    (blight-save-config 'profile-last
                                        (send profiles-choice get-string-selection))
                    (send profiles-box show #f))]))
-#| #################### END PROFILE STUFF #################### |#

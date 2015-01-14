@@ -3,7 +3,6 @@
 ; contains the tox instances and threads
 (require libtoxcore-racket
          "config.rkt"
-         "chat.rkt"
          "utils.rkt")
 
 (provide (all-defined-out)
@@ -38,9 +37,9 @@
 ; if data-file is empty, use default settings
 (cond [(zero? (file-size ((data-file))))
        ; set username
-       (set-name my-tox my-name)
+       (set-name! my-tox my-name)
        ; set status message
-       (set-status-message my-tox my-status-message)]
+       (set-status-message! my-tox my-status-message)]
       ; data-file is not empty, load from encrypted data-file
       [(and (not (zero? (file-size ((data-file)))))
             (data-encrypted? (file->bytes ((data-file)) #:mode 'binary)))
@@ -85,18 +84,17 @@
       ; data-file is not empty, load from data-file
       [(nor (zero? (file-size ((data-file))))
             (data-encrypted? (file->bytes ((data-file)) #:mode 'binary)))
-       (define size (file-size ((data-file))))
        (define my-bytes (file->bytes ((data-file)) #:mode 'binary))
        (display "Loading from data file... ")
-       (let ([result (tox-load my-tox my-bytes size)])
-         (if (zero? result)
-             (displayln "Done!")
+       (let ([result (tox-load my-tox my-bytes)])
+         (if (false? result)
              (begin
                (displayln "Loading failed!")
                (when make-noise
-                 (play-sound (last sounds) #t)))))])
+                 (play-sound (last sounds) #t))
+               (exit))
+	     (displayln "Done!")))])
 
 ; obtain our tox id
-(define my-id-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
-(get-address my-tox my-id-bytes)
+(define my-id-bytes (get-self-address my-tox))
 (define my-id-hex (make-parameter (bytes->hex-string my-id-bytes)))

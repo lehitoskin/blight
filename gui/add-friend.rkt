@@ -4,13 +4,13 @@
          libtoxcore-racket/enums
          "frame.rkt"
          "friend-list.rkt"
+         "smart-list.rkt"
          "../blight.rkt"
          "../config.rkt"
-         "../chat.rkt"
          "../helpers.rkt"
-         "../smart-list.rkt"
          "../tox.rkt"
-         "../toxdns.rkt")
+         "../utils.rkt"
+         "../dns/toxdns.rkt")
 
 (provide (all-defined-out))
 
@@ -103,8 +103,8 @@
        [callback (λ (button event)
                    (let* ([nick-tfield (send add-friend-txt-tfield get-value)]
                           [hex-tfield (send add-friend-hex-tfield get-value)]
-                          [message-bytes (string->bytes/utf-8
-                                          (send add-friend-message-tfield get-value))]
+			  [message-str (send add-friend-message-tfield get-value)]
+                          [message-bytes (string->bytes/utf-8 message-str)]
                           [domain (send dns-domain-choice get-string-selection)])
                      ; add the friend to the friend list
                      (cond [(or
@@ -135,15 +135,16 @@
                                          (hex-string->bytes
                                           friend-hex
                                           TOX_FRIEND_ADDRESS_SIZE))])
-                            (cond [(> (bytes-length message-bytes)
-                                      TOX_MAX_FRIENDREQUEST_LENGTH)
-                                   (set! message-bytes
-                                         (subbytes message-bytes
-                                                   0
-                                                   TOX_MAX_FRIENDREQUEST_LENGTH))])
+			    ; check message for its length
+                            (when (> (bytes-length message-bytes) TOX_MAX_FRIENDREQUEST_LENGTH)
+			      (set! message-bytes
+				(subbytes message-bytes
+					  0
+					  TOX_MAX_FRIENDREQUEST_LENGTH))
+			      (set! message-str (bytes->string/utf-8 message-bytes)))
                             (let ([err (add-friend my-tox
                                                    nick-bytes
-                                                   message-bytes)])
+                                                   message-str)])
                               ; check for all the friend add errors
                               (cond [(= err (_TOX_FAERR 'TOOLONG))
                                      (displayln "ERROR: TOX_FAERR_TOOLONG")

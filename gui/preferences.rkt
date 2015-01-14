@@ -5,13 +5,11 @@
          "frame.rkt"
          "../blight.rkt"
          "../config.rkt"
-         "../chat.rkt"
          "../tox.rkt"
          "../utils.rkt")
 
 (provide (all-defined-out))
 
-#| #################### PREFERENCES STUFF ################### |#
 (define preferences-box (new dialog%
                              [label "Blight - Edit Preferences"]
                              [style (list 'close-button)]
@@ -60,7 +58,7 @@
                                         ; set the new username
                                         (blight-save-config 'my-name-last username)
                                         (send username-frame-message set-label username)
-                                        (set-name my-tox username)
+                                        (set-name! my-tox username)
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
@@ -73,7 +71,7 @@
                      (unless (string=? username "")
                        (blight-save-config 'my-name-last username)
                        (send username-frame-message set-label username)
-                       (set-name my-tox username)
+                       (set-name! my-tox username)
                        (blight-save-data)
                        (send putfield set-value ""))))]))
 
@@ -100,7 +98,7 @@
                                         ; set the new status
                                         (blight-save-config 'my-status-last status)
                                         (send status-frame-message set-label status)
-                                        (set-status-message my-tox status)
+                                        (set-status-message! my-tox status)
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
@@ -114,7 +112,7 @@
                      (unless (string=? status "")
                        (blight-save-config 'my-status-last status)
                        (send status-frame-message set-label status)
-                       (set-status-message my-tox status)
+                       (set-status-message! my-tox status)
                        (blight-save-data)
                        (send pstfield set-value ""))))]))
 
@@ -136,9 +134,8 @@
                        ; save our changes
                        (blight-save-data)
                        ; set new tox id
-                       (get-address my-tox my-id-bytes)
                        (my-id-hex
-                        (bytes->hex-string my-id-bytes)))))]))
+                        (bytes->hex-string (get-self-address my-tox))))))]))
 
 (define make-sounds-button
   (new check-box%
@@ -299,4 +296,3 @@
                             (printf "Invalid port number! Valid range: ~a ~~ ~a~n" 0 port-max)
                             (send proxy-port-tfield set-value
                                   (format "~a ~~ ~a" 0 port-max))])))]))
-#| #################### END PREFERENCES STUFF ################### |#

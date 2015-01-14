@@ -3,7 +3,7 @@
 ; implements querying DNS for tox usernames
 (require "dns.rkt"
          "ip.rkt"
-         "chat.rkt"
+         "../utils.rkt"
          libtoxcore-racket/dns
          libtoxcore-racket/blight
          libtoxcore-racket/functions

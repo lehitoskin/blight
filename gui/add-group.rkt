@@ -4,7 +4,7 @@
 (require libtoxcore-racket/functions
          "frame.rkt"
          "friend-list.rkt"
-         "../smart-list.rkt"
+         "smart-list.rkt"
          "../tox.rkt")
 
 (provide (all-defined-out))
@@ -39,8 +39,7 @@
                                                       (format "Groupchat #~a" gcount))
                                                      (add-new-group
                                                       (format "Groupchat #~a" gcount)))
-                                                 (group-set-title my-tox gcount no-name
-                                                                  (bytes-length no-name))
+                                                 (group-set-title! my-tox gcount no-name)
                                                  (send l set-value "")
                                                  (send add-group-frame show #f)]
                                                 ; group name supplied, use that
@@ -54,10 +53,9 @@
                                                  (define window (contact-data-window
                                                                  (hash-ref cur-groups gcount)))
                                                  ; set the group title we chose
-                                                 (group-set-title my-tox
+                                                 (group-set-title! my-tox
                                                                   gcount
-                                                                  bstr
-                                                                  (bytes-length bstr))
+                                                                  bstr)
                                                  (send window set-new-label
                                                        (format "Blight - Groupchat #~a: ~a"
                                                                gcount str))
@@ -102,8 +100,7 @@
                                       (if (send add-group-av-check get-value)
                                           (add-new-av-group (format "Groupchat #~a" gcount))
                                           (add-new-group (format "Groupchat #~a" gcount)))
-                                      (group-set-title my-tox gcount no-name
-                                                       (bytes-length no-name))
+                                      (group-set-title! my-tox gcount no-name)
                                       (send add-group-tfield set-value "")
                                       (send add-group-frame show #f)]
                                      ; group name supplied, use that
@@ -115,10 +112,9 @@
                                       (define window
                                         (contact-data-window (hash-ref cur-groups gcount)))
                                       ; set the group title we chose
-                                      (group-set-title my-tox
+                                      (group-set-title! my-tox
                                                        gcount
-                                                       bstr
-                                                       (bytes-length bstr))
+                                                       bstr)
                                       (send (get-group-snip gcount)
                                             set-status-msg str)
                                       (send add-group-tfield set-value "")

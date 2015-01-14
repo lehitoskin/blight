@@ -2,7 +2,7 @@
 ; msg-history.rkt
 ; contains common message history functions and keymaps
 
-(require "utils.rkt")
+(require "../utils.rkt")
 (provide (all-defined-out))
 
 (define (init-messages-keymap cw)

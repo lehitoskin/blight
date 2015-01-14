@@ -5,9 +5,9 @@
          "config.rkt"
          "history.rkt"
          "repl.rkt"
-         "smart-list.rkt"
          "tox.rkt"
          "utils.rkt"
+         "gui/smart-list.rkt"
          "gui/frame.rkt")
 
 (provide (all-defined-out))
@@ -46,11 +46,7 @@
                  (when make-noise
                    (play-sound (last sounds) #t))))]
           [else
-           ; necessary for saving the messenger
-           (define size (tox-size my-tox))
-           (define data-bytes (make-bytes size))
-           ; place all tox info into data-bytes
-           (tox-save! my-tox data-bytes)
+           (define data-bytes (tox-save my-tox))
            ; SAVE INFORMATION TO DATA
            (let ([data-port-out (open-output-file ((data-file))
                                                   #:mode 'binary

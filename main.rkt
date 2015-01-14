@@ -11,17 +11,17 @@
          "gui/profiles.rkt"
          "gui/add-friend.rkt"
          "gui/add-group.rkt"
+         "gui/msg-editor.rkt"
+         "gui/msg-history.rkt"
+         "gui/chat.rkt"
+         "gui/group.rkt"
+         "gui/smart-list.rkt"
          "blight.rkt"
          "callbacks.rkt"
-         "chat.rkt"
          "config.rkt"
-         "group.rkt"
          "helpers.rkt"
-         "msg-editor.rkt"
-         "msg-history.rkt"
          "repl.rkt"
-         "smart-list.rkt"
-         "toxdns.rkt"
+         "dns/toxdns.rkt"
          "utils.rkt")
 
 (send frame show #t)

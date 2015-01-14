@@ -4,13 +4,14 @@
 (require libtoxcore-racket
          mrlib/aligned-pasteboard
          "frame.rkt"
+         "chat.rkt"
+         "group.rkt"
+         "smart-list.rkt"
          "../audio.rkt"
          "../blight.rkt"
-         "../chat.rkt"
          "../config.rkt"
-         "../group.rkt"
-         "../smart-list.rkt"
-         "../tox.rkt")
+         "../tox.rkt"
+         "../utils.rkt")
 
 (provide (except-out (all-defined-out)
                      on-status-type-change))
@@ -106,22 +107,18 @@
 
 ;; helper to get friend name as return value
 (define (friend-name tox num)
-  (define buffer (make-bytes TOX_MAX_NAME_LENGTH))
-  (define name-length (get-name tox num buffer))
-  (bytes->string/utf-8 (subbytes buffer 0 name-length)))
+  (define name-bytes (get-name tox num))
+  (bytes->string/utf-8 name-bytes))
 
 ; helper to get friend's status message as a return value
 (define (friend-status-msg tox num)
-  (define len (get-status-message-size tox num))
-  (define buffer (make-bytes len))
-  (get-status-message tox num buffer len)
-  (bytes->string/utf-8 buffer))
+  (define status-msg (get-status-message tox num))
+  (bytes->string/utf-8 status-msg))
 
 ;; helper to get friend key as return value
 (define (friend-key tox num)
-  (define buffer (make-bytes TOX_CLIENT_ID_SIZE))
-  (get-client-id tox num buffer)
-  (bytes->hex-string buffer))
+  (define client-id (get-client-id tox num))
+  (bytes->hex-string client-id))
 
 ;; helper to get friend number without ->bytes conversion
 (define (friend-number tox key)

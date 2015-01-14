@@ -96,10 +96,7 @@ if people have a similar problem.")
                    ; scale the pict to 40x40
                    (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
                    ; set the avatar in tox
-                   (set-avatar my-tox
-                               (_TOX_AVATAR_FORMAT 'PNG)
-                               img-data
-                               (bytes-length img-data))
+                   (set-avatar! my-tox (_TOX_AVATAR_FORMAT 'PNG) img-data)
                    ; set the avatar to the new one
                    (my-avatar (pict->bitmap avatar-pict-small))
                    ; save the avatar to avatar directory
@@ -107,11 +104,9 @@ if people have a similar problem.")
                    ; save the hash to the same dir
                    (let ([hash-port-out (open-output-file hash-file
                                                         #:mode 'binary
-                                                        #:exists 'truncate/replace)]
-                         [hash-buf (make-bytes TOX_HASH_LENGTH)])
-                     (define len (tox-hash hash-buf img-data (bytes-length img-data)))
-                     (define cropped-hash (subbytes hash-buf 0 len))
-                     (write-bytes cropped-hash hash-port-out)
+                                                        #:exists 'truncate/replace)])
+                     (define my-hash (tox-hash img-data))
+                     (write-bytes my-hash hash-port-out)
                      (close-output-port hash-port-out))
                    ; reset the avatar as this button's label
                    (send button set-label (my-avatar))
@@ -148,4 +143,4 @@ if people have a similar problem.")
                   "Busy")]
        [selection (get-self-user-status my-tox)]
        [callback (λ (choice control-event)
-                   (set-user-status my-tox (send choice get-selection)))]))
+                   (set-user-status! my-tox (send choice get-selection)))]))

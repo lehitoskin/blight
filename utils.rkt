@@ -3,7 +3,8 @@
 (provide (all-defined-out))
 
 (require json
-         "config.rkt")
+         "config.rkt"
+         "number-conversions.rkt")
 
 
 ;;; TODO: use structure type properties here
@@ -184,6 +185,24 @@
   (write data out)
   (display "  " out)
   (flush-output out))
+
+(define bytes->hex-string
+  (λ (bstr)
+    (define blist (bytes->list bstr))
+    (define stuff (λ (item)
+                    (string->list (string-upcase (dec->hex item)))))
+    (list->string (flatten (map stuff blist)))))
+
+; recursion! whee!
+(define hex-string->bytes
+  (λ (hexstr len)
+    (cond [(zero? len) #""]
+          [else
+           (bytes-append
+            (bytes
+             (hex->dec
+              (substring hexstr 0 2)))
+            (hex-string->bytes (substring hexstr 2) (- len 1)))])))
 
 #|
 reusable procedure to save information to <profile>.json

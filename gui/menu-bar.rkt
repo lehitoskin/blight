@@ -4,10 +4,9 @@
 (require "frame.rkt"
          "preferences.rkt"
          "profiles.rkt"
+         "chat.rkt"
+         "msg-history.rkt"
          "../blight.rkt"
-         "../config.rkt"
-         "../chat.rkt"
-         "../msg-history.rkt"
          "../tox.rkt")
 
 (provide (all-defined-out))

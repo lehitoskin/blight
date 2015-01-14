@@ -3,10 +3,10 @@
          libtoxcore-racket/functions
          mrlib/aligned-pasteboard
          racket/contract
-         "config.rkt"
+         "../config.rkt"
          (only-in "chat.rkt"
                   chat-clipboard)
-         (only-in "helpers.rkt"
+         (only-in "../helpers.rkt"
                   get-time))
 
 (provide (all-defined-out))
@@ -118,7 +118,7 @@
                                                  (let ([title (send l get-value)]
                                                        [title-bytes (string->bytes/utf-8
                                                                      (send l get-value))])
-                                                   (group-set-title
+                                                   (group-set-title!
                                                     (send window get-tox)
                                                     tnum
                                                     title-bytes
@@ -160,7 +160,7 @@
                                                                 (send title-tfield get-value)]
                                                                [title-bytes
                                                                 (string->bytes/utf-8 title)])
-                                                          (group-set-title (send window get-tox)
+                                                          (group-set-title! (send window get-tox)
                                                                            tnum
                                                                            title-bytes
                                                                            (bytes-length
