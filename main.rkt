@@ -20,7 +20,6 @@
          "callbacks.rkt"
          "config.rkt"
          "helpers.rkt"
-         "repl.rkt"
          "dns/toxdns.rkt"
          "utils.rkt")
 
