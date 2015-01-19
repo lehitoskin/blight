@@ -4,6 +4,7 @@
 ; the file that contains the main tox loops
 (require racket/class
          "tox.rkt"
+         "gui/avatar.rkt"
          "gui/frame.rkt"
          "gui/menu-bar.rkt"
          "gui/friend-list.rkt"

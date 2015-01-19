@@ -35,65 +35,69 @@
 
 ; IMPORTANT! Load data-file before defining my-id-bytes and my-id-hex (obviously...)
 ; if data-file is empty, use default settings
-(cond [(zero? (file-size ((data-file))))
-       ; set username
-       (set-name! my-tox my-name)
-       ; set status message
-       (set-status-message! my-tox my-status-message)]
-      ; data-file is not empty, load from encrypted data-file
-      [(and (not (zero? (file-size ((data-file)))))
-            (data-encrypted? (file->bytes ((data-file)) #:mode 'binary)))
-       ; we've got an encrypted file, we should save it as encrypted
-       (encrypted? #t)
-       ; ask the user what the password is
-       (displayln "Loading encrypted data...")
-       (define loading-callback
-         (λ ()
-           (encryption-pass (send pass-tfield get-value))
-           (let ([err (encrypted-load my-tox
-                                      (file->bytes data-file #:mode 'binary)
-                                      (file-size data-file)
-                                      encryption-pass)])
-             (cond [(zero? err)
-                    (send pass-dialog show #f)
-                    (displayln "Loading successful!")]
-                   [else
-                    (let ([mbox (message-box "Blight - Incorrect Passphrase"
-                                             "Sorry! That was incorrect.")])
-                      (when (eq? mbox 'ok)
-                        (displayln "Incorrect password received, trying again.")))]))))
-       (define pass-dialog (new dialog%
-                                [label "Blight - Enter Passphrase"]
-                                [height 50]
-                                [width 400]
-                                [style (list 'close-button)]))
-       (define pass-tfield
-         (new text-field%
-              [label "Enter Passphrase: "]
-              [parent pass-dialog]
-              [callback (λ (l e)
-                          (when (eq? (send e get-event-type) 'text-field-enter)
-                            (loading-callback)))]))
-       (define pass-ok-button
-         (new button%
-              [label "OK"]
-              [parent pass-dialog]
-              [callback (λ (button event)
-                          (loading-callback))]))
-       (send pass-dialog show #t)]
-      ; data-file is not empty, load from data-file
-      [(nor (zero? (file-size ((data-file))))
-            (data-encrypted? (file->bytes ((data-file)) #:mode 'binary)))
-       (define my-bytes (file->bytes ((data-file)) #:mode 'binary))
-       (display "Loading from data file... ")
-       (let ([result (tox-load my-tox my-bytes)])
-         (if (false? result)
-             (begin
-               (displayln "Loading failed!")
-               (when make-noise
-                 (play-sound (last sounds) #t))
-               (exit))
-	     (displayln "Done!")))])
+(let ([data-bytes (file->bytes ((data-file)) #:mode 'binary)])
+  (debug-prefix "Blight: ")
+  (cond [(zero? (bytes-length data-bytes))
+         ; set username
+         (set-name! my-tox my-name)
+         ; set status message
+         (set-status-message! my-tox my-status-message)]
+        ; data-file is not empty, load from encrypted data-file
+        [(and (not (zero? (bytes-length data-bytes)))
+              (data-encrypted? data-bytes))
+         ; we've got an encrypted file, we should save it as encrypted
+         (encrypted? #t)
+         ; ask the user what the password is
+         (dprint-wait "Loading encrypted data")
+         (define loading-callback
+           (λ ()
+             (encryption-pass (send pass-tfield get-value))
+             (let ([err (encrypted-load my-tox
+                                        data-bytes
+                                        (bytes-length data-bytes)
+                                        (encryption-pass))])
+               (cond [(zero? err)
+                      (send pass-dialog show #f)
+                      (displayln "Loading successful!")]
+                     [else
+                      (let ([mbox (message-box "Blight - Incorrect Passphrase"
+                                               "Sorry! That was incorrect.")])
+                        (when (eq? mbox 'ok)
+                          (displayln "Incorrect password received, trying again.")
+                          (send pass-tfield set-value "")))]))))
+         (define pass-dialog (new dialog%
+                                  [label "Blight - Enter Passphrase"]
+                                  [height 50]
+                                  [width 400]
+                                  [style (list 'close-button)]))
+         (define pass-tfield
+           (new text-field%
+                [label "Enter Passphrase: "]
+                [parent pass-dialog]
+                [style '(password)]
+                [callback (λ (l e)
+                            (when (eq? (send e get-event-type) 'text-field-enter)
+                              (loading-callback)))]))
+         (define pass-ok-button
+           (new button%
+                [label "OK"]
+                [parent pass-dialog]
+                [callback (λ (button event)
+                            (loading-callback))]))
+         (send pass-dialog show #t)]
+        ; data-file is not empty, load from data-file
+        [(nor (zero? (bytes-length data-bytes))
+              (data-encrypted? data-bytes))
+         (define my-bytes data-bytes)
+         (dprint-wait "Loading from data file")
+         (let ([result (tox-load my-tox my-bytes)])
+           (if (false? result)
+               (begin
+                 (displayln "Loading failed!")
+                 (when make-noise
+                   (play-sound (last sounds) #t))
+                 (exit))
+               (displayln "Done!")))]))
 
 ; obtain our tox id
 (define my-id-bytes (get-self-address my-tox))

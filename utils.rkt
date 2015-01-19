@@ -162,7 +162,7 @@
 
 (define debug-prefix (make-parameter ""))
 
-(define blight-tcp-port 7654)
+(define blight-tcp-port 6543)
 
 (define (print-wait msg . args)
   (apply printf msg args)
@@ -170,12 +170,12 @@
   (flush-output))
 
 (define (dprint-wait . args)
-  (display (debug-prefix)))
+  (display (debug-prefix))
+  (apply print-wait args))
 
-(define dprint-ok
-  (λ ()
-    (display (debug-prefix))
-    (displayln "Ok.")))
+(define (dprint-ok)
+  (display (debug-prefix))
+  (displayln "Ok."))
 
 (define (dprintf fmt . args)
   (display (debug-prefix))

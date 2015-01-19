@@ -11,8 +11,9 @@
 
 (provide (all-defined-out))
 
+(debug-prefix "Blight: ")
+(dprint-wait "Connection to DHT")
 ; connect to DHT
-(display "Connecting to network... ")
 (cond [(not (false? (bootstrap-from-address my-tox
                                             dht-address
                                             dht-port
@@ -27,7 +28,8 @@
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
   (λ ()
-    (display "Saving data... ")
+    (debug-prefix "Blight: ")
+    (dprint-wait "Saving data")
     (cond [(encrypted?)
            (define size (encrypted-size my-tox))
            (define data-bytes (make-bytes size))
