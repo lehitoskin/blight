@@ -148,9 +148,7 @@ arg: list of files to copy to tox-path as .tox files
                 ((config-file))
                 ((db-file))])]
    [("-l" "--list") "List available Tox profiles to load."
-                    (for-each (λ (f)
-				 (displayln f))
-                              ((profiles)))
+                    (for-each (λ (f) (displayln f)) ((profiles)))
                     (exit)]
    #:args import-files
    (unless (empty? import-files)
@@ -180,18 +178,16 @@ arg: list of files to copy to tox-path as .tox files
          (copy-file old-config-file new-config-file)
          (displayln "Done!")
          (print "Updating config file... ")
-         ; update json hasheq to contain new variable 'profile-last
          (let* ([config-port-in (open-input-file new-config-file
                                                  #:mode 'text)]
                 [json-info-old (read-json config-port-in)]
                 [json-info-new (hash-set* json-info-old
-                                          'profile-last default-profile
-                                          'ipv6?-last ipv6?-default
-                                          'udp-disabled?-last udp-disabled?-default
-                                          'proxy-type-last proxy-type-default
-                                          'proxy-address-last proxy-address-default
-                                          'proxy-port-last proxy-port-default
-                                          'encrypted?-last encrypted?-default)]
+                                          'ipv6? ipv6?-default
+                                          'udp-disabled? udp-disabled?-default
+                                          'proxy-type proxy-type-default
+                                          'proxy-address proxy-address-default
+                                          'proxy-port proxy-port-default
+                                          'encrypted? encrypted?-default)]
                 [config-port-out (open-output-file new-config-file
                                                    #:mode 'text
                                                    #:exists 'truncate/replace)])
@@ -264,19 +260,18 @@ arg: list of files to copy to tox-path as .tox files
   (hasheq 'dht-address dht-address-default
           'dht-port dht-port-default
           'dht-public-key dht-public-key-default
-          'my-name-last my-name-default
-          'my-status-last my-status-message-default
-          'make-noise-last make-noise-default
-          'profile-last default-profile
-          'ipv6?-last ipv6?-default
-          'udp-disabled?-last udp-disabled?-default
-          'proxy-type-last proxy-type-default
-          'proxy-address-last proxy-address-default
-          'proxy-port-last proxy-port-default
-          'encrypted?-last encrypted?-default))
+          'my-name my-name-default
+          'my-status-message my-status-message-default
+          'make-noise make-noise-default
+          'ipv6? ipv6?-default
+          'udp-disabled? udp-disabled?-default
+          'proxy-type proxy-type-default
+          'proxy-address proxy-address-default
+          'proxy-port proxy-port-default
+          'encrypted? encrypted?-default))
 
 ; <profile>.json is empty, initialize with default values for variables
-(unless (not (zero? (file-size ((config-file)))))
+(when (zero? (file-size ((config-file))))
   (let ([config-port-out (open-output-file ((config-file))
                                            #:mode 'text
                                            #:exists 'truncate/replace)])
@@ -285,13 +280,30 @@ arg: list of files to copy to tox-path as .tox files
     (write-json (json-null) config-port-out)
     (close-output-port config-port-out)))
 
+(define-syntax hash-ref*
+  (syntax-rules ()
+    ((_ mhash k1 k2 ...)
+     (values (make-parameter (hash-ref mhash k1))
+             (make-parameter (hash-ref mhash k2)) ...))))
+
+(define-values
+  (dht-address dht-port dht-public-key my-name my-status-message make-noise
+               ipv6? udp-disabled? proxy-type proxy-address proxy-port encrypted?)
+  (let* ([config-port-in (open-input-file ((config-file)) #:mode 'text)]
+         [json-info (read-json config-port-in)])
+    (close-input-port config-port-in)
+    (hash-ref* json-info 'dht-address 'dht-port 'dht-public-key 'my-name
+               'my-status-message 'make-noise 'ipv6? 'udp-disabled?
+               'proxy-type 'proxy-address 'proxy-port 'encrypted?)))
+
+(define (toggle-noise) (make-noise (not (make-noise))))
+
 ; read from <profile>.json
-(define json-info (let* ([config-port-in
-                          (open-input-file ((config-file))
-                                           #:mode 'text)]
-                         [my-json (read-json config-port-in)])
-                    (close-input-port config-port-in)
-                    my-json))
+#|(define json-info
+  (let* ([config-port-in (open-input-file ((config-file)) #:mode 'text)]
+         [my-json (read-json config-port-in)])
+    (close-input-port config-port-in)
+    my-json))
 ; set variables to values those contained in <profile>.json
 (define dht-address (hash-ref json-info 'dht-address))
 (define dht-port (hash-ref json-info 'dht-port))
@@ -300,6 +312,7 @@ arg: list of files to copy to tox-path as .tox files
 (define my-status-message (hash-ref json-info 'my-status-last))
 (define make-noise (hash-ref json-info 'make-noise-last))
 (define toggle-noise (λ () (set! make-noise (not make-noise))))
+
 (define ipv6? (make-parameter (if (hash-has-key? json-info 'ipv6?-last)
                                   (hash-ref json-info 'ipv6?-last)
                                   ipv6?-default)))
@@ -317,7 +330,7 @@ arg: list of files to copy to tox-path as .tox files
                                        proxy-port-default)))
 (define encrypted? (make-parameter (if (hash-has-key? json-info 'encrypted?-last)
                                        (hash-ref json-info 'encrypted?-last)
-                                       encrypted?-default)))
+                                       encrypted?-default)))|#
 
 ; list of unicode emoticons
 (define emojis (list "😁" "😂" "😃" "😄" "😅" "😇"

@@ -190,13 +190,13 @@ if people have a similar problem.")
 
 (define username-frame-message (new message%
                                     [parent frame-vpanel]
-                                    [label my-name]))
+                                    [label (my-name)]))
 
 (send username-frame-message auto-resize #t)
 
 (define status-frame-message (new message%
                                   [parent frame-vpanel]
-                                  [label my-status-message]))
+                                  [label (my-status-message)]))
 
 (send status-frame-message auto-resize #t)
 

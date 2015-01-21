@@ -56,7 +56,8 @@
                                       ; refuse to set the status if it's empty
                                       (unless (string=? username "")
                                         ; set the new username
-                                        (blight-save-config 'my-name-last username)
+                                        (my-name username)
+                                        (blight-save-config 'my-name username)
                                         (send username-frame-message set-label username)
                                         (set-name! my-tox username)
                                         (blight-save-data)
@@ -69,7 +70,8 @@
                    (let ([username (send putfield get-value)])
                      ; refuse to set the username if it's empty
                      (unless (string=? username "")
-                       (blight-save-config 'my-name-last username)
+                       (my-name username)
+                       (blight-save-config 'my-name username)
                        (send username-frame-message set-label username)
                        (set-name! my-tox username)
                        (blight-save-data)
@@ -96,7 +98,8 @@
                                       ; refuse to set the status if it's empty
                                       (unless (string=? status "")
                                         ; set the new status
-                                        (blight-save-config 'my-status-last status)
+                                        (my-status-message status)
+                                        (blight-save-config 'my-status-message status)
                                         (send status-frame-message set-label status)
                                         (set-status-message! my-tox status)
                                         (blight-save-data)
@@ -110,7 +113,8 @@
                    (let ([status (send pstfield get-value)])
                      ; refuse to set status if it's empty
                      (unless (string=? status "")
-                       (blight-save-config 'my-status-last status)
+                       (my-status-message status)
+                       (blight-save-config 'my-status-message status)
                        (send status-frame-message set-label status)
                        (set-status-message! my-tox status)
                        (blight-save-data)
@@ -141,11 +145,11 @@
   (new check-box%
        [parent pref-panel]
        [label "Make sounds"]
-       [value (not (false? make-noise))]
+       [value (make-noise)]
        [callback (λ (l e)
                    (let ([noise (send l get-value)])
                      (toggle-noise)
-                     (blight-save-config 'make-noise-last noise)))]))
+                     (blight-save-config 'make-noise noise)))]))
 
 (define encrypted-save-button
   (new check-box%
@@ -190,13 +194,13 @@
                                              (send enc-tfield get-value))
                                             (send enc-dialog show #f))]))
                          (encrypted? enc)
-                         (blight-save-config 'encrypted?-last enc)]
+                         (blight-save-config 'encrypted? enc)]
                         [(eq? mbox 'cancel)
                          (send l set-value #f)
                          (encrypted? #f)]))
                 (begin
                   (encrypted? #f)
-                  (blight-save-config 'encrypted?-last enc)))))]))
+                  (blight-save-config 'encrypted? enc)))))]))
 
 ; Close button for preferences dialog box
 (define preferences-close-button
@@ -285,11 +289,11 @@
                      (cond [(and (integer? num) (<= num port-max) (positive? num))
                             (proxy-port num)
                             ; record the new values to the config file
-                            (blight-save-config* 'ipv6?-last (ipv6?)
-                                                 'udp-disabled?-last (udp-disabled?)
-                                                 'proxy-type-last (proxy-type)
-                                                 'proxy-address-last (proxy-address)
-                                                 'proxy-port-last (proxy-port))
+                            (blight-save-config* 'ipv6? (ipv6?)
+                                                 'udp-disabled? (udp-disabled?)
+                                                 'proxy-type (proxy-type)
+                                                 'proxy-address (proxy-address)
+                                                 'proxy-port (proxy-port))
                             ; close the window
                             (send preferences-box show #f)]
                            [else

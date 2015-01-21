@@ -15,13 +15,13 @@
 (dprint-wait "Connection to DHT")
 ; connect to DHT
 (cond [(not (false? (bootstrap-from-address my-tox
-                                            dht-address
-                                            dht-port
-                                            dht-public-key)))
-       (when make-noise
+                                            (dht-address)
+                                            (dht-port)
+                                            (dht-public-key))))
+       (when (make-noise)
          (play-sound (fourth sounds) #t))
        (displayln "Connected!")]
-      [else (when make-noise
+      [else (when (make-noise)
               (play-sound (last sounds) #t))
             (displayln "Connection failed!")])
 
@@ -44,7 +44,7 @@
                  (close-output-port data-port-out))
                (begin
                  (displayln "There was an error saving the encrypted data!")
-                 (when make-noise
+                 (when (make-noise)
                    (play-sound (last sounds) #t))))]
           [else
            (define data-bytes (tox-save my-tox))
@@ -90,7 +90,7 @@
     ; this kills the tox
     (tox-kill! my-tox)
     ; log out sound
-    (when make-noise
+    (when (make-noise)
       (play-sound (fifth sounds) #f))))
 
 #| ################# BEGIN REPL SERVER ################# |#

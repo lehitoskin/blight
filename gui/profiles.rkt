@@ -14,32 +14,25 @@
 
 (define profile-message (new message%
                              [parent profiles-box]
-                             [label "Select a profile:"]))
+                             [label "Select a profile to manage:"]))
 
-(define profile-caveat (new message%
-                            [parent profiles-box]
-                            [label "(Profile will be selected upon program restart.)"]))
+(define profile-caveat
+  (new message%
+       [parent profiles-box]
+       [label "(To use profile, launch program with `-p <profile>' option)"]))
 
 ; choices for available profiles
 (define profiles-choice
-  (let ([profile-last (hash-ref json-info 'profile-last)])
-    (new choice%
-         [parent profiles-box]
-         [label #f]
-         [stretchable-width #t]
-         [choices ((profiles))]))) ; list of available profiles
+  (new choice%
+       [parent profiles-box]
+       [label #f]
+       [stretchable-width #t]
+       [choices ((profiles))])) ; list of available profiles
 
 (define profiles-hpanel
   (new horizontal-panel%
        [parent profiles-box]
        [alignment '(right center)]))
-
-(define profiles-cancel-button
-  (new button%
-       [parent profiles-hpanel]
-       [label "Cancel"]
-       [callback (λ (button event)
-                   (send profiles-box show #f))]))
 
 (define profiles-export-button
   (new button%
@@ -88,8 +81,6 @@
 (define profiles-ok-button
   (new button%
        [parent profiles-hpanel]
-       [label "Select"]
+       [label "OK"]
        [callback (λ (button event)
-                   (blight-save-config 'profile-last
-                                       (send profiles-choice get-string-selection))
                    (send profiles-box show #f))]))

@@ -148,35 +148,35 @@
                               ; check for all the friend add errors
                               (cond [(= err (_TOX_FAERR 'TOOLONG))
                                      (displayln "ERROR: TOX_FAERR_TOOLONG")
-                                     (when make-noise
+                                     (when (make-noise)
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'NOMESSAGE))
                                      (displayln "ERROR: TOX_FAERR_NOMESSAGE")
-                                     (when make-noise
+                                     (when (make-noise)
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'OWNKEY))
                                      (displayln "ERROR: TOX_FAERR_OWNKEY")
-                                     (when make-noise
+                                     (when (make-noise)
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'ALREADYSENT))
                                      (displayln "ERROR: TOX_FAERR_ALREADYSENT")
-                                     (when make-noise
+                                     (when (make-noise)
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'UNKNOWN))
                                      (displayln "ERROR: TOX_FAERR_UNKNOWN")
-                                     (when make-noise
+                                     (when (make-noise)
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'BADCHECKSUM))
                                      (displayln "ERROR: TOX_FAERR_BADCHECKSUM")
-                                     (when make-noise
+                                     (when (make-noise)
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'SETNEWNOSPAM))
                                      (displayln "ERROR: TOX_FAERR_SETNEWNOSPAM")
-                                     (when make-noise
+                                     (when (make-noise)
                                        (play-sound (last sounds) #t))]
                                     [(= err (_TOX_FAERR 'NOMEM))
                                      (displayln "ERROR: TOX_FAERR_NOMEM")
-                                     (when make-noise
+                                     (when (make-noise)
                                        (play-sound (last sounds) #t))]
                                     [else (displayln "All okay!")
                                           ; save the tox data
@@ -203,7 +203,7 @@
                                           (unless (zero? (hash-count cur-groups))
                                             (update-invite-list))]))]
                            ; something went wrong!
-                           [else (when make-noise
+                           [else (when (make-noise)
                                    (play-sound (last sounds) #t))
                                  (let ([mbox (message-box
                                               "Blight - Invalid Tox ID"

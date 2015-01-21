@@ -150,7 +150,7 @@
         (send message-history
               end-send-file path (get-time))
         
-        (unless (false? make-noise)
+        (unless (false? (make-noise))
           (play-sound (eighth sounds) #t))))
     
     (define/public resume-data
@@ -200,7 +200,7 @@
           (data-control filenumber #f 'FINISHED)
           (send message-history
                 end-send-file path (get-time))
-          (unless (false? make-noise)
+          (unless (false? (make-noise))
             (play-sound (eighth sounds) #t)))))
     
     ; create a new top-level window

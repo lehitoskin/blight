@@ -39,9 +39,9 @@
   (debug-prefix "Blight: ")
   (cond [(zero? (bytes-length data-bytes))
          ; set username
-         (set-name! my-tox my-name)
+         (set-name! my-tox (my-name))
          ; set status message
-         (set-status-message! my-tox my-status-message)]
+         (set-status-message! my-tox (my-status-message))]
         ; data-file is not empty, load from encrypted data-file
         [(and (not (zero? (bytes-length data-bytes)))
               (data-encrypted? data-bytes))
@@ -94,7 +94,7 @@
            (if (false? result)
                (begin
                  (displayln "Loading failed!")
-                 (when make-noise
+                 (when (make-noise)
                    (play-sound (last sounds) #t))
                  (exit))
                (displayln "Done!")))]))

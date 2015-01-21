@@ -79,7 +79,7 @@
               ; reused code to add friend on success
               (define (add-friend-success)
                 ; play a sound because we accepted
-                (when make-noise
+                (when (make-noise)
                   (play-sound (sixth sounds) #f))
                 (printf "Added friend number ~a~n" friendnumber)
                 ; append new friend to the list
@@ -106,7 +106,7 @@
                      (let loop ([tries 0])
                        (cond [(= tries 3)
                               (displayln "Failed!")
-                              (when make-noise
+                              (when (make-noise)
                                 (play-sound (last sounds) #t))]
                              [else
                               (display "Retrying... ")
@@ -134,10 +134,10 @@
       
       ; if the window isn't open, force it open
       (cond [(not (send window is-shown?)) (send window show #t)])
-      (send msg-history add-recv-message my-name message name (get-time))
+      (send msg-history add-recv-message (my-name) message name (get-time))
       
       ; make a noise
-      (when make-noise
+      (when (make-noise)
         (play-sound (first sounds) #t))
       ; add message to the history database
       (add-history (my-id-hex) (send window get-key) message 0))))
@@ -153,7 +153,7 @@
       (send msg-history add-recv-action action name (get-time))
       
       ; make a noise
-      (when make-noise
+      (when (make-noise)
         (play-sound (first sounds) #t))
       ; add message to the history database
       (add-history (my-id-hex) (send window get-key) (string-append "ACTION: " action) 0))))
@@ -193,12 +193,12 @@
     (cond [(zero? status)
            (send (get-contact-snip friendnumber) set-status 'offline)
            (update-contact-status friendnumber 'offline)
-           (when make-noise
+           (when (make-noise)
              (play-sound (third sounds) #t))]
           [else
            (send (get-contact-snip friendnumber) set-status 'available)
            (update-contact-status friendnumber 'available)
-           (when make-noise
+           (when (make-noise)
              (play-sound (second sounds) #t))])))
 
 ; needs to be in its own thread, otherwise we'll d/c(?)
@@ -206,7 +206,7 @@
   (λ (mtox friendnumber filenumber filesize filename len userdata)
     (thread
      (λ ()
-       (when make-noise
+       (when (make-noise)
          (play-sound (seventh sounds) #t))
        (let* ([cd (get-contact-data friendnumber)]
               (mbox (message-box "Blight - File Send Request"
@@ -428,7 +428,7 @@
            [name-bytes (get-group-peername mtox groupnumber peernumber)]
            [name (bytes->string/utf-8 name-bytes)]
            [msg-history (send window get-msg-history)])
-      (send msg-history add-recv-message my-name message name (get-time)))))
+      (send msg-history add-recv-message (my-name) message name (get-time)))))
 
 (define on-group-action
   (λ (mtox groupnumber peernumber action len userdata)
@@ -551,7 +551,7 @@
     (displayln 'on-audio-invite)
     (printf "agent: ~a call-idx: ~a arg: ~a~n"
             mav call-idx arg)
-    (when make-noise
+    (when (make-noise)
       (play-sound (ninth sounds) #t))
     ;(av-answer my-av call-idx my-csettings)
     #;(set-contact-data-pstream! (hash-ref cur-buddies call-idx) (make-pstream))))
@@ -562,7 +562,7 @@
     (displayln 'on-audio-ringing)
     (printf "agent: ~a call-idx: ~a arg: ~a~n"
             mav call-idx arg)
-    (when make-noise
+    (when (make-noise)
       (play-sound (tenth sounds) #t))))
 
 ; call has connected, rtp transmission has started
