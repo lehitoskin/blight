@@ -74,9 +74,9 @@
     (exit-repl)
     ; clean up AL stuff
     ; for buddies
-    #;(for ([i (in-range (hash-count cur-buddies))])
-      (let ([alsources (contact-data-alsources (hash-ref cur-buddies i))])
-        (delete-sources! alsources)))
+    (for ([i (in-range (hash-count cur-calls))])
+      (let ([alsource (friend-call-alsource (hash-ref cur-calls i))])
+        (delete-sources! alsource)))
     ; for groups
     (for ([i (in-range (hash-count cur-groups))])
       (let ([alsources (contact-data-alsources (hash-ref cur-groups i))])

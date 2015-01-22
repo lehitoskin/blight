@@ -206,50 +206,52 @@
 
 (define (initial-fill-sml)
   (define an-id 1)
-    (for ([fn (friendlist-length my-tox)])
-      (define name (friend-name my-tox fn))
-
-      (when (string=? name "")
-          (set! name (format "Anonymous #~a" an-id))
-          (set! an-id (add1 an-id)))
-
-      (define key (friend-key my-tox fn))
-
-      (create-buddy name key)))
+  (for ([fn (friendlist-length my-tox)])
+    (define name (friend-name my-tox fn))
+    
+    (when (string=? name "")
+      (set! name (format "Anonymous #~a" an-id))
+      (set! an-id (add1 an-id)))
+    
+    (define key (friend-key my-tox fn))
+    
+    (create-buddy name key)))
 
 (initial-fill-sml)
 
 ; panel for choice and buttons
-(define panel (new horizontal-panel%
-                   [parent frame]
-                   [stretchable-height #f]
-                   [alignment (list 'right 'center)]))
+(define panel
+  (new horizontal-panel%
+       [parent frame]
+       [stretchable-height #f]
+       [alignment (list 'right 'center)]))
 
 ; remove a friend
-(define del-friend-dialog (new dialog%
-                               [label "Blight - Remove a Tox friend"]
-                               [style (list 'close-button)]))
+(define del-friend-dialog
+  (new dialog%
+       [label "Blight - Remove a Tox friend"]
+       [style (list 'close-button)]))
 
 (define (do-delete-friend friend-num)
-                       ; delete from tox friend list
-                       (del-friend! my-tox friend-num)
-                       ; save the blight data
-                       (blight-save-data)
-                       ; remove from list-box
-
-                       (send sml remove-entry (get-contact-snip friend-num))
-                       (hash-remove! cur-buddies friend-num)
-
-                       ; the invite list needs to be updated for
-                       ; the groupchat windows that still exist
-                       (unless (zero? (hash-count cur-groups))
-                         (update-invite-list)))
+  ; delete from tox friend list
+  (del-friend! my-tox friend-num)
+  ; save the blight data
+  (blight-save-data)
+  ; remove from list-box
+  
+  (send sml remove-entry (get-contact-snip friend-num))
+  (hash-remove! cur-buddies friend-num)
+  
+  ; the invite list needs to be updated for
+  ; the groupchat windows that still exist
+  (unless (zero? (hash-count cur-groups))
+    (update-invite-list)))
 
 (define (delete-friend friend-number)
   (let ([mbox (message-box "Blight - Deleting Friend"
-                            "Are you sure you want to delete?"
-                            del-friend-dialog
-                            (list 'ok-cancel))])
+                           "Are you sure you want to delete?"
+                           del-friend-dialog
+                           (list 'ok-cancel))])
     (when (eq? mbox 'ok)
       (do-delete-friend friend-number))))
 

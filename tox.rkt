@@ -13,19 +13,7 @@
   (make-Tox-Options (ipv6?) (udp-disabled?) (proxy-type) (proxy-address) (proxy-port)))
 
 ; av settings
-; defaults copied from astonex:
-; https://github.com/Tox/jToxcore/blob/master/src/im/tox/jtoxcore/ToxCodecSettings.java
-(define my-csettings
-  (let ([type (_ToxAvCallType 'Audio)]
-        [video-bitrate 500] ; in kbits/s
-        [video-width 1280]
-        [video-height 720]
-        [audio-bitrate 32000] ; in bits/s - (64000 or 32000)
-        [audio-frame-duration 20] ; in ms
-        [audio-sample-rate 48000] ; in Hz
-        [channels 1]) ; (2 or 1 for poor connection)
-    (make-ToxAvCSettings type video-bitrate video-width video-height
-                         audio-bitrate audio-frame-duration audio-sample-rate channels)))
+(define my-csettings DefaultCSettings)
 ; instantiate Tox session
 (define my-tox (tox-new my-opts))
 (define my-av (av-new my-tox 1))
@@ -33,7 +21,7 @@
 ; beats asking for the pass every time we save...
 (define encryption-pass (make-parameter ""))
 
-; IMPORTANT! Load data-file before defining my-id-bytes and my-id-hex (obviously...)
+; IMPORTANT! Load data-file before defining my-id-bytes and my-id-hex (obviously!)
 ; if data-file is empty, use default settings
 (let ([data-bytes (file->bytes ((data-file)) #:mode 'binary)])
   (debug-prefix "Blight: ")

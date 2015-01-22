@@ -547,75 +547,96 @@
 
 ; we are receiving a call, phone is ringing
 (define on-audio-invite
-  (λ (mav call-idx arg)
+  (λ (mav call-index arg)
     (displayln 'on-audio-invite)
-    (printf "agent: ~a call-idx: ~a arg: ~a~n"
-            mav call-idx arg)
+    (printf "agent: ~a call-index: ~a arg: ~a~n"
+            mav call-index arg)
     (when (make-noise)
       (play-sound (ninth sounds) #t))
-    ;(av-answer my-av call-idx my-csettings)
-    #;(set-contact-data-pstream! (hash-ref cur-buddies call-idx) (make-pstream))))
+    (av-answer my-av call-index my-csettings)))
 
 ; we are calling someone, phone is ringing
 (define on-audio-ringing
-  (λ (mav call-idx arg)
+  (λ (mav call-index arg)
     (displayln 'on-audio-ringing)
-    (printf "agent: ~a call-idx: ~a arg: ~a~n"
-            mav call-idx arg)
+    (printf "agent: ~a call-index: ~a arg: ~a~n"
+            mav call-index arg)
     (when (make-noise)
       (play-sound (tenth sounds) #t))))
 
+; helper procedure to prepare our call
+; type is ignored at the moment
+(define prepare-call
+  (λ (mav call-index friend-id csettings type)
+    (debug-prefix "Audio: ")
+    (dprintf "Preparing call ~a~n" call-index)
+    (do-add-call call-index friend-id csettings type)))
+
 ; call has connected, rtp transmission has started
 (define on-audio-start
-  (λ (mav call-idx arg)
-    (displayln 'on-audio-start)
-    (printf "agent: ~a call-idx: ~a arg: ~a~n"
-            mav call-idx arg)
-    #;(set-contact-data-pstream! (hash-ref cur-buddies call-idx) (make-pstream))))
+  (λ (mav call-index arg)
+    (let ([friend-id (get-peer-id mav call-index 0)])
+      (unless (< friend-id 0)
+        (define peer-csettings (get-peer-csettings mav call-index friend-id))
+        (cond [(negative? (first peer-csettings))
+               (debug-prefix "Audio: ")
+               (dprintf "Problem starting audio; error code ~a~n" peer-csettings)]
+              [else
+               (prepare-call mav call-index friend-id
+                             (second peer-csettings) (first peer-csettings))])))))
 
 ; the side that initiated the call has canceled the invite
 (define on-audio-cancel
-  (λ (mav call-idx arg)
-    (displayln 'on-audio-cancel)))
+  (λ (mav call-index arg)
+    (displayln 'on-audio-cancel)
+    (debug-prefix "Audio: ")
+    (dprintf "Call ~a cancelled.~n" call-index)))
 
 ; the side that was invited rejected the call
 (define on-audio-reject
-  (λ (mav call-idx arg)
-    (displayln 'on-audio-reject)))
+  (λ (mav call-index arg)
+    (displayln 'on-audio-reject)
+    (debug-prefix "Audio: ")
+    (dprintf "Call ~a rejected.~n" call-index)))
 
 ; the call that was active has ended
 (define on-audio-end
-  (λ (mav call-idx arg)
+  (λ (mav call-index arg)
     (displayln 'on-audio-end)
-    #;(set-contact-data-pstream! (hash-ref cur-buddies call-idx) #f)))
+    (debug-prefix "Audio: ")
+    (dprintf "Deleting call ~a.~n" call-index)
+    (do-delete-call call-index)))
 
 ; when the request didn't get a response in time
 (define on-audio-request-timeout
-  (λ (mav call-idx arg)
+  (λ (mav call-index arg)
     (displayln 'on-audio-request-timeout)))
 
 ; peer timed out, stop the call
 (define on-audio-peer-timeout
-  (λ (mav call-idx arg)
-    (displayln 'on-audio-peer-timeout)))
+  (λ (mav call-index arg)
+    (displayln 'on-audio-peer-timeout)
+    (debug-prefix "Audio: ")
+    (dprintf "Peer timeout, deleting call ~a.~n" call-index)
+    (do-delete-call call-index)))
 
 ; peer changed csettings. prepare for changed av
 (define on-audio-peer-cschange
-  (λ (mav call-idx arg)
+  (λ (mav call-index arg)
     (displayln 'on-audio-peer-cschange)))
 
 ; csettings change confirmation. once triggered, peer will be ready
 ; to receive changed av
 (define on-audio-self-cschange
-  (λ (mav call-idx arg)
+  (λ (mav call-index arg)
     (displayln 'on-audio-self-cschange)))
 
 ; we are receiving audio
 (define on-audio-receive
-  (λ (mav call-idx pcm size data)
+  (λ (mav call-index pcm size data)
     (displayln 'on-audio-receive)
-    (printf "on-audio-receive: agent: ~a call-idx: ~a pcm: ~a size: ~a data: ~a~n"
-            mav call-idx pcm size data)))
+    (printf "on-audio-receive: agent: ~a call-index: ~a pcm: ~a size: ~a data: ~a~n"
+            mav call-index pcm size data)))
 #| ################# END CALLBACK PROCEDURE DEFINITIONS ################# |#
 
 ; register our callback functions
