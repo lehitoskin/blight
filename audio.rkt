@@ -37,7 +37,7 @@
 
 (define friend-call-id
   (λ (call-index)
-    (friend-call-call-index (hash-ref cur-calls call-index))))
+    (friend-call-friend-id (hash-ref cur-calls call-index))))
 
 #;(define friend-call-name
   (λ (mtox call-index)

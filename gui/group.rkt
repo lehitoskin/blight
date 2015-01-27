@@ -462,7 +462,9 @@
 
     (define/public (set-new-label x)
       (send group-frame set-label x)
-      (send group-frame-msg set-label (substring x 8)))
+      ; check the title for &'s and "escape" them
+      (send group-frame-msg set-label
+            (list->string (&checker (string->list (substring x 8))))))
     
     (define/override (show x)
       (send group-frame show x))

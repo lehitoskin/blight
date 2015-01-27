@@ -62,14 +62,24 @@
            (new text-field%
                 [label "Enter Passphrase: "]
                 [parent pass-dialog]
-                [style '(password)]
+                [style '(single password)]
                 [callback (λ (l e)
                             (when (eq? (send e get-event-type) 'text-field-enter)
                               (loading-callback)))]))
+         (define pass-hpanel
+           (new horizontal-panel%
+                [parent pass-dialog]
+                [alignment '(right center)]))
+         (define pass-cancel-button
+           (new button%
+                [label "Cancel"]
+                [parent pass-hpanel]
+                [callback (λ (button event)
+                            (exit))]))
          (define pass-ok-button
            (new button%
                 [label "OK"]
-                [parent pass-dialog]
+                [parent pass-hpanel]
                 [callback (λ (button event)
                             (loading-callback))]))
          (send pass-dialog show #t)]

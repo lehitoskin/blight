@@ -31,11 +31,37 @@
     (debug-prefix "Blight: ")
     (dprint-wait "Saving data")
     (cond [(encrypted?)
+           ; allow an option to change the password every time?
+           (when (string=? (encryption-pass) "")
+             (define pass-dialog (new dialog%
+                                      [label "Blight - Enter Passphrase"]
+                                      [height 50]
+                                      [width 400]
+                                      [style (list 'close-button)]))
+             (define pass-tfield
+               (new text-field%
+                    [label "Enter Passphrase: "]
+                    [parent pass-dialog]
+                    [style '(single password)]
+                    [callback (λ (l e)
+                                (when (and (eq? (send e get-event-type) 'text-field-enter)
+                                           (not (string=? (send l get-value) "")))
+                                  (encryption-pass (send l get-value))
+                                  (send pass-dialog show #f)))]))
+             (define pass-ok-button
+               (new button%
+                    [label "OK"]
+                    [parent pass-dialog]
+                    [callback (λ (button event)
+                                (when (not (string=? (send pass-tfield get-value) ""))
+                                  (encryption-pass (send pass-tfield get-value))
+                                  (send pass-dialog show #f)))]))
+             (send pass-dialog show #t))
            (define size (encrypted-size my-tox))
            (define data-bytes (make-bytes size))
            (define err (encrypted-save! my-tox
                                         data-bytes
-                                        encryption-pass))
+                                        (encryption-pass)))
            (if (zero? err)
                (let ([data-port-out (open-output-file ((data-file))
                                                       #:mode 'binary
@@ -76,7 +102,7 @@
     ; for buddies
     (for ([i (in-range (hash-count cur-calls))])
       (let ([alsource (friend-call-alsource (hash-ref cur-calls i))])
-        (delete-sources! alsource)))
+        (delete-sources! (list alsource))))
     ; for groups
     (for ([i (in-range (hash-count cur-groups))])
       (let ([alsources (contact-data-alsources (hash-ref cur-groups i))])

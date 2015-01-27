@@ -332,19 +332,13 @@
                   [alsource
                    (list-ref (contact-data-alsources
                               (hash-ref cur-groups grpnum)) peernum)])
-                 (unless (send window speakers-muted?)
-                   ;(call/cc
-                    ;(λ (break)
-                      ; rsound way
-                      #|(define lst (build-list (* 2 samples channels)
-                                              (λ (i) (ptr-ref data-ptr _int16 i))))
-                      ; convert the vector to an rsound
-                      (define snd (vec->rsound (list->s16vector lst) sample-rate))
-                      ; play the rsound
-                      (play snd)|#
-                      
-                      ; OpenAL way
-                      (displayln 'on-av-cb)
+              (displayln "join-av-cb")
+              (unless (send window speakers-muted?)
+                (call/cc
+                 (λ (break)
+                   ; my daft OpenAL test way
+                   ; lots of static and clicking, nothing intelligible
+                   #|(displayln 'on-av-cb)
                       (define albuf (car (gen-buffers 1)))
                       
                       (buffer-data albuf (if (= channels 1)
@@ -354,56 +348,54 @@
                       ;(set-source-buffer! alsource albuf)
                       (source-queue-buffers! alsource (list albuf))
                       (play-source alsource)
-                      (delete-buffers! (list albuf))
+                      (delete-buffers! (list albuf))|#
                    
-                     ; the qtox way
-                     #|(define processed (source-buffers-processed alsource))
-                     (define queued (source-buffers-queued alsource))
-                     (define albuf #f)
-                     
-                     (set-source-looping! alsource AL_FALSE)
-                     
-                     (printf "join-av-cb: processed: ~a, queued: ~a "
-                             processed queued)
-                     
-                     (cond [(> processed 0)
-                            (define albufs (make-list processed 0))
-                            ;(define albufs (gen-sources processed))
-                            ;(define albuf-ptr (malloc processed 'atomic))
-                            ;(source-unqueue-buffers!! alsource processed albufs)
-                            (source-unqueue-buffers! alsource albufs)
-                            #;(define albufs (build-list processed
-                                                         (λ (i)
-                                                           (ptr-ref albuf-ptr _int i))))
-                            (printf "albufs: ~a " albufs)
-                            (delete-buffers! albufs)
-                            (set! albuf (car (gen-sources 1)))
-                            ;(set! albuf (car (gen-sources 1)))
-                            (printf "albuf: ~a " albuf)]
-                           [(< queued 16)
-                            (set! albuf (car (gen-sources 1)))]
-                           [else
-                            (displayln "Audio: frame dropped.")
-                            (break)])
-                     
-                     (buffer-data albuf
-                                  (if (= channels 1)
-                                      AL_FORMAT_MONO16
-                                      AL_FORMAT_STEREO16)
-                                  data
-                                  sample-rate)
-                     (source-queue-buffers! alsource (list albuf))
-                     (define state (source-source-state alsource))
-                     (printf "state: ~a~n" state)
-                     
-                     (unless (= state AL_PLAYING)
-                       (play-source alsource))|#
+                   ; the qtox way
+                   ; is this making things segfault?
+                   (define processed (source-buffers-processed alsource))
+                   (define queued (source-buffers-queued alsource))
+                   (define albuf #f)
+                   
+                   (set-source-looping! alsource AL_FALSE)
+                   
+                   (printf "join-av-cb: processed: ~a, queued: ~a "
+                           processed queued)
+                   
+                   (cond [(> processed 0)
+                          (define albufs (make-list processed 0))
+                          ;(define albufs (gen-sources processed))
+                          ;(define albuf-ptr (malloc processed 'atomic))
+                          (define unqbufs (source-unqueue-buffers!! alsource processed albufs))
+                          ;(source-unqueue-buffers! alsource albufs)
+                          (printf "albufs: ~s unqbufs: ~s " albufs unqbufs)
+                          (delete-buffers! unqbufs)
+                          (set! albuf (car unqbufs))
+                          (printf "albuf: ~a " albuf)]
+                         [(< queued 16)
+                          (set! albuf (car (gen-buffers 1)))]
+                         [else
+                          (displayln "Audio: frame dropped.")
+                          (break)])
+                   
+                   (buffer-data albuf
+                                (if (= channels 1)
+                                    AL_FORMAT_MONO16
+                                    AL_FORMAT_STEREO16)
+                                data
+                                sample-rate)
+                   (source-queue-buffers! alsource (list albuf))
+                   (define state (source-source-state alsource))
+                   (printf "state: ~a~n" state)
+                   
+                   (unless (= state AL_PLAYING)
+                     (play-source alsource))
                    
                    ; the libblight way (outsourced qtox way)
+                   ; proven to work, but outsourced C library is soooo duuuuumb
                    ;(play-audio-buffer alsource pcm samples channels sample-rate)
                    
                    (tox-do mtox-cb)
-                   (sleep (/ (tox-do-interval mtox-cb) 1000))))));))
+                   (sleep (/ (tox-do-interval mtox-cb) 1000))))))))
         
         (define grp-number
           (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
