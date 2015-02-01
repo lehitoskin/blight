@@ -150,6 +150,7 @@ if people have a similar problem.")
                                     (send-avatar-info my-tox count)))
                                 (displayln "Done!")]))]))]
                      [else
+                      ; avatar is within size parameters, just set it
                       (dprint-wait "Setting avatar")
                       ; create a temp bitmap
                       (define avatar-bitmap (make-bitmap 40 40))
@@ -171,7 +172,7 @@ if people have a similar problem.")
                                                              #:mode 'binary
                                                              #:exists 'truncate/replace)])
                         (define my-hash (tox-hash img-data))
-                        (write-bytes (convert img-data 'png-bytes) data-port-out)
+                        (write-bytes (convert avatar-bitmap 'png-bytes) data-port-out)
                         (write-bytes my-hash hash-port-out)
                         (close-output-port hash-port-out)
                         (close-output-port data-port-out))
