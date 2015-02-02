@@ -22,9 +22,9 @@
 ; set all the callback functions
 (define on-friend-request
   (λ (mtox key-ptr message len userdata)
-    (define public-key (make-sized-byte-string key-ptr TOX_CLIENT_ID_SIZE))
-    (define add-pubkey-ptr (malloc TOX_CLIENT_ID_SIZE 'atomic))
-    (for ([i (in-range (/ TOX_CLIENT_ID_SIZE 2))])
+    (define public-key (make-sized-byte-string key-ptr TOX_PUBLIC_KEY_SIZE))
+    (define add-pubkey-ptr (malloc TOX_PUBLIC_KEY_SIZE 'atomic))
+    (for ([i (in-range (/ TOX_PUBLIC_KEY_SIZE 2))])
       (ptr-set! add-pubkey-ptr (* i 2) _byte (bytes-ref public-key i))
       (ptr-set! add-pubkey-ptr (add1 (* i 2)) _byte (bytes-ref public-key i)))
     ; convert public-key from bytes to string so we can display it

@@ -10,8 +10,8 @@
 (define my-avatar (make-parameter (make-bitmap 40 40)))
 
 ; if we've already set an avatar, load from that file
-(let* ([my-client-id (substring (my-id-hex) 0 (* TOX_CLIENT_ID_SIZE 2))]
-       [my-avatar-location (build-path avatar-dir (string-append my-client-id ".png"))])
+(let* ([my-pubkey (substring (my-id-hex) 0 (* TOX_PUBLIC_KEY_SIZE 2))]
+       [my-avatar-location (build-path avatar-dir (string-append my-pubkey ".png"))])
   (cond [(file-exists? my-avatar-location)
          ; create the bitmap
          (define avatar-bitmap (make-bitmap 40 40))

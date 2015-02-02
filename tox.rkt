@@ -6,7 +6,7 @@
          "utils.rkt")
 
 (provide (all-defined-out)
-         TOX_CLIENT_ID_SIZE)
+         TOX_PUBLIC_KEY_SIZE)
 
 ; proxy options
 (define my-opts

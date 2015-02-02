@@ -84,11 +84,11 @@ if people have a similar problem.")
                (unless (false? path)
                  (debug-prefix "Blight: ")
                  (let* ([img-data (file->bytes path)]
-                        [my-client-id (substring (my-id-hex) 0 (* TOX_CLIENT_ID_SIZE 2))]
+                        [my-pubkey (substring (my-id-hex) 0 (* TOX_PUBLIC_KEY_SIZE 2))]
                         [avatar-file (build-path avatar-dir
-                                                 (string-append my-client-id ".png"))]
+                                                 (string-append my-pubkey ".png"))]
                         [hash-file (build-path avatar-dir
-                                               (string-append my-client-id ".hash"))])
+                                               (string-append my-pubkey ".hash"))])
                    (cond
                      ; avatar is too big, scale it down before setting it
                      [(> (bytes-length img-data) TOX_AVATAR_MAX_DATA_LENGTH)

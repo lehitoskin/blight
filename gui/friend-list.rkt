@@ -117,12 +117,12 @@
 
 ;; helper to get friend key as return value
 (define (friend-key tox num)
-  (define client-id (get-client-id tox num))
-  (bytes->hex-string client-id))
+  (define pubkey (get-client-id tox num))
+  (bytes->hex-string pubkey))
 
 ;; helper to get friend number without ->bytes conversion
 (define (friend-number tox key)
-  (get-friend-number tox (hex-string->bytes key TOX_CLIENT_ID_SIZE)))
+  (get-friend-number tox (hex-string->bytes key TOX_PUBLIC_KEY_SIZE)))
 
 (define (update-invite-list)
   (for ([(num grp) cur-groups])
