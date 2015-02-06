@@ -332,7 +332,6 @@
                   [alsource
                    (list-ref (contact-data-alsources
                               (hash-ref cur-groups grpnum)) peernum)])
-              (displayln "join-av-cb")
               (unless (send window speakers-muted?)
                 (call/cc
                  (λ (break)
@@ -361,7 +360,7 @@
                    (printf "join-av-cb: processed: ~a, queued: ~a "
                            processed queued)
                    
-                   (cond [(> processed 0)
+                   (cond [(not (zero? processed))
                           (define albufs (make-list processed 0))
                           ;(define albufs (gen-sources processed))
                           ;(define albuf-ptr (malloc processed 'atomic))

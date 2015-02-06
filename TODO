@@ -1,13 +1,17 @@
 TODO:
 
+- Rework the rest of the wrapper libraries (starting with DNS)
+
+- Instead of (cond ...), have a common lookup procedure for the DNS choices?
+- Replace dropdown menu with a choice list? get rid of choice list altogether?
+- Split "groupbot@example.com" into '("groupbot" "example.com") for dns
+	* obtain server pubkey by doing `host -t TXT _tox.example.com`?
+
 - popup menus in chat (receive/send) and group (receive-send)
 	+ &Copy
 	+ &Paste
 	+ Select All
 - Allow drag-and-drop for file sending in chat window
-- Fix implications to revert back to black text
-- Bold line sent when user says "your name" at the beginning of the message
-- Encrypted data file
 
 - Links blue, underlined, and clickable
 - Drag link into chat, prettify to title with link

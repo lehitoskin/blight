@@ -3,6 +3,7 @@
 ; implements querying DNS for tox usernames
 (require "dns.rkt"
          "ip.rkt"
+         "../number-conversions.rkt"
          "../utils.rkt"
          libtoxcore-racket/dns
          libtoxcore-racket/blight
@@ -77,8 +78,7 @@
                        (custom-dns-query nameserver query 11 98)))
                     (if (false? enc-response)
                         #f
-                        (let ([result
-                               (dns3-decrypt dns3 enc-response request-id)])
+                        (let ([result (dns3-decrypt dns3 enc-response request-id)])
                           (dns3-kill! dns3)
                           (if (false? result)
                               #f
@@ -98,10 +98,27 @@
                        (custom-dns-query nameserver query 11 98)))
                     (if (false? enc-response)
                         #f
-                        (let ([result (dns3-decrypt dns3
-                                                    enc-response
-                                                    request-id)])
+                        (let ([result (dns3-decrypt dns3 enc-response request-id)])
                           (dns3-kill! dns3)
                           (if (false? result)
                               #f
                               (bytes->hex-string result))))]))])))
+
+; it doesn't seem to like taking request-id as an integer
+#|(define dns3 (dns3-new toxme-pubkey-bytes))
+
+(define-values (request-id bstr) (dns3-encrypt dns3 "leahtwoskin"))
+
+request-id
+(define rid-hex (bytes->hex-string request-id))
+rid-hex
+(define rid-dec (hex->dec rid-hex))
+rid-dec
+
+(define query (bytes->string/utf-8 (bytes-append #"_" bstr #"._tox.toxme.se")))
+(define enc-response (string->bytes/utf-8 (custom-dns-query nameserver query 11 98)))
+enc-response
+
+(dns3-decrypt-TXT dns3 enc-response rid-dec)
+
+(dns3-kill! dns3)|#

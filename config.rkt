@@ -243,11 +243,15 @@ arg: list of files to copy to tox-path as .tox files
 (define my-status-message-default "Toxing on Blight")
 
 ; default DHT settings
-; if <profile>.json exists, do not use these
 (define dht-address-default "23.226.230.47")
 (define dht-port-default 33445)
 (define dht-public-key-default
   "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074")
+; augment this with a json grab from the website
+(define dht-address (make-parameter dht-address-default))
+(define dht-port (make-parameter dht-port-default))
+(define dht-public-key (make-parameter dht-public-key-default))
+; if <profile>.json exists, do not use these
 (define ipv6?-default #t)
 (define udp-disabled?-default #f)
 (define proxy-type-default 0) ; (_TOX_PROXY_TYPE 'NONE)
@@ -257,10 +261,7 @@ arg: list of files to copy to tox-path as .tox files
 
 ; if blight-config.json does not exist, initalize it to default values
 (define json-default
-  (hasheq 'dht-address dht-address-default
-          'dht-port dht-port-default
-          'dht-public-key dht-public-key-default
-          'my-name my-name-default
+  (hasheq 'my-name my-name-default
           'my-status-message my-status-message-default
           'make-noise make-noise-default
           'ipv6? ipv6?-default
@@ -287,14 +288,13 @@ arg: list of files to copy to tox-path as .tox files
              (make-parameter (hash-ref mhash k2)) ...))))
 
 (define-values
-  (dht-address dht-port dht-public-key my-name my-status-message make-noise
-               ipv6? udp-disabled? proxy-type proxy-address proxy-port encrypted?)
+  (my-name my-status-message make-noise ipv6? udp-disabled?
+           proxy-type proxy-address proxy-port encrypted?)
   (let* ([config-port-in (open-input-file ((config-file)) #:mode 'text)]
          [json-info (read-json config-port-in)])
     (close-input-port config-port-in)
-    (hash-ref* json-info 'dht-address 'dht-port 'dht-public-key 'my-name
-               'my-status-message 'make-noise 'ipv6? 'udp-disabled?
-               'proxy-type 'proxy-address 'proxy-port 'encrypted?)))
+    (hash-ref* json-info 'my-name 'my-status-message 'make-noise 'ipv6?
+               'udp-disabled? 'proxy-type 'proxy-address 'proxy-port 'encrypted?)))
 
 (define (toggle-noise) (make-noise (not (make-noise))))
 
