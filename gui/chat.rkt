@@ -52,12 +52,6 @@
   (send km map-function ":c:ц" "close-chatframe") ; russian cyrillic
   (send km map-function ":c:tab" "switch-focus"))
 
-(define &checker
-  (λ (lst)
-    (cond [(empty? lst) null]
-          [(eq? #\& (car lst)) (list #\& (car lst) (&checker (cdr lst)))]
-          [else (flatten (cons (car lst) (&checker (cdr lst))))])))
-
 (define chat-window%
   (class frame%
     (inherit set-label)
@@ -849,8 +843,7 @@
     
     (define/public (set-status-msg msg)
       ; check the title for &'s and "escape" them
-      (send chat-frame-status-msg set-label
-            (list->string (&checker (string->list msg)))))
+      (send chat-frame-status-msg set-label (string-replace msg "&" "&&")))
     
     (define/public (get-status-msg)
       (send chat-frame-status-msg get-label))

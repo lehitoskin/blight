@@ -464,7 +464,7 @@
       (send group-frame set-label x)
       ; check the title for &'s and "escape" them
       (send group-frame-msg set-label
-            (list->string (&checker (string->list (substring x 8))))))
+            (string-replace (substring x 8) "&" "&&")))
     
     (define/override (show x)
       (send group-frame show x))

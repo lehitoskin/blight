@@ -371,7 +371,8 @@
                           (set! albuf (car unqbufs))
                           (printf "albuf: ~a " albuf)]
                          [(< queued 16)
-                          (set! albuf (car (gen-buffers 1)))]
+                          (set! albuf (car (gen-buffers 1)))
+                          (printf "albuf: ~a " albuf)]
                          [else
                           (displayln "Audio: frame dropped.")
                           (break)])
