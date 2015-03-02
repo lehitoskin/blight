@@ -6,12 +6,11 @@
          "../number-conversions.rkt"
          "../utils.rkt"
          libtoxcore-racket/dns
-         libtoxcore-racket/blight
          racket/bool
          racket/list)
 
 (provide tox-dns1
-         tox-dns3)
+         #;tox-dns3)
 
 ; obtain our nameserver
 (define nameserver (make-ip-address (dns-find-nameserver)))
@@ -60,7 +59,7 @@
 
 ; procedure to send a tox dns3 request and obtain a tox ID
 ; in an encrypted manner
-(define tox-dns3
+#;(define tox-dns3
   (λ (nick domain)
     ; we're sending to toxme.se
     (cond [(string=? domain "toxme.se")

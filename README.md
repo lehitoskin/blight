@@ -2,11 +2,22 @@ Blight
 ======
 [![Build Status](http://jenkins.libtoxcore.so/job/Blight-Debian/badge/icon)](http://jenkins.libtoxcore.so/job/Blight-Debian/)
 
-Blight is a cross-platform graphical user interface for [Tox](https://github.com/irungentoo/toxcore) written in [Racket](http://racket-lang.org/) that utilizes [libtoxcore-racket](https://github.com/lehitoskin/libtoxcore-racket).
+Blight is a cross-platform graphical user interface for [Tox](https://github.com/irungentoo/toxcore) written in [Racket](http://racket-lang.org/) that utilizes [libtoxcore-racket](https://github.com/lehitoskin/libtoxcore-racket) and [libopenal-racket](https://github.com/lehitoskin/libopenal-racket).
 In very early pre-alpha stage. All help and testing appreciated.
 
 ![Blight Screenshot](https://raw.github.com/lehitoskin/blight/master/screenshot-2015-01-01.png "Blight Screenshot")
 
+## Prerequisites
+
+- Racket (version 6.0.1 or higher)
+
+- Toxcore
+
+- OpenAL
+
+- libtoxcore-racket
+
+- libopenal-racket
 
 ## Installation
 

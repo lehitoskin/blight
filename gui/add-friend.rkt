@@ -112,7 +112,7 @@
                              (and (string=? hex-tfield "")
                                   (and (not (string=? nick-tfield ""))
                                        ; make sure we get a response from the DNS
-                                       (not (false? (tox-dns3 nick-tfield domain)))))
+                                       (not (false? (tox-dns1 nick-tfield domain)))))
                              ; the nick field is empty, hex field cannot be empty
                              (and (string=? nick-tfield "")
                                   ; make sure hex field is a proper tox id
@@ -129,7 +129,7 @@
                                   ; we're doing a dns lookup
                                   [(string=? hex-tfield "")
                                    ; obtain the id from the dns query
-                                   (define friend-hex (tox-dns3 nick-tfield domain))
+                                   (define friend-hex (tox-dns1 nick-tfield domain))
                                    ; obtain the byte form of the id
                                    (set! nick-bytes
                                          (hex-string->bytes
