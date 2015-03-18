@@ -413,7 +413,8 @@
                 (send dc draw-bitmap avatar-big 0 0)))]))
     
     (define chat-frame-hpanel (new horizontal-panel%
-                                   [parent chat-frame]))
+                                   [parent chat-frame]
+                                   [stretchable-height #f]))
     
     (define friend-avatar-button (new button%
                                       [parent chat-frame-hpanel]
