@@ -64,6 +64,7 @@ if people have a similar problem.")
 
 (define frame-hpanel (new horizontal-panel%
                           [parent frame]
+                          [stretchable-height #f]
                           [alignment '(left center)]))
 
 (define frame-avatar-button

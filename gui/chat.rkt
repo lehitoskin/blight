@@ -71,6 +71,7 @@
     (define my-id-bytes (get-self-address this-tox))
     (define my-id-hex (bytes->hex-string my-id-bytes))
     (define friend-avatar (make-bitmap 40 40))
+    (define friend-has-avatar? #f)
     
     ; the sending file transfer list and its path list
     ; easier to have two lists than deal with a list of pairs
@@ -413,16 +414,19 @@
                 (send dc draw-bitmap avatar-big 0 0)))]))
     
     (define chat-frame-hpanel (new horizontal-panel%
-                                   [parent chat-frame]))
+                                   [parent chat-frame]
+                                   [stretchable-height #f]))
     
     (define friend-avatar-button (new button%
                                       [parent chat-frame-hpanel]
+                                      [style (list 'deleted)]
                                       [label friend-avatar]
                                       [callback (λ (button event)
                                                   (send avatar-view-frame show #t))]))
-    
+
     (define chat-frame-vpanel (new vertical-panel%
                                    [parent chat-frame-hpanel]
+                                   [horiz-margin 8]
                                    [alignment '(left center)]))
     
     ; make a static text message in the frame containing friend's name
@@ -858,6 +862,11 @@
              (define avatar-pict (bitmap avatar-bitmap))
              ; scale the pict to 40x40
              (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
+             ; add avatar button to panel
+             (when (not friend-has-avatar?)
+               (send chat-frame-hpanel add-child friend-avatar-button)
+               (set! friend-has-avatar? #t))
+
              ; set the avatar to the new one
              (set! friend-avatar avatar-bitmap)
              ; set the button to the scaled avatar
