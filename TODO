@@ -1,5 +1,6 @@
 TODO:
 
+- Work on updating the wrapper to coincide with API changes.
 - Rework the rest of the wrapper libraries (starting with DNS)
 
 - Instead of (cond ...), have a common lookup procedure for the DNS choices?
