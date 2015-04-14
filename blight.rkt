@@ -6,24 +6,25 @@
          "history.rkt"
          "tox.rkt"
          "utils.rkt"
-         "gui/smart-list.rkt"
-         "gui/frame.rkt")
+         "gui/smart-list.rkt")
 
 (provide (all-defined-out))
 
 (debug-prefix "Blight: ")
 (dprint-wait "Connection to DHT")
 ; connect to DHT
-(cond [(not (false? (bootstrap-from-address my-tox
-                                            (dht-address)
-                                            (dht-port)
-                                            (dht-public-key))))
-       (when (make-noise)
-         (play-sound (fourth sounds) #t))
-       (displayln "Connected!")]
-      [else (when (make-noise)
-              (play-sound (last sounds) #t))
-            (displayln "Connection failed!")])
+(let ([dht-err #"0"])
+  (cond [(not (false? (tox-bootstrap my-tox
+                                     (dht-address)
+                                     (dht-port)
+                                     (dht-public-key)
+                                     dht-err)))
+         (when (make-noise)
+           (play-sound (fourth sounds) #t))
+         (displayln "Connected!")]
+        [else (when (make-noise)
+                (play-sound (last sounds) #t))
+              (printf "Connection failed! Error code: ~s\n" dht-err)]))
 
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
@@ -57,23 +58,24 @@
                                   (encryption-pass (send pass-tfield get-value))
                                   (send pass-dialog show #f)))]))
              (send pass-dialog show #t))
-           (define size (encrypted-size my-tox))
-           (define data-bytes (make-bytes size))
-           (define err (encrypted-save! my-tox
-                                        data-bytes
-                                        (encryption-pass)))
-           (if (zero? err)
+           ; data to encrypt
+           (define data-bytes (savedata my-tox))
+           ; encrypt the data to be saved
+           (define-values (enc-success enc-err encrypted-data)
+             (let ([enc (pass-encrypt data-bytes (encryption-pass))])
+               (values (first enc) (second enc) (third enc))))
+           (if (not (false? enc-success))
                (let ([data-port-out (open-output-file ((data-file))
                                                       #:mode 'binary
                                                       #:exists 'truncate/replace)])
-                 (write-bytes data-bytes data-port-out)
+                 (write-bytes encrypted-data data-port-out)
                  (close-output-port data-port-out))
                (begin
-                 (displayln "There was an error saving the encrypted data!")
+                 (printf "There was an error saving the encrypted data! ~s\n" enc-err)
                  (when (make-noise)
                    (play-sound (last sounds) #t))))]
           [else
-           (define data-bytes (tox-save my-tox))
+           (define data-bytes (savedata my-tox))
            ; SAVE INFORMATION TO DATA
            (let ([data-port-out (open-output-file ((data-file))
                                                   #:mode 'binary
@@ -115,6 +117,8 @@
     (av-kill! my-av)
     ; this kills the tox
     (tox-kill! my-tox)
+    ; free options' space
+    (tox-options-free my-opts)
     ; log out sound
     (when (make-noise)
       (play-sound (fifth sounds) #f))))
@@ -196,7 +200,7 @@
 
 (define (blight-handle-exception unexn)
   (let ([res (show-error-unhandled-exn unexn cur-ctx)])
-    (when (eq?  res 'quit)
+    (when (eq? res 'quit)
       (clean-up)
       (exit))))
 

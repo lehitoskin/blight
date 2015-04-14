@@ -182,10 +182,10 @@ arg: list of files to copy to tox-path as .tox files
                                                  #:mode 'text)]
                 [json-info-old (read-json config-port-in)]
                 [json-info-new (hash-set* json-info-old
-                                          'ipv6? ipv6?-default
-                                          'udp-disabled? udp-disabled?-default
+                                          'ipv6? use-ipv6?-default
+                                          'udp? use-udp?-default
                                           'proxy-type proxy-type-default
-                                          'proxy-address proxy-address-default
+                                          'proxy-host proxy-host-default
                                           'proxy-port proxy-port-default
                                           'encrypted? encrypted?-default)]
                 [config-port-out (open-output-file new-config-file
@@ -252,10 +252,10 @@ arg: list of files to copy to tox-path as .tox files
 (define dht-port (make-parameter dht-port-default))
 (define dht-public-key (make-parameter dht-public-key-default))
 ; if <profile>.json exists, do not use these
-(define ipv6?-default #t)
-(define udp-disabled?-default #f)
+(define use-ipv6?-default #t)
+(define use-udp?-default #t)
 (define proxy-type-default 0) ; (_TOX_PROXY_TYPE 'NONE)
-(define proxy-address-default "") ; ignored if proxy type is 'NONE
+(define proxy-host-default "") ; ignored if proxy type is 'NONE
 (define proxy-port-default 0) ; ignored if proxy type is 'NONE
 (define encrypted?-default #f)
 
@@ -264,10 +264,10 @@ arg: list of files to copy to tox-path as .tox files
   (hasheq 'my-name my-name-default
           'my-status-message my-status-message-default
           'make-noise make-noise-default
-          'ipv6? ipv6?-default
-          'udp-disabled? udp-disabled?-default
+          'use-ipv6? use-ipv6?-default
+          'use-udp? use-udp?-default
           'proxy-type proxy-type-default
-          'proxy-address proxy-address-default
+          'proxy-host proxy-host-default
           'proxy-port proxy-port-default
           'encrypted? encrypted?-default))
 
@@ -288,49 +288,15 @@ arg: list of files to copy to tox-path as .tox files
              (make-parameter (hash-ref mhash k2)) ...))))
 
 (define-values
-  (my-name my-status-message make-noise ipv6? udp-disabled?
-           proxy-type proxy-address proxy-port encrypted?)
+  (my-name my-status-message make-noise use-ipv6? use-udp?
+           proxy-type proxy-host proxy-port encrypted?)
   (let* ([config-port-in (open-input-file ((config-file)) #:mode 'text)]
          [json-info (read-json config-port-in)])
     (close-input-port config-port-in)
     (hash-ref* json-info 'my-name 'my-status-message 'make-noise 'ipv6?
-               'udp-disabled? 'proxy-type 'proxy-address 'proxy-port 'encrypted?)))
+               'udp? 'proxy-type 'proxy-host 'proxy-port 'encrypted?)))
 
 (define (toggle-noise) (make-noise (not (make-noise))))
-
-; read from <profile>.json
-#|(define json-info
-  (let* ([config-port-in (open-input-file ((config-file)) #:mode 'text)]
-         [my-json (read-json config-port-in)])
-    (close-input-port config-port-in)
-    my-json))
-; set variables to values those contained in <profile>.json
-(define dht-address (hash-ref json-info 'dht-address))
-(define dht-port (hash-ref json-info 'dht-port))
-(define dht-public-key (hash-ref json-info 'dht-public-key))
-(define my-name (hash-ref json-info 'my-name-last))
-(define my-status-message (hash-ref json-info 'my-status-last))
-(define make-noise (hash-ref json-info 'make-noise-last))
-(define toggle-noise (λ () (set! make-noise (not make-noise))))
-
-(define ipv6? (make-parameter (if (hash-has-key? json-info 'ipv6?-last)
-                                  (hash-ref json-info 'ipv6?-last)
-                                  ipv6?-default)))
-(define udp-disabled? (make-parameter (if (hash-has-key? json-info 'udp-disabled?-last)
-                                          (hash-ref json-info 'udp-disabled?-last)
-                                          udp-disabled?-default)))
-(define proxy-type (make-parameter (if (hash-has-key? json-info 'proxy-type-last)
-                                       (hash-ref json-info 'proxy-type-last)
-                                       proxy-type-default)))
-(define proxy-address (make-parameter (if (hash-has-key? json-info 'proxy-address-last)
-                                          (hash-ref json-info 'proxy-address-last)
-                                          proxy-address-default)))
-(define proxy-port (make-parameter (if (hash-has-key? json-info 'proxy-port-last)
-                                       (hash-ref json-info 'proxy-port-last)
-                                       proxy-port-default)))
-(define encrypted? (make-parameter (if (hash-has-key? json-info 'encrypted?-last)
-                                       (hash-ref json-info 'encrypted?-last)
-                                       encrypted?-default)))|#
 
 ; list of unicode emoticons
 (define emojis (list "😁" "😂" "😃" "😄" "😅" "😇"

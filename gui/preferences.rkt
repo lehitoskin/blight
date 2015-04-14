@@ -215,12 +215,12 @@
 (define ipv6-button (new check-box%
                          [parent proxy-panel]
                          [label "Enable IPv6"]
-                         [value (ipv6?)]))
+                         [value (use-ipv6?)]))
 
 (define udp-button (new check-box%
                         [parent proxy-panel]
-                        [label "Disable UDP"]
-                        [value (udp-disabled?)]))
+                        [label "Enable UDP"]
+                        [value (use-udp?)]))
 
 (define proxy-type-msg
   (new message%
@@ -231,7 +231,7 @@
   (new choice%
        [parent proxy-panel]
        [label "Proxy Type"]
-       [choices '("None" "SOCKS5" "HTTP")]
+       [choices '("None" "HTTP" "SOCKS5")]
        [selection (proxy-type)]))
 
 (define proxy-address-port-panel
@@ -265,8 +265,8 @@
        [label "Cancel"]
        [callback (λ (button event)
                    ; reset all the old values
-                   (send ipv6-button set-value (ipv6?))
-                   (send udp-button set-value (udp-disabled?))
+                   (send ipv6-button set-value (use-ipv6?))
+                   (send udp-button set-value (use-udp?))
                    (send proxy-type-choice set-selection (proxy-type))
                    (send proxy-address-tfield set-value (proxy-address))
                    (send proxy-port-tfield set-value (number->string (proxy-port)))
@@ -279,8 +279,8 @@
        [label "OK"]
        [callback (λ (button event)
                    ; set all the new values
-                   (ipv6? (send ipv6-button get-value))
-                   (udp-disabled? (send udp-button get-value))
+                   (use-ipv6? (send ipv6-button get-value))
+                   (use-udp? (send udp-button get-value))
                    (proxy-type (send proxy-type-choice get-selection))
                    (proxy-address (send proxy-address-tfield get-value))
                    ; only integers allowed inside port tfield
@@ -289,8 +289,8 @@
                      (cond [(and (integer? num) (<= num port-max) (positive? num))
                             (proxy-port num)
                             ; record the new values to the config file
-                            (blight-save-config* 'ipv6? (ipv6?)
-                                                 'udp-disabled? (udp-disabled?)
+                            (blight-save-config* 'ipv6? (use-ipv6?)
+                                                 'udp-disabled? (use-udp?)
                                                  'proxy-type (proxy-type)
                                                  'proxy-address (proxy-address)
                                                  'proxy-port (proxy-port))

@@ -9,29 +9,32 @@
          TOX_PUBLIC_KEY_SIZE)
 
 ; proxy options
-(define my-opts
-  (make-Tox-Options (ipv6?) (udp-disabled?) (proxy-type) (proxy-address) (proxy-port)))
+#;(define my-opts
+  (make-Tox-Options (use-ipv6?) (use-udp?) (proxy-type) (proxy-host) (proxy-port) (start-port) (end-port)))
+; create a new options struct
+(define-values (my-opts opts-err)
+  (let ([opts (tox-options-new)])
+    (values (first opts) (second opts))))
+; set the options struct to its defaults
+(if (bytes=? opts-err #"\0")
+    (tox-options-default my-opts)
+    (begin
+      (when (make-noise)
+        (play-sound (last sounds) #t))
+      (error 'tox-options-new "error occurred during allocation: ~s" opts-err)))
 
 ; av settings
 (define my-csettings DefaultCSettings)
 ; instantiate Tox session
-(define my-tox (tox-new my-opts))
-(define my-av (av-new my-tox 1))
+(define my-tox #f)
 ; is this kosher?
 ; beats asking for the pass every time we save...
 (define encryption-pass (make-parameter ""))
 
-; IMPORTANT! Load data-file before defining my-id-bytes and my-id-hex (obviously!)
-; if data-file is empty, use default settings
 (let ([data-bytes (file->bytes ((data-file)) #:mode 'binary)])
   (debug-prefix "Blight: ")
-  (cond [(zero? (bytes-length data-bytes))
-         ; set username
-         (set-name! my-tox (my-name))
-         ; set status message
-         (set-status-message! my-tox (my-status-message))]
-        ; data-file is not empty, load from encrypted data-file
-        [(and (not (zero? (bytes-length data-bytes)))
+  ; data file is encrypted, decrypt it first
+  (cond [(and (not (zero? (bytes-length data-bytes)))
               (data-encrypted? data-bytes))
          ; we've got an encrypted file, we should save it as encrypted
          (encrypted? #t)
@@ -40,11 +43,10 @@
          (define loading-callback
            (λ ()
              (encryption-pass (send pass-tfield get-value))
-             (let ([err (encrypted-load my-tox
-                                        data-bytes
-                                        (bytes-length data-bytes)
-                                        (encryption-pass))])
-               (cond [(zero? err)
+             (let* ([err #"0"]
+                    [decrypted-data (pass-decrypt data-bytes (encryption-pass))])
+               (set! my-tox (tox-new decrypted-data my-opts))
+               (cond [(zero? (car err))
                       (send pass-dialog show #f)
                       (displayln "Loading successful!")]
                      [else
@@ -83,20 +85,17 @@
                 [callback (λ (button event)
                             (loading-callback))]))
          (send pass-dialog show #t)]
-        ; data-file is not empty, load from data-file
-        [(nor (zero? (bytes-length data-bytes))
-              (data-encrypted? data-bytes))
-         (define my-bytes data-bytes)
-         (dprint-wait "Loading from data file")
-         (let ([result (tox-load my-tox my-bytes)])
-           (if (false? result)
-               (begin
-                 (displayln "Loading failed!")
-                 (when (make-noise)
-                   (play-sound (last sounds) #t))
-                 (exit))
-               (displayln "Done!")))]))
+        [(zero? (bytes-length data-bytes))
+         (define new-err #"0")
+         (set! my-tox (tox-new my-opts data-bytes new-err))
+         ; set username
+         (set-self-name! my-tox (my-name))
+         ; set status message
+         (set-self-status-message! my-tox (my-status-message))]))
+
+; our AV instance
+(define my-av (av-new my-tox 1))
 
 ; obtain our tox id
-(define my-id-bytes (get-self-address my-tox))
+(define my-id-bytes (self-address my-tox))
 (define my-id-hex (make-parameter (bytes->hex-string my-id-bytes)))
