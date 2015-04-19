@@ -6,25 +6,25 @@
          "history.rkt"
          "tox.rkt"
          "utils.rkt"
-         "gui/smart-list.rkt")
+         "gui/smart-list.rkt"
+         "gui/frame.rkt")
 
 (provide (all-defined-out))
 
 (debug-prefix "Blight: ")
 (dprint-wait "Connection to DHT")
 ; connect to DHT
-(let ([dht-err #"0"])
-  (cond [(not (false? (tox-bootstrap my-tox
-                                     (dht-address)
-                                     (dht-port)
-                                     (dht-public-key)
-                                     dht-err)))
+(let ([result (tox-bootstrap my-tox
+                             (dht-address)
+                             (dht-port)
+                             (dht-public-key))])
+  (cond [(not (false? (first result)))
          (when (make-noise)
            (play-sound (fourth sounds) #t))
          (displayln "Connected!")]
         [else (when (make-noise)
                 (play-sound (last sounds) #t))
-              (printf "Connection failed! Error code: ~s\n" dht-err)]))
+              (printf "Connection failed! Error code: ~s\n" (second result))]))
 
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
@@ -32,6 +32,7 @@
     (debug-prefix "Blight: ")
     (dprint-wait "Saving data")
     (cond [(encrypted?)
+           
            ; allow an option to change the password every time?
            (when (string=? (encryption-pass) "")
              (define pass-dialog (new dialog%
@@ -58,13 +59,14 @@
                                   (encryption-pass (send pass-tfield get-value))
                                   (send pass-dialog show #f)))]))
              (send pass-dialog show #t))
+           
            ; data to encrypt
            (define data-bytes (savedata my-tox))
            ; encrypt the data to be saved
            (define-values (enc-success enc-err encrypted-data)
              (let ([enc (pass-encrypt data-bytes (encryption-pass))])
-               (values (first enc) (second enc) (third enc))))
-           (if (not (false? enc-success))
+               (values (first enc) (second enc) (last enc))))
+           (if enc-success
                (let ([data-port-out (open-output-file ((data-file))
                                                       #:mode 'binary
                                                       #:exists 'truncate/replace)])
@@ -204,16 +206,16 @@
       (clean-up)
       (exit))))
 
-; tox loop that only uses tox-do and sleeps for some amount of time
+; tox loop that only uses iterate and sleeps for some amount of time
 (define tox-loop-thread
   (thread
    (λ ()
      (let loop ()
        (call-with-exception-handler
         (λ (exn) (blight-handle-exception exn))
-        (λ () (tox-do my-tox)))
+        (λ () (iterate my-tox)))
        
-       (sleep (/ (tox-do-interval my-tox) 1000))
+       (sleep (/ (iteration-interval my-tox) 1000))
        (loop)))))
 
 ; tox av loop

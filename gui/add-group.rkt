@@ -39,7 +39,7 @@
                                                       (format "Groupchat #~a" gcount))
                                                      (add-new-group
                                                       (format "Groupchat #~a" gcount)))
-                                                 (group-set-title! my-tox gcount no-name)
+                                                 (set-group-title! my-tox gcount no-name)
                                                  (send l set-value "")
                                                  (send add-group-frame show #f)]
                                                 ; group name supplied, use that
@@ -53,7 +53,7 @@
                                                  (define window (contact-data-window
                                                                  (hash-ref cur-groups gcount)))
                                                  ; set the group title we chose
-                                                 (group-set-title! my-tox
+                                                 (set-group-title! my-tox
                                                                   gcount
                                                                   bstr)
                                                  (send window set-new-label
@@ -100,7 +100,7 @@
                                       (if (send add-group-av-check get-value)
                                           (add-new-av-group (format "Groupchat #~a" gcount))
                                           (add-new-group (format "Groupchat #~a" gcount)))
-                                      (group-set-title! my-tox gcount no-name)
+                                      (set-group-title! my-tox gcount no-name)
                                       (send add-group-tfield set-value "")
                                       (send add-group-frame show #f)]
                                      ; group name supplied, use that
@@ -112,7 +112,7 @@
                                       (define window
                                         (contact-data-window (hash-ref cur-groups gcount)))
                                       ; set the group title we chose
-                                      (group-set-title! my-tox
+                                      (set-group-title! my-tox
                                                        gcount
                                                        bstr)
                                       (send (get-group-snip gcount)

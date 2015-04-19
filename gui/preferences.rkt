@@ -52,14 +52,15 @@
                       [callback (λ (l e)
                                   (when (eq? (send e get-event-type)
                                              'text-field-enter)
-                                    (let ([username (send l get-value)])
+                                    (let* ([username (send l get-value)]
+                                           [name-bytes (string->bytes/utf-8 username)])
                                       ; refuse to set the status if it's empty
                                       (unless (string=? username "")
                                         ; set the new username
                                         (my-name username)
                                         (blight-save-config 'my-name username)
                                         (send username-frame-message set-label username)
-                                        (set-name! my-tox username)
+                                        (set-self-name! my-tox name-bytes)
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
@@ -67,13 +68,14 @@
   (new button% [parent User_panel]
        [label "Set"]
        [callback (λ (button event)
-                   (let ([username (send putfield get-value)])
+                   (let* ([username (send putfield get-value)]
+                          [name-bytes (string->bytes/utf-8 username)])
                      ; refuse to set the username if it's empty
                      (unless (string=? username "")
                        (my-name username)
                        (blight-save-config 'my-name username)
                        (send username-frame-message set-label username)
-                       (set-name! my-tox username)
+                       (set-self-name! my-tox name-bytes)
                        (blight-save-data)
                        (send putfield set-value ""))))]))
 
@@ -92,7 +94,8 @@
                       [label #f] 
                       [style (list 'single)]
                       [callback (λ (l e)
-                                  (let ([status (send l get-value)])
+                                  (let* ([status (send l get-value)]
+                                         [status-bytes (string->bytes/utf-8 status)])
                                     (when (eq? (send e get-event-type)
                                                'text-field-enter)
                                       ; refuse to set the status if it's empty
@@ -101,7 +104,7 @@
                                         (my-status-message status)
                                         (blight-save-config 'my-status-message status)
                                         (send status-frame-message set-label status)
-                                        (set-status-message! my-tox status)
+                                        (set-self-status-message! my-tox status-bytes)
                                         (blight-save-data)
                                         (send l set-value "")))))]))
 
@@ -110,40 +113,100 @@
        [parent Status_panel]
        [label "Set"]
        [callback (λ (button event)
-                   (let ([status (send pstfield get-value)])
+                   (let* ([status (send pstfield get-value)]
+                          [status-bytes (string->bytes/utf-8 status)])
                      ; refuse to set status if it's empty
                      (unless (string=? status "")
                        (my-status-message status)
                        (blight-save-config 'my-status-message status)
                        (send status-frame-message set-label status)
-                       (set-status-message! my-tox status)
+                       (set-self-status-message! my-tox status-bytes)
                        (blight-save-data)
                        (send pstfield set-value ""))))]))
 
-(define change-nospam-button
-  (new button%
-       [parent pref-panel]
-       [label "Change nospam value"]
-       [callback (λ (button event)
-                   (let ([mbox (message-box "Blight - Change nospam"
-                                            (string-append "Are you certain you want to"
-                                                           " change your nospam value?")
-                                            #f
-                                            (list 'ok-cancel 'stop))])
-                     (when (eq? mbox 'ok)
-                       (set-nospam! my-tox
-                                    ; largest (random) can accept
-                                    ; corresponds to "FFFFFF2F"
-                                    (random 4294967087))
-                       ; save our changes
-                       (blight-save-data)
-                       ; set new tox id
-                       (my-id-hex
-                        (bytes->hex-string (get-self-address my-tox))))))]))
+(define blight-port-start-hpanel
+  (new horizontal-panel% [parent pref-panel]))
 
-(define make-sounds-button
-  (new check-box%
+; blight port bindings
+(define blight-port-start-tfield
+  (new text-field%
+       [parent blight-port-start-hpanel]
+       [label "Blight binding start port: "]
+       [callback (λ (l e)
+                   (let ([val (send e get-value)])
+                     (when (and (eq? (send e get-event-type) 'text-field-enter)
+                                (not (string=? "" val)))
+                       (start-port (string->number val))
+                       (send l set-value ""))))]))
+
+(define blight-port-start-button
+  (new button%
+       [parent blight-port-start-hpanel]
+       [label "Set"]
+       [callback (λ (button event)
+                   (let ([val (send blight-port-start-tfield get-value)])
+                     (unless (string=? val "")
+                       (start-port (string->number val))
+                       (send blight-port-start-tfield set-value ""))))]))
+
+(define blight-port-end-hpanel
+  (new horizontal-panel% [parent pref-panel]))
+
+; blight port bindings
+(define blight-port-end-tfield
+  (new text-field%
+       [parent blight-port-end-hpanel]
+       [label "Blight binding end port: "]
+       [callback (λ (l e)
+                   (let ([val (send e get-value)])
+                     (when (and (eq? (send e get-event-type) 'text-field-enter)
+                                (not (string=? "" val))
+                                (> (string->number val) (start-port)))
+                       (end-port (string->number val))
+                       (send l set-value ""))))]))
+
+(define blight-port-end-button
+  (new button%
+       [parent blight-port-end-hpanel]
+       [label "Set"]
+       [callback (λ (button event)
+                   (let ([val (send blight-port-end-tfield get-value)])
+                     (unless (or (string=? val "") (<= (string->number val) (start-port)))
+                       (end-port (string->number val))
+                       (send blight-port-end-tfield set-value ""))))]))
+
+(define checkbox-hpanel
+  (new horizontal-panel%
        [parent pref-panel]
+       [alignment '(center center)]))
+
+(define ipv6-udp-vpanel
+  (new vertical-panel% [parent checkbox-hpanel]))
+
+(define sounds-encrypted-vpanel
+  (new vertical-panel% [parent checkbox-hpanel]))
+
+(define ipv6-button (new check-box%
+                         [parent ipv6-udp-vpanel]
+                         [label "Enable IPv6"]
+                         [value (use-ipv6?)]
+                         [callback (λ (button event)
+                                     (let ([val (send button get-value)])
+                                       (use-ipv6? val)
+                                       (blight-save-config 'ipv6? val)))]))
+
+(define udp-button (new check-box%
+                        [parent ipv6-udp-vpanel]
+                        [label "Enable UDP"]
+                        [value (use-udp?)]
+                        [callback (λ (button event)
+                                    (let ([val (send button get-value)])
+                                      (use-udp? val)
+                                      (blight-save-config 'udp? val)))]))
+
+(define make-sounds-checkbox
+  (new check-box%
+       [parent sounds-encrypted-vpanel]
        [label "Make sounds"]
        [value (make-noise)]
        [callback (λ (l e)
@@ -151,9 +214,9 @@
                      (toggle-noise)
                      (blight-save-config 'make-noise noise)))]))
 
-(define encrypted-save-button
+(define encrypted-save-checkbox
   (new check-box%
-       [parent pref-panel]
+       [parent sounds-encrypted-vpanel]
        [label "Encrypted save"]
        [value (encrypted?)]
        [callback
@@ -202,6 +265,27 @@
                   (encrypted? #f)
                   (blight-save-config 'encrypted? enc)))))]))
 
+(define change-nospam-button
+  (new button%
+       [parent pref-panel]
+       [label "Change nospam value"]
+       [callback (λ (button event)
+                   (let ([mbox (message-box "Blight - Change nospam"
+                                            (string-append "Are you certain you want to"
+                                                           " change your nospam value?")
+                                            #f
+                                            (list 'ok-cancel 'stop))])
+                     (when (eq? mbox 'ok)
+                       (set-self-nospam! my-tox
+                                         ; largest (random) can accept
+                                         ; corresponds to "FFFFFF2F"
+                                         (random 4294967087))
+                       ; save our changes
+                       (blight-save-data)
+                       ; set new tox id
+                       (my-id-hex
+                        (bytes->hex-string (self-address my-tox))))))]))
+
 ; Close button for preferences dialog box
 (define preferences-close-button
   (new button%
@@ -212,16 +296,6 @@
 
 ; proxy options
 
-(define ipv6-button (new check-box%
-                         [parent proxy-panel]
-                         [label "Enable IPv6"]
-                         [value (use-ipv6?)]))
-
-(define udp-button (new check-box%
-                        [parent proxy-panel]
-                        [label "Enable UDP"]
-                        [value (use-udp?)]))
-
 (define proxy-type-msg
   (new message%
        [parent proxy-panel]
@@ -230,7 +304,7 @@
 (define proxy-type-choice
   (new choice%
        [parent proxy-panel]
-       [label "Proxy Type"]
+       [label "Proxy Type "]
        [choices '("None" "HTTP" "SOCKS5")]
        [selection (proxy-type)]))
 
@@ -241,9 +315,9 @@
   (new text-field%
        [parent proxy-address-port-panel]
        [label #f]
-       [init-value (if (string=? "" (proxy-address))
+       [init-value (if (string=? "" (proxy-host))
                        "example.com"
-                       (proxy-address))]
+                       (proxy-host))]
        [min-width 250]))
 
 (define proxy-port-tfield
@@ -265,24 +339,26 @@
        [label "Cancel"]
        [callback (λ (button event)
                    ; reset all the old values
-                   (send ipv6-button set-value (use-ipv6?))
-                   (send udp-button set-value (use-udp?))
                    (send proxy-type-choice set-selection (proxy-type))
-                   (send proxy-address-tfield set-value (proxy-address))
-                   (send proxy-port-tfield set-value (number->string (proxy-port)))
+                   (send proxy-address-tfield set-value (if (string=? "" (proxy-host))
+                                                            "example.com"
+                                                            (proxy-host)))
+                   (send proxy-port-tfield set-value (if (zero? (proxy-port))
+                                                         "0 ~ 60000"
+                                                         (number->string (proxy-port))))
                    ; close the window
                    (send preferences-box show #f))]))
 
 (define proxy-ok-button
   (new button%
        [parent proxy-ok-cancel-hpanel]
-       [label "OK"]
+       [label "Save"]
        [callback (λ (button event)
                    ; set all the new values
                    (use-ipv6? (send ipv6-button get-value))
                    (use-udp? (send udp-button get-value))
                    (proxy-type (send proxy-type-choice get-selection))
-                   (proxy-address (send proxy-address-tfield get-value))
+                   (proxy-host (send proxy-address-tfield get-value))
                    ; only integers allowed inside port tfield
                    (let ([num (string->number (send proxy-port-tfield get-value))]
                          [port-max 60000])
@@ -292,7 +368,7 @@
                             (blight-save-config* 'ipv6? (use-ipv6?)
                                                  'udp-disabled? (use-udp?)
                                                  'proxy-type (proxy-type)
-                                                 'proxy-address (proxy-address)
+                                                 'proxy-address (proxy-host)
                                                  'proxy-port (proxy-port))
                             ; close the window
                             (send preferences-box show #f)]

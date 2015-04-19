@@ -92,7 +92,7 @@ if people have a similar problem.")
                                                (string-append my-pubkey ".hash"))])
                    (cond
                      ; avatar is too big, scale it down before setting it
-                     [(> (bytes-length img-data) TOX_AVATAR_MAX_DATA_LENGTH)
+                     [(> (bytes-length img-data) BLIGHT-MAX-AVATAR-SIZE)
                       (dprint-wait "Avatar is too big! Scaling it first")
                       ; list of bitmap backing scales to scale the image
                       ; the greater the scale, the smaller the bitmap
@@ -113,12 +113,11 @@ if people have a similar problem.")
                              ; if it's still too large, try a different scale
                              (cond
                                [(> (bytes-length img-data-small)
-                                   TOX_AVATAR_MAX_DATA_LENGTH)
+                                   BLIGHT-MAX-AVATAR-SIZE)
                                 (loop (cdr sizes))]
                                [else
                                 (displayln "Done!")
                                 (dprint-wait "Setting avatar")
-                                (set-avatar! my-tox (_TOX_AVATAR_FORMAT 'PNG) img-data-small)
                                 ; set the new frame button icon
                                 (define icon-bitmap avatar-bitmap-scaled)
                                 ; turn the bitmap into a pict
@@ -147,8 +146,13 @@ if people have a similar problem.")
                                 ; broadcast to our friends we've changed our avatar
                                 (dprint-wait "Broadcasting our avatar change to online friends")
                                 (for ([count (hash-count cur-buddies)])
-                                  (when (= 1 (get-friend-connection-status my-tox count))
-                                    (send-avatar-info my-tox count)))
+                                  (when (= 1 (friend-connection-status my-tox count))
+                                    #|
+                                    
+                                    send avatar data to friends - (send-file-macro tox friend data)
+                                    
+                                    |#
+                                    (displayln 'herpderp)))
                                 (displayln "Done!")]))]))]
                      [else
                       ; avatar is within size parameters, just set it
@@ -161,8 +165,6 @@ if people have a similar problem.")
                       (define avatar-pict (bitmap avatar-bitmap))
                       ; scale the pict to 40x40
                       (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
-                      ; set the avatar in tox
-                      (set-avatar! my-tox (_TOX_AVATAR_FORMAT 'PNG) img-data)
                       ; set the avatar to the new one
                       (my-avatar (pict->bitmap avatar-pict-small))
                       ; save the image data hash to the disk
@@ -182,8 +184,13 @@ if people have a similar problem.")
                       ; broadcast to our friends we've changed our avatar
                       (dprint-wait "Broadcasting our avatar change to online friends")
                       (for ([count (hash-count cur-buddies)])
-                        (when (= 1 (get-friend-connection-status my-tox count))
-                          (send-avatar-info my-tox count)))
+                        (when (= 1 (friend-connection-status my-tox count))
+                          #|
+                          
+                          send avatar data to friends - (send-file-macro tox friend data)
+                          
+                          |#
+                          (displayln 'herpderp)))
                       (displayln "Done!")])))))))]))
 
 (define frame-vpanel (new vertical-panel%
@@ -211,6 +218,6 @@ if people have a similar problem.")
        [choices '("Available"
                   "Away"
                   "Busy")]
-       [selection (get-self-user-status my-tox)]
+       [selection (self-status my-tox)]
        [callback (λ (choice control-event)
-                   (set-user-status! my-tox (send choice get-selection)))]))
+                   (set-self-status! my-tox (send choice get-selection)))]))

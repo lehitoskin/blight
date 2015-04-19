@@ -103,7 +103,7 @@
        [callback (λ (button event)
                    (let* ([nick-tfield (send add-friend-txt-tfield get-value)]
                           [hex-tfield (send add-friend-hex-tfield get-value)]
-			  [message-str (send add-friend-message-tfield get-value)]
+                          [message-str (send add-friend-message-tfield get-value)]
                           [message-bytes (string->bytes/utf-8 message-str)]
                           [domain (send dns-domain-choice get-string-selection)])
                      ; add the friend to the friend list
@@ -118,14 +118,14 @@
                                   ; make sure hex field is a proper tox id
                                   (tox-id? hex-tfield)))
                             ; convert hex to bytes
-                            (define nick-bytes (make-bytes TOX_FRIEND_ADDRESS_SIZE))
+                            (define nick-bytes (make-bytes TOX_ADDRESS_SIZE))
                             ; we're doing a direct friend add
                             (cond [(string=? nick-tfield "")
                                    ; obtain the byte form of the id
                                    (set! nick-bytes
                                          (hex-string->bytes
                                           hex-tfield
-                                          TOX_FRIEND_ADDRESS_SIZE))]
+                                          TOX_ADDRESS_SIZE))]
                                   ; we're doing a dns lookup
                                   [(string=? hex-tfield "")
                                    ; obtain the id from the dns query
@@ -134,55 +134,57 @@
                                    (set! nick-bytes
                                          (hex-string->bytes
                                           friend-hex
-                                          TOX_FRIEND_ADDRESS_SIZE))])
-			    ; check message for its length
-                            (when (> (bytes-length message-bytes) TOX_MAX_FRIENDREQUEST_LENGTH)
-			      (set! message-bytes
-				(subbytes message-bytes
-					  0
-					  TOX_MAX_FRIENDREQUEST_LENGTH))
-			      (set! message-str (bytes->string/utf-8 message-bytes)))
-                            (let ([err (add-friend my-tox
-                                                   nick-bytes
-                                                   message-str)])
+                                          TOX_ADDRESS_SIZE))])
+                            ; check message for its length
+                            (when (> (bytes-length message-bytes) TOX_MAX_FRIEND_REQUEST_LENGTH)
+                              (set! message-bytes
+                                    (subbytes message-bytes
+                                              0
+                                              TOX_MAX_FRIEND_REQUEST_LENGTH))
+                              (set! message-str (bytes->string/utf-8 message-bytes)))
+                            (let* ([result (friend-add my-tox
+                                                       nick-bytes
+                                                       message-str)]
+                                   [num (first result)]
+                                   [err (bytes-ref (second result) 0)])
                               ; check for all the friend add errors
-                              (cond [(= err (_TOX_FAERR 'TOOLONG))
-                                     (displayln "ERROR: TOX_FAERR_TOOLONG")
+                              (cond [(= err (_TOX_ERR_FRIEND_ADD 'NULL))
+                                     (displayln "ERROR: TOX_ERR_FRIEND_ADD_NULL")
+                                     [(= err (_TOX_ERR_FRIEND_ADD 'TOO_LONG))
+                                      (displayln "ERROR: TOX_ERR_FRIEND_ADD_TOOLONG")
+                                      (when (make-noise)
+                                        (play-sound (last sounds) #t))]
+                                     [(= err (_TOX_ERR_FRIEND_ADD 'NO_MESSAGE))
+                                      (displayln "ERROR: TOX_ERR_FRIEND_ADD_NO_MESSAGE")
+                                      (when (make-noise)
+                                        (play-sound (last sounds) #t))]
+                                     [(= err (_TOX_ERR_FRIEND_ADD 'OWN_KEY))
+                                      (displayln "ERROR: TOX_ERR_FRIEND_ADD_OWN_KEY")
+                                      (when (make-noise)
+                                        (play-sound (last sounds) #t))]
+                                     [(= err (_TOX_ERR_FRIEND_ADD 'ALREADY_SENT))
+                                      (displayln "ERROR: TOX_ERR_FRIEND_ADD_ALREADY_SENT")
+                                      (when (make-noise)
+                                        (play-sound (last sounds) #t))]
                                      (when (make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR 'NOMESSAGE))
-                                     (displayln "ERROR: TOX_FAERR_NOMESSAGE")
+                                    [(= err (_TOX_ERR_FRIEND_ADD 'BAD_CHECKSUM))
+                                     (displayln "ERROR: TOX_ERR_FRIEND_ADD_BAD_CHECKSUM")
                                      (when (make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR 'OWNKEY))
-                                     (displayln "ERROR: TOX_FAERR_OWNKEY")
+                                    [(= err (_TOX_ERR_FRIEND_ADD 'SET_NEW_NOSPAM))
+                                     (displayln "ERROR: TOX_ERR_FRIEND_ADD_SET_NEW_NOSPAM")
                                      (when (make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR 'ALREADYSENT))
-                                     (displayln "ERROR: TOX_FAERR_ALREADYSENT")
-                                     (when (make-noise)
-                                       (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR 'UNKNOWN))
-                                     (displayln "ERROR: TOX_FAERR_UNKNOWN")
-                                     (when (make-noise)
-                                       (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR 'BADCHECKSUM))
-                                     (displayln "ERROR: TOX_FAERR_BADCHECKSUM")
-                                     (when (make-noise)
-                                       (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR 'SETNEWNOSPAM))
-                                     (displayln "ERROR: TOX_FAERR_SETNEWNOSPAM")
-                                     (when (make-noise)
-                                       (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_FAERR 'NOMEM))
-                                     (displayln "ERROR: TOX_FAERR_NOMEM")
+                                    [(= err (_TOX_ERR_FRIEND_ADD 'MALLOC))
+                                     (displayln "ERROR: TOX_ERR_FRIEND_ADD_MALLOC")
                                      (when (make-noise)
                                        (play-sound (last sounds) #t))]
                                     [else (displayln "All okay!")
                                           ; save the tox data
                                           (blight-save-data)
                                           
-                                          (let* ([newfn (sub1 (friendlist-length my-tox))]
+                                          (let* ([newfn num];(sub1 (self-friend-list-size my-tox))]
                                                  [key (friend-key my-tox newfn)])
                                             (if (string=? hex-tfield "")
                                                 (create-buddy nick-tfield key)

@@ -6,22 +6,33 @@
          "utils.rkt")
 
 (provide (all-defined-out)
-         TOX_PUBLIC_KEY_SIZE)
+         TOX_PUBLIC_KEY_SIZE
+         my-id-bytes)
 
 ; proxy options
 #;(define my-opts
-  (make-Tox-Options (use-ipv6?) (use-udp?) (proxy-type) (proxy-host) (proxy-port) (start-port) (end-port)))
+  (make-Tox-Options (use-ipv6?) (use-udp?) (proxy-type)
+                    (proxy-host) (proxy-port) (start-port) (end-port)))
 ; create a new options struct
 (define-values (my-opts opts-err)
   (let ([opts (tox-options-new)])
     (values (first opts) (second opts))))
 ; set the options struct to its defaults
-(if (bytes=? opts-err #"\0")
-    (tox-options-default my-opts)
-    (begin
-      (when (make-noise)
-        (play-sound (last sounds) #t))
-      (error 'tox-options-new "error occurred during allocation: ~s" opts-err)))
+(cond [(= (bytes-ref opts-err 0) (_TOX_ERR_OPTIONS_NEW 'OK))
+       (tox-options-default my-opts)]
+      [else
+        (when (make-noise)
+          (play-sound (last sounds) #t))
+        (error 'tox-options-new "error occurred during allocation: ~s" opts-err)
+        (exit)])
+; set the options struct to the saved preferences
+#|(set-Tox-Options-ipv6?! my-opts (use-ipv6?))
+(set-Tox-Options-udp?! my-opts (use-udp?))
+(set-Tox-Options-proxy-type! my-opts (proxy-type))
+(set-Tox-Options-proxy-host! my-opts (proxy-host))
+(set-Tox-Options-proxy-port! my-opts (proxy-port))
+(set-Tox-Options-start-port! my-opts (start-port))
+(set-Tox-Options-end-port! my-opts (end-port))|#
 
 ; av settings
 (define my-csettings DefaultCSettings)
@@ -40,21 +51,22 @@
          (encrypted? #t)
          ; ask the user what the password is
          (dprint-wait "Loading encrypted data")
-         (define loading-callback
-           (λ ()
-             (encryption-pass (send pass-tfield get-value))
-             (let* ([err #"0"]
-                    [decrypted-data (pass-decrypt data-bytes (encryption-pass))])
-               (set! my-tox (tox-new decrypted-data my-opts))
-               (cond [(zero? (car err))
-                      (send pass-dialog show #f)
-                      (displayln "Loading successful!")]
-                     [else
-                      (let ([mbox (message-box "Blight - Incorrect Passphrase"
-                                               "Sorry! That was incorrect.")])
-                        (when (eq? mbox 'ok)
-                          (displayln "Incorrect password received, trying again.")
-                          (send pass-tfield set-value "")))]))))
+         (define (loading-callback)
+           (encryption-pass (send pass-tfield get-value))
+           (let* ([decrypted-result (pass-decrypt data-bytes (encryption-pass))]
+                  [decrypted-data (last decrypted-result)]
+                  [new-result (tox-new my-opts decrypted-data)]
+                  [new-err (second new-result)])
+             (set! my-tox (first new-result))
+             (cond [(zero? (bytes-ref new-err 0))
+                    (send pass-dialog show #f)
+                    (displayln "Loading successful!")]
+                   [else
+                    (let ([mbox (message-box "Blight - Incorrect Passphrase"
+                                             "Sorry! That was incorrect.")])
+                      (when (eq? mbox 'ok)
+                        (displayln "Incorrect password received, trying again.")
+                        (send pass-tfield set-value "")))])))
          (define pass-dialog (new dialog%
                                   [label "Blight - Enter Passphrase"]
                                   [height 50]
@@ -86,12 +98,11 @@
                             (loading-callback))]))
          (send pass-dialog show #t)]
         [(zero? (bytes-length data-bytes))
-         (define new-err #"0")
-         (set! my-tox (tox-new my-opts data-bytes new-err))
+         (set! my-tox (car (tox-new my-opts #"")))
          ; set username
-         (set-self-name! my-tox (my-name))
+         (set-self-name! my-tox (string->bytes/utf-8 (my-name)))
          ; set status message
-         (set-self-status-message! my-tox (my-status-message))]))
+         (set-self-status-message! my-tox (string->bytes/utf-8 (my-status-message)))]))
 
 ; our AV instance
 (define my-av (av-new my-tox 1))

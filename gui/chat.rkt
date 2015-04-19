@@ -64,11 +64,11 @@
     
     (set-default-chatframe-bindings chatframe-keymap)
     
-    (define friend-name "")
+    (define fname "")
     (define friend-key "")
     (define friend-num -1)
     ; obtain our tox id
-    (define my-id-bytes (get-self-address this-tox))
+    (define my-id-bytes (self-address this-tox))
     (define my-id-hex (bytes->hex-string my-id-bytes))
     (define friend-avatar (make-bitmap 40 40))
     (define friend-has-avatar? #f)
@@ -89,10 +89,10 @@
     
     (define data-control
       (λ (filenumber sending? type)
-        (send-file-control this-tox friend-num
-                           sending? filenumber
-                           (_TOX_FILECONTROL type)
-                           #f 0)))
+        (file-control this-tox
+                      friend-num
+                      filenumber
+                      #;(_TOX_FILECONTROL type))))
     
     (define/public send-data
       (λ (filenumber)
@@ -103,44 +103,44 @@
         
         (define size (file-size path))
         (define percent 0)
-        ; maximum piece size we can send at one time
-        (define max-size (file-data-size this-tox friend-num))
-        ; number of pieces we're going to send
-        (define num-pieces (quotient size max-size))
+        ; maximum chunk size we can send at one time
+        (define max-size 256)
+        ; number of chunks we're going to send
+        (define num-chunks (quotient size max-size))
         (add-file-sender path filenumber)
         (do ((i 0 (+ i 1)))
-          ((= i num-pieces))
-          (let ([piece (subbytes (st-ref-data filenumber)
+          ((= i num-chunks))
+          (let ([chunk (subbytes (st-ref-data filenumber)
                                  (* max-size i) (* max-size (+ i 1)))])
-            ; send our piece
+            ; send our chunk
             ; if there is an error, sleep and then try again.
             (let loop ()
-              (cond [(false? (send-file-data this-tox friend-num
-					     filenumber piece))
-                     (tox-do this-tox)
-                     (sleep (/ (tox-do-interval this-tox) 1000))
+              (cond [(false? (file-send-chunk this-tox friend-num
+					     filenumber chunk))
+                     (iterate this-tox)
+                     (sleep (/ (iteration-interval this-tox) 1000))
                      (loop)]))
             ; update file-send gauge
             (set-st-sent! filenumber
-                          (+ (st-ref-sent filenumber) (bytes-length piece)))
+                          (+ (st-ref-sent filenumber) (bytes-length chunk)))
             (set! percent (fl->exact-integer
                            (truncate (* (exact->inexact
                                          (/ (st-ref-sent filenumber) size)) 100))))
             (send transfer-gauge set-value percent)))
-        ; if there is a remainder, send the very last piece
+        ; if there is a remainder, send the very last chunk
         (unless (zero? (quotient size max-size))
-          (let ([piece (subbytes (st-ref-data filenumber)
+          (let ([chunk (subbytes (st-ref-data filenumber)
                                  (- size (remainder size max-size)) size)])
-            ; send our piece
+            ; send our chunk
             ; if there is an error, sleep and then try again.
             (let loop ()
-              (cond [(false? (send-file-data this-tox friend-num
-					     filenumber piece))
-                     (tox-do this-tox)
-                     (sleep (/ (tox-do-interval this-tox) 1000))
+              (cond [(false? (file-send-chunk this-tox friend-num
+					     filenumber chunk))
+                     (iterate this-tox)
+                     (sleep (/ (iteration-interval this-tox) 1000))
                      (loop)]))
             ; update file-send gauge
-            (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length piece)))
+            (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length chunk)))
             (set! percent (fl->exact-integer (truncate
                                               (* (exact->inexact
                                                   (/ (st-ref-sent filenumber) size)) 100))))
@@ -158,41 +158,41 @@
       (λ (filenumber)
         (let* ([path (st-ref-path filenumber)]
                [size (file-size path)]
-               [max-size (file-data-size this-tox friend-num)]
-               [num-pieces (quotient size max-size)]
-               [num-left (- num-pieces (st-ref-sent filenumber))]
+               [max-size 256]
+               [num-chunks (quotient size max-size)]
+               [num-left (- num-chunks (st-ref-sent filenumber))]
                [percent (fl->exact-integer (truncate
                                             (* (exact->inexact
                                                 (/ (st-ref-sent filenumber) size)) 100)))])
           ; send the data!
           (do ((i 0 (+ i 1)))
             ((= i num-left))
-            (let ([piece (subbytes (st-ref-data filenumber)
+            (let ([chunk (subbytes (st-ref-data filenumber)
                                    (* max-size i) (* max-size (+ i 1)))])
               (let loop ()
                 ; if there was an error, try again!
-                (cond [(false? (send-file-data this-tox friend-num
-					       filenumber piece))
-                       (tox-do this-tox)
-                       (sleep (/ (tox-do-interval this-tox) 1000))
+                (cond [(false? (file-send-chunk this-tox friend-num
+					       filenumber chunk))
+                       (iterate this-tox)
+                       (sleep (/ (iteration-interval this-tox) 1000))
                        (loop)]))
-              (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length piece)))
+              (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length chunk)))
               (set! percent (fl->exact-integer (truncate
                                                 (* (exact->inexact
                                                     (/ (st-ref-sent filenumber) size)) 100))))
               (send transfer-gauge set-value percent)))
           ; if there's a remainder, send that last bit
           (unless (zero? (quotient size max-size))
-            (let ([piece (subbytes (st-ref-data filenumber)
+            (let ([chunk (subbytes (st-ref-data filenumber)
                                    (- size (remainder size max-size)) size)])
               ; if there was an error, try again
               (let loop ()
-                (cond [(false? (send-file-data this-tox friend-num
-					       filenumber piece))
-                       (tox-do this-tox)
-                       (sleep (/ (tox-do-interval this-tox) 1000))
+                (cond [(false? (file-send-chunk this-tox friend-num
+					       filenumber chunk))
+                       (iterate this-tox)
+                       (sleep (/ (iteration-interval this-tox) 1000))
                        (loop)]))
-              (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length piece)))
+              (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length chunk)))
               (set! percent (fl->exact-integer (truncate
                                                 (* (exact->inexact
                                                     (/ (st-ref-sent filenumber) size)) 100))))
@@ -238,9 +238,12 @@
                             ; total size of the file
                             (define size (file-size path))
                             ; name of the file (taken from the path)
-                            (define filename (path->string (last (explode-path path))))
+                            (define filename (path->bytes (last (explode-path path))))
+                            ; get the file id
+                            (define f-id #"")
                             (define filenumber
-                              (new-file-sender this-tox friend-num size filename))
+                              (file-send this-tox friend-num
+                                         (_TOX_FILE_KIND 'DATA) size f-id filename))
                             (st-add! path filenumber))))))])
     
     (new menu-item% [parent menu-file]
@@ -386,7 +389,7 @@
                        (for-each
                         (λ (x y z)
                           (define name "")
-                          (cond [(zero? y) (set! name friend-name)]
+                          (cond [(zero? y) (set! name fname)]
                                 [else (set! name "Me")])
                           (send history-text insert (format "[~a] ~a: ~a\n" x name z)))
                         timestamp who message)
@@ -531,11 +534,11 @@
                     (eq? key #\rubout)
                     (eq? key #\return))
                 (begin
-                  (set-user-is-typing! this-tox friend-num #f)
+                  (set-self-typing! this-tox friend-num #f)
                   (send editor-keymap handle-key-event this-editor key-event))
                 (when (not (send editor-keymap handle-key-event this-editor key-event))
                   (send this-editor insert key)
-                  (set-user-is-typing! this-tox friend-num #t)))))
+                  (set-self-typing! this-tox friend-num #t)))))
 
         (super-new
          [parent this-parent]
@@ -745,25 +748,24 @@
     #| #################### END EMOJI STUFF #################### |#
     
     ; send the message through tox and then add to history
+    ; message is a byte-string
     (define/public do-send-message
       (λ (editor message)
-        ; procedure to send to the editor and to tox
-
-      ; add message to message history and get its type
-      (define msg-type
-        (send message-history add-send-message message (get-time)))
-
-      (define msg-bytes (string->bytes/utf-8 message))      
-
+        ; add message to message history and get its type
+        (define msg-type
+          (send message-history add-send-message (bytes->string/utf-8 message) (get-time)))
+        
         (define do-send
           (λ (byte-str)
             (cond
-             ; we're sending an action!
-             [(eq? msg-type 'action)
-              ; "/me " -> 4 bytes
-              (send-action this-tox friend-num (subbytes byte-str 4))]
-             ; we're not doing anything special
-             [else (send-message this-tox friend-num byte-str)])))
+              ; we're sending an action!
+              [(= msg-type 'action)
+               ; "/me " -> 4 bytes
+               (friend-send-message this-tox friend-num
+                                    (_TOX_MESSAGE_TYPE 'ACTION) (subbytes byte-str 4))]
+              ; we're not doing anything special
+              [else (friend-send-message this-tox friend-num
+                                         (_TOX_MESSAGE_TYPE 'NORMAL) byte-str)])))
         
         ; split the message if it exceeds TOX_MAX_MESSAGE_LENGTH
         ; otherwise, just send it.
@@ -776,7 +778,7 @@
                      (do-send (subbytes mbytes 0 TOX_MAX_MESSAGE_LENGTH))
                      (split-message (subbytes mbytes TOX_MAX_MESSAGE_LENGTH))]))))
         
-        (split-message msg-bytes)
+        (split-message message)
         ; add messages to history
         (add-history my-id-hex friend-key (send editor get-text) 1)))
     
@@ -811,12 +813,12 @@
       (send chat-frame is-enabled?))
     
     (define/public (set-name name)
-      (set! friend-name name)
+      (set! fname name)
       (send chat-frame-msg set-label name)
       (send typing-msg set-label (string-append name " is not typing ")))
     
     (define/public (get-name)
-      friend-name)
+      fname)
     
     (define/public (get-receive-editor)
       (send chat-editor-canvas-receive get-editor))
@@ -885,9 +887,9 @@
     (define/public (is-typing? bool)
       (if bool
           (send typing-msg set-label
-                (string-append friend-name " is typing... "))
+                (string-append fname " is typing... "))
           (send typing-msg set-label
-                (string-append friend-name " is not typing ")))
+                (string-append fname " is not typing ")))
       (send typing-msg enable bool))
     
     (define/public (get-typing-msg)

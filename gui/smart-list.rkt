@@ -118,7 +118,7 @@
                                                  (let ([title (send l get-value)]
                                                        [title-bytes (string->bytes/utf-8
                                                                      (send l get-value))])
-                                                   (group-set-title!
+                                                   (set-group-title!
                                                     (send window get-tox) tnum title-bytes)
                                                    (send editor insert
                                                          (format "** [~a]: ~a `~a'~n"
@@ -157,7 +157,7 @@
                                                                 (send title-tfield get-value)]
                                                                [title-bytes
                                                                 (string->bytes/utf-8 title)])
-                                                          (group-set-title!
+                                                          (set-group-title!
                                                            (send window get-tox)
                                                            tnum
                                                            title-bytes)

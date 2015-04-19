@@ -242,7 +242,7 @@
 
           (set! pfx (string-append "[" time "] Me: ")))
 
-      #;(if (string=? (substring message 0 1) ">")
+      (if (string=? (substring message 0 1) ">")
           (insert (string-append pfx resmsg "\n") set-imply-style unset-imply-style)
           (insert (string-append pfx resmsg "\n")))
       

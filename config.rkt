@@ -97,6 +97,9 @@
                (build-path icon-dir "speaker-unmuted.png")
                (build-path icon-dir "speaker-muted.png")))
 
+; max avatar size - really, even this might be too big
+(define BLIGHT-MAX-AVATAR-SIZE (expt 2 22))
+
 (define avatar-dir (build-path tox-path "avatars"))
 
 (define logo-dir (build-path "img"))
@@ -167,58 +170,6 @@ arg: list of files to copy to tox-path as .tox files
       import-files))))
 #| ###################### END COMMAND-LINE STUFF ######################### |#
 
-#| ###################### OLD FILE IMPORTATION ########################## |#
-; migrate old config file
-(let ([old-config-file (build-path tox-path "blight-config.json")]
-      [new-config-file (build-path tox-path "blight.json")])
-  (cond [(and (not (file-exists? new-config-file))
-              (file-exists? old-config-file))
-         (printf "Detected old config file ~a, copying to ~a... "
-                 old-config-file new-config-file)
-         (copy-file old-config-file new-config-file)
-         (displayln "Done!")
-         (print "Updating config file... ")
-         (let* ([config-port-in (open-input-file new-config-file
-                                                 #:mode 'text)]
-                [json-info-old (read-json config-port-in)]
-                [json-info-new (hash-set* json-info-old
-                                          'ipv6? use-ipv6?-default
-                                          'udp? use-udp?-default
-                                          'proxy-type proxy-type-default
-                                          'proxy-host proxy-host-default
-                                          'proxy-port proxy-port-default
-                                          'encrypted? encrypted?-default)]
-                [config-port-out (open-output-file new-config-file
-                                                   #:mode 'text
-                                                   #:exists 'truncate/replace)])
-           (json-null 'null)
-           (write-json json-info-new config-port-out)
-           (write-json (json-null) config-port-out)
-           (close-input-port config-port-in)
-           (close-output-port config-port-out)
-           (displayln "Done!"))]))
-
-; migrate old data file
-(let ([old-data-file (build-path tox-path "blight-data")]
-      [new-data-file (build-path tox-path "blight.tox")])
-  ; if old data-file exists, but new one does not,
-  ; copy it over, otherwise do nothing
-  (cond [(and (not (file-exists? new-data-file))
-              (file-exists? old-data-file))
-         (printf "Detected old data file ~a, copying to ~a... " old-data-file new-data-file)
-         (copy-file old-data-file new-data-file)
-         (displayln "Done!")]))
-
-; migrate old history database
-(let ([old-db-file (build-path tox-path "blight-tox.db")]
-      [new-db-file (build-path tox-path "blight.sqlite")])
-  (cond [(and (not (file-exists? new-db-file))
-              (file-exists? old-db-file))
-         (printf "Detected old history database ~a, copying to ~a... " old-db-file new-db-file)
-         (copy-file old-db-file new-db-file)
-         (displayln "Done!")]))
- #| ##################### END OLD FILE IMPORTATION ############################ |#
-
 ; if <profile>.json does not exist, create it
 (unless (file-exists? ((config-file)))
   (define config-port-out
@@ -257,6 +208,8 @@ arg: list of files to copy to tox-path as .tox files
 (define proxy-type-default 0) ; (_TOX_PROXY_TYPE 'NONE)
 (define proxy-host-default "") ; ignored if proxy type is 'NONE
 (define proxy-port-default 0) ; ignored if proxy type is 'NONE
+(define start-port-default 0)
+(define end-port-default 0)
 (define encrypted?-default #f)
 
 ; if blight-config.json does not exist, initalize it to default values
@@ -269,6 +222,8 @@ arg: list of files to copy to tox-path as .tox files
           'proxy-type proxy-type-default
           'proxy-host proxy-host-default
           'proxy-port proxy-port-default
+          'start-port start-port-default
+          'end-port end-port-default
           'encrypted? encrypted?-default))
 
 ; <profile>.json is empty, initialize with default values for variables
@@ -289,12 +244,14 @@ arg: list of files to copy to tox-path as .tox files
 
 (define-values
   (my-name my-status-message make-noise use-ipv6? use-udp?
-           proxy-type proxy-host proxy-port encrypted?)
+           proxy-type proxy-host proxy-port start-port end-port
+           encrypted?)
   (let* ([config-port-in (open-input-file ((config-file)) #:mode 'text)]
          [json-info (read-json config-port-in)])
     (close-input-port config-port-in)
     (hash-ref* json-info 'my-name 'my-status-message 'make-noise 'ipv6?
-               'udp? 'proxy-type 'proxy-host 'proxy-port 'encrypted?)))
+               'udp? 'proxy-type 'proxy-host 'proxy-port 'start-port
+               'end-port 'encrypted?)))
 
 (define (toggle-noise) (make-noise (not (make-noise))))
 

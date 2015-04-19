@@ -82,22 +82,22 @@
 (define on-status-type-change
   (λ (mtox friendnumber status userdata)
     ; friend is online
-    (cond [(= status (_TOX_USERSTATUS 'NONE))
+    (cond [(= status (_TOX_USER_STATUS 'NONE))
            (send (get-contact-snip friendnumber) set-status 'available)
            (update-contact-status friendnumber 'available)]
           ; friend is away
-          [(= status (_TOX_USERSTATUS 'AWAY))
+          [(= status (_TOX_USER_STATUS 'AWAY))
            (send (get-contact-snip friendnumber) set-status 'away)
            (update-contact-status friendnumber 'away)]
           ; friend is busy
-          [(= status (_TOX_USERSTATUS 'BUSY))
+          [(= status (_TOX_USER_STATUS 'BUSY))
            (send (get-contact-snip friendnumber) set-status 'busy)
            (update-contact-status friendnumber 'busy)])))
 
 ; helper to avoid spamming notification sounds
 (define status-checker
   (λ (friendnumber status)
-    (let ([type (get-user-status my-tox friendnumber)])
+    (let ([type (friend-status my-tox friendnumber)])
       (cond [(zero? status)
              (send (get-contact-snip friendnumber) set-status 'offline)
              (update-contact-status friendnumber 'offline)]
@@ -106,23 +106,23 @@
             [else (on-status-type-change my-tox friendnumber type #f)]))))
 
 ;; helper to get friend name as return value
-(define (friend-name tox num)
-  (define name-bytes (get-name tox num))
+(define (friend-name-str tox num)
+  (define name-bytes (last (friend-name tox num)))
   (bytes->string/utf-8 name-bytes))
 
 ; helper to get friend's status message as a return value
 (define (friend-status-msg tox num)
-  (define status-msg (get-status-message tox num))
+  (define status-msg (last (friend-status-message tox num)))
   (bytes->string/utf-8 status-msg))
 
 ;; helper to get friend key as return value
 (define (friend-key tox num)
-  (define pubkey (get-client-id tox num))
+  (define pubkey (last (friend-public-key tox num)))
   (bytes->hex-string pubkey))
 
 ;; helper to get friend number without ->bytes conversion
 (define (friend-number tox key)
-  (get-friend-number tox (hex-string->bytes key TOX_PUBLIC_KEY_SIZE)))
+  (car (friend-by-public-key tox (hex-string->bytes key TOX_PUBLIC_KEY_SIZE))))
 
 (define (update-invite-list)
   (for ([(num grp) cur-groups])
@@ -193,7 +193,7 @@
 (define (add-new-group name)
   (let ([number (count-chatlist my-tox)])
     (do-add-group name number (_TOX_GROUPCHAT_TYPE 'TEXT))
-    (add-groupchat my-tox)))
+    (add-groupchat! my-tox)))
 
 (define (add-new-av-group name)
   (let ([number (count-chatlist my-tox)]
@@ -206,8 +206,8 @@
 
 (define (initial-fill-sml)
   (define an-id 1)
-  (for ([fn (friendlist-length my-tox)])
-    (define name (friend-name my-tox fn))
+  (for ([fn (self-friend-list-size my-tox)])
+    (define name (bytes->string/utf-8 (last (friend-name my-tox fn))))
     
     (when (string=? name "")
       (set! name (format "Anonymous #~a" an-id))
@@ -234,7 +234,7 @@
 
 (define (do-delete-friend friend-num)
   ; delete from tox friend list
-  (del-friend! my-tox friend-num)
+  (friend-delete! my-tox friend-num)
   ; save the blight data
   (blight-save-data)
   ; remove from list-box
