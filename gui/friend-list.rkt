@@ -105,7 +105,7 @@
 ; helper to avoid spamming notification sounds
 (define status-checker
   (λ (friendnumber status)
-    (let ([type (friend-status my-tox friendnumber)])
+    (let ([type (car (friend-status my-tox friendnumber))])
       (cond [(zero? status)
              (send (get-contact-snip friendnumber) set-status 'offline)
              (update-contact-status friendnumber 'offline)]

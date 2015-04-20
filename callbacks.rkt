@@ -27,16 +27,19 @@
 ; set all the callback functions
 (define on-self-connection-status
   (λ (mtox connection-status userdata)
-    (displayln "ON-SELF-CONNECTION-STATUS")
-    (case connection-status
-      [((_TOX_CONNECTION 'NONE)) (displayln "We're not connected to the network right now.")]
-      [((_TOX_CONNECTION 'TCP)) (displayln "We're connected to the network via TCP.")]
-      [((_TOX_CONNECTION 'UDP)) (displayln "We're connected to the network via UDP.")])))
+    (cond [(= connection-status (_TOX_CONNECTION 'NONE))
+           (displayln "We're not connected to the network right now.")]
+          [(= connection-status (_TOX_CONNECTION 'TCP))
+           (displayln "We're connected to the network via TCP.")]
+          [(= connection-status (_TOX_CONNECTION 'UDP))
+           (displayln "We're connected to the network via UDP.")])))
 
 (define on-friend-request
   (λ (mtox public-key message message-len userdata)
-    ; convert public-key from bytes to string so we can display it
-    (define id-hex (bytes->hex-string public-key))
+    ; make sure public-key is the correct size...
+    (define pubkey (subbytes public-key 0 TOX_ADDRESS_SIZE))
+    ; convert pubkey from bytes to string so we can display it
+    (define id-hex (bytes->hex-string pubkey))
     ; friend request dialog
     (define fr-dialog
       (new dialog%
@@ -83,9 +86,10 @@
             (λ (button event)
               ; add the friend
               (display "Adding friend... ")
-              (define result (friend-add-norequest mtox public-key))
+              (define result (friend-add-norequest mtox pubkey))
               (define friendnumber (first result))
-              (define err (second result))
+              (define err (bytes-ref (second result) 0))
+              
               ; reused code to add friend on success
               (define (add-friend-success)
                 ; play a sound because we accepted
@@ -99,15 +103,16 @@
                 ; update friend list
                 ; add connection status icons to each friend
                 (for ([i (self-friend-list-size mtox)])
-                  (status-checker i (first friend-connection-status mtox i)))
+                  (status-checker i (first (friend-connection-status mtox i))))
                 ; the invite list needs to be updated for
                 ; the groupchat windows that still exist
                 (unless (zero? (hash-count cur-groups))
                   (update-invite-list))
                 ; save the tox data
                 (blight-save-data))
+              
               ; catch errors
-              (cond [(= friendnumber (_TOX_ERR_FRIEND_ADD 'OK)) (add-friend-success)]
+              (cond [(= err (_TOX_ERR_FRIEND_ADD 'OK)) (add-friend-success)]
                     [else
                      (display "There was an error accepting the friend request! ")
                      ; if we've failed, try again 3(?) more times
@@ -120,7 +125,9 @@
                               (display "Retrying... ")
                               (iterate mtox)
                               (sleep (/ (iteration-interval mtox) 1000))
-                              (if (= (second (friend-add-norequest mtox public-key))
+                              (if (= (bytes-ref
+                                      (second (friend-add-norequest mtox pubkey))
+                                      0)
                                      (_TOX_ERR_FRIEND_ADD 'OK))
                                   (begin
                                     (displayln "Success!")
