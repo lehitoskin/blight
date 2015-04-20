@@ -140,11 +140,10 @@
                               (set! message-bytes
                                     (subbytes message-bytes
                                               0
-                                              TOX_MAX_FRIEND_REQUEST_LENGTH))
-                              (set! message-str (bytes->string/utf-8 message-bytes)))
+                                              TOX_MAX_FRIEND_REQUEST_LENGTH)))
                             (let* ([result (friend-add my-tox
                                                        nick-bytes
-                                                       message-str)]
+                                                       message-bytes)]
                                    [num (first result)]
                                    [err (bytes-ref (second result) 0)])
                               ; check for all the friend add errors

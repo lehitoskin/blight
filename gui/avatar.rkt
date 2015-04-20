@@ -9,6 +9,12 @@
 ; create initial avatar bitmap
 (define my-avatar (make-parameter (make-bitmap 40 40)))
 
+(define (avatar-lst)
+  (for/list ([i (in-directory avatar-dir)]
+             #:when (false? (regexp-match #rx"[.]hash" (path->string i)))
+             [avatar (in-value i)])
+    avatar))
+
 ; if we've already set an avatar, load from that file
 (let* ([my-pubkey (substring (my-id-hex) 0 (* TOX_PUBLIC_KEY_SIZE 2))]
        [my-avatar-location (build-path avatar-dir (string-append my-pubkey ".png"))])

@@ -560,6 +560,11 @@
         (send sn set-key newname)
         (reset-entry sn)))
     
+    (define/public (set-status-msg sn new-status-msg)
+      (let ([old-status-msg (send sn get-status-msg)])
+        (send sn set-status-msg new-status-msg)
+        (reset-entry sn)))
+    
     (define/public (get-selection)
       (send this find-next-selected-snip #f))
     

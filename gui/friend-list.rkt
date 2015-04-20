@@ -69,13 +69,21 @@
 
 (define (update-contact-status friend-num con-status)
   (define status-msg
-    (friend-status-msg my-tox friend-num))
+    (friend-status-msg-str my-tox friend-num))
   
   (define cd (get-contact-data friend-num))
   (define sn (get-contact-snip friend-num))
   (define window (get-contact-window friend-num))
   
   (send sn set-status con-status)
+  (send sn set-status-msg status-msg)
+  (send window set-status-msg status-msg))
+
+(define (update-contact-status-msg friend-num status-msg)
+  (define cd (get-contact-data friend-num))
+  (define sn (get-contact-snip friend-num))
+  (define window (get-contact-window friend-num))
+  
   (send sn set-status-msg status-msg)
   (send window set-status-msg status-msg))
 
@@ -111,7 +119,7 @@
   (bytes->string/utf-8 name-bytes))
 
 ; helper to get friend's status message as a return value
-(define (friend-status-msg tox num)
+(define (friend-status-msg-str tox num)
   (define status-msg (last (friend-status-message tox num)))
   (bytes->string/utf-8 status-msg))
 
@@ -150,7 +158,7 @@
                            [avatar-width bitmap-width]
                            [this-tox my-tox])]
          [friend-number (friend-number my-tox key)]
-         [status-msg (friend-status-msg my-tox friend-number)]
+         [status-msg (friend-status-msg-str my-tox friend-number)]
          [cd (contact-data name 'offline status-msg 'buddy chat-window friend-number #f)]
          [ncs (new contact-snip% [smart-list sml]
                    [style-manager cs-style]

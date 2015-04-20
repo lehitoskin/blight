@@ -27,6 +27,7 @@
 ; set all the callback functions
 (define on-self-connection-status
   (λ (mtox connection-status userdata)
+    (displayln "ON-SELF-CONNECTION-STATUS")
     (case connection-status
       [((_TOX_CONNECTION 'NONE)) (displayln "We're not connected to the network right now.")]
       [((_TOX_CONNECTION 'TCP)) (displayln "We're connected to the network via TCP.")]
@@ -155,7 +156,7 @@
                        (string-append "ACTION: " message) 0)))))
 
 (define on-friend-name
-  (λ (mtox friendnumber newname len userdata)
+  (λ (mtox friendnumber newname newname-len userdata)
     (let ([sn (get-contact-snip friendnumber)])
       (send sml rename-entry sn newname))
     
@@ -166,6 +167,11 @@
       (send window set-new-label (string-append "Blight - " newname))
       ; add connection status icon
       (status-checker friendnumber (first (friend-connection-status mtox friendnumber))))))
+
+(define on-friend-status-message
+  (λ (mtox friendnumber status-message message-len userdata)
+    ; from friend-list
+    (update-contact-status-msg friendnumber status-message)))
 
 (define on-friend-status
   (λ (mtox friendnumber status userdata)
@@ -300,9 +306,9 @@
            ; the name of the avatar is friend-public-key.ext
            (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
                   [friend-id (send window get-key)]
-                  [ext (substring filename (- fname-len 4) fname-len)]
+                  [ext (bytes->string/utf-8 (filename-extension filename))]
                   ;[hash-file (build-path avatar-dir (string-append friend-id ".hash"))]
-                  [avatar-path (build-path avatar-dir friend-id ext)])
+                  [avatar-path (build-path avatar-dir (string-append friend-id "." ext))])
              ;[img-hash (tox-hash mtox )
              #|(cond [(and (file-exists? hash-file) (file-exists png-file))
                     ; if both files exist and their hashes are identical, do nothing
@@ -632,6 +638,7 @@
 (callback-friend-request my-tox on-friend-request)
 (callback-friend-message my-tox on-friend-message)
 (callback-friend-name my-tox on-friend-name)
+(callback-friend-status-message my-tox on-friend-status-message)
 (callback-friend-status my-tox on-friend-status)
 (callback-friend-connection-status my-tox on-friend-connection-status-change)
 (callback-file-recv-control my-tox on-file-recv-control)
