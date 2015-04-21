@@ -11,7 +11,7 @@
 
 ; proxy options
 #;(define my-opts
-  (make-Tox-Options (use-ipv6?) (use-udp?) (proxy-type)
+  (make-Tox-Options (use-ipv6?) (proxy-type) (use-udp?)
                     (proxy-host) (proxy-port) (start-port) (end-port)))
 ; create a new options struct
 (define-values (my-opts opts-err)
@@ -26,13 +26,13 @@
         (error 'tox-options-new "error occurred during allocation: ~s" opts-err)
         (exit)])
 ; set the options struct to the saved preferences
-#|(set-Tox-Options-ipv6?! my-opts (use-ipv6?))
-(set-Tox-Options-udp?! my-opts (use-udp?))
-(set-Tox-Options-proxy-type! my-opts (proxy-type))
-(set-Tox-Options-proxy-host! my-opts (proxy-host))
-(set-Tox-Options-proxy-port! my-opts (proxy-port))
-(set-Tox-Options-start-port! my-opts (start-port))
-(set-Tox-Options-end-port! my-opts (end-port))|#
+;(set-Tox-Options-ipv6?! my-opts (use-ipv6?))
+;(set-Tox-Options-udp?! my-opts (use-udp?))
+;(set-Tox-Options-proxy-type! my-opts (proxy-type))
+;(set-Tox-Options-proxy-host! my-opts (proxy-host))
+;(set-Tox-Options-proxy-port! my-opts (proxy-port))
+;(set-Tox-Options-start-port! my-opts (start-port))
+;(set-Tox-Options-end-port! my-opts (end-port))
 
 ; av settings
 (define my-csettings DefaultCSettings)

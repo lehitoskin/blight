@@ -222,12 +222,14 @@
                ; regular message
                (async-insert tag message)])))
 
+    ; message is a string
     (define/public (get-msg-type message)
       (if (and (>= (string-length message) 3)
                (string=? (substring message 0 3) "/me"))
           'action
           'regular))
     
+    ; message is a string
     (define/public (add-send-message message time)
       (define msg-type 'regular)
       (define pfx "")
@@ -242,7 +244,7 @@
 
           (set! pfx (string-append "[" time "] Me: ")))
 
-      (if (string=? (substring message 0 1) ">")
+      #;(if (string=? (substring message 0 1) ">")
           (insert (string-append pfx resmsg "\n") set-imply-style unset-imply-style)
           (insert (string-append pfx resmsg "\n")))
       

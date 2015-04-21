@@ -36,131 +36,134 @@
 
 (define on-friend-request
   (λ (mtox public-key message message-len userdata)
-    ; make sure public-key is the correct size...
-    (define pubkey (subbytes public-key 0 TOX_ADDRESS_SIZE))
-    ; convert pubkey from bytes to string so we can display it
-    (define id-hex (bytes->hex-string pubkey))
-    ; friend request dialog
-    (define fr-dialog
-      (new dialog%
-           [label "Blight - Friend Request"]
-           [style (list 'close-button)]))
-    
-    ; friend request text with modified text size
-    (define fr-text
-      (new text%
-           [line-spacing 1.0]
-           [auto-wrap #t]))
-    (send fr-text change-style black-style)
-    
-    ; canvas to print the friend request message
-    (define fr-ecanvas
-      (new editor-canvas%
-           [parent fr-dialog]
-           [min-height 150]
-           [min-width 650]
-           [vert-margin 10]
-           [editor fr-text]
-           [style (list 'control-border 'no-hscroll
-                        'auto-vscroll 'no-focus)]))
-    
-    ; panel to right-align our buttons
-    (define fr-hpanel
-      (new horizontal-panel%
-           [parent fr-dialog]
-           [alignment (list 'right 'center)]))
-    
-    (define fr-cancel-button
-      (new button%
-           [parent fr-hpanel]
-           [label "Cancel"]
-           [callback (λ (button event)
-                       ; close and reset the friend request dialog
-                       (send fr-dialog show #f))]))
-    
-    (define fr-ok-button
-      (new button%
-           [parent fr-hpanel]
-           [label "OK"]
-           [callback
-            (λ (button event)
-              ; add the friend
-              (display "Adding friend... ")
-              (define result (friend-add-norequest mtox pubkey))
-              (define friendnumber (first result))
-              (define err (bytes-ref (second result) 0))
-              
-              ; reused code to add friend on success
-              (define (add-friend-success)
-                ; play a sound because we accepted
-                (when (make-noise)
-                  (play-sound (sixth sounds) #f))
-                (printf "Added friend number ~a~n" friendnumber)
-                ; append new friend to the list
-                (create-buddy (format-anonymous id-hex)
-                              (friend-key my-tox friendnumber))
+    (unless (>= (bytes-length public-key) TOX_ADDRESS_SIZE)
+      ; make sure public-key is the correct size...
+      (define pubkey (subbytes public-key 0 TOX_ADDRESS_SIZE))
+      ; convert pubkey from bytes to string so we can display it
+      (define id-hex (bytes->hex-string pubkey))
+      ; friend request dialog
+      (define fr-dialog
+        (new dialog%
+             [label "Blight - Friend Request"]
+             [style (list 'close-button)]))
+      
+      ; friend request text with modified text size
+      (define fr-text
+        (new text%
+             [line-spacing 1.0]
+             [auto-wrap #t]))
+      (send fr-text change-style black-style)
+      
+      ; canvas to print the friend request message
+      (define fr-ecanvas
+        (new editor-canvas%
+             [parent fr-dialog]
+             [min-height 150]
+             [min-width 650]
+             [vert-margin 10]
+             [editor fr-text]
+             [style (list 'control-border 'no-hscroll
+                          'auto-vscroll 'no-focus)]))
+      
+      ; panel to right-align our buttons
+      (define fr-hpanel
+        (new horizontal-panel%
+             [parent fr-dialog]
+             [alignment (list 'right 'center)]))
+      
+      (define fr-cancel-button
+        (new button%
+             [parent fr-hpanel]
+             [label "Cancel"]
+             [callback (λ (button event)
+                         ; close and reset the friend request dialog
+                         (send fr-dialog show #f))]))
+      
+      (define fr-ok-button
+        (new button%
+             [parent fr-hpanel]
+             [label "OK"]
+             [callback
+              (λ (button event)
+                ; add the friend
+                (display "Adding friend... ")
+                (define result (friend-add-norequest mtox pubkey))
+                (define friendnumber (first result))
+                (define err (bytes-ref (second result) 0))
                 
-                ; update friend list
-                ; add connection status icons to each friend
-                (for ([i (self-friend-list-size mtox)])
-                  (status-checker i (first (friend-connection-status mtox i))))
-                ; the invite list needs to be updated for
-                ; the groupchat windows that still exist
-                (unless (zero? (hash-count cur-groups))
-                  (update-invite-list))
-                ; save the tox data
-                (blight-save-data))
-              
-              ; catch errors
-              (cond [(= err (_TOX_ERR_FRIEND_ADD 'OK)) (add-friend-success)]
-                    [else
-                     (display "There was an error accepting the friend request! ")
-                     ; if we've failed, try again 3(?) more times
-                     (let loop ([tries 0])
-                       (cond [(= tries 3)
-                              (displayln "Failed!")
-                              (when (make-noise)
-                                (play-sound (last sounds) #t))]
-                             [else
-                              (display "Retrying... ")
-                              (iterate mtox)
-                              (sleep (/ (iteration-interval mtox) 1000))
-                              (if (= (bytes-ref
-                                      (second (friend-add-norequest mtox pubkey))
-                                      0)
-                                     (_TOX_ERR_FRIEND_ADD 'OK))
-                                  (begin
-                                    (displayln "Success!")
-                                    (add-friend-success))
-                                  (loop (add1 tries)))]))])
-              (send fr-dialog show #f))]))
-    
-    (send fr-text insert (string-append
-                          id-hex
-                          "\nwould like to add you as a friend!\n"
-                          "Message: " message))
-    (send fr-dialog show #t)))
+                ; reused code to add friend on success
+                (define (add-friend-success)
+                  ; play a sound because we accepted
+                  (when (make-noise)
+                    (play-sound (sixth sounds) #f))
+                  (printf "Added friend number ~a~n" friendnumber)
+                  ; append new friend to the list
+                  (create-buddy (format-anonymous id-hex)
+                                (friend-key my-tox friendnumber))
+                  
+                  ; update friend list
+                  ; add connection status icons to each friend
+                  (for ([i (self-friend-list-size mtox)])
+                    (status-checker i (first (friend-connection-status mtox i))))
+                  ; the invite list needs to be updated for
+                  ; the groupchat windows that still exist
+                  (unless (zero? (hash-count cur-groups))
+                    (update-invite-list))
+                  ; save the tox data
+                  (blight-save-data))
+                
+                ; catch errors
+                (cond [(= err (_TOX_ERR_FRIEND_ADD 'OK)) (add-friend-success)]
+                      [else
+                       (display "There was an error accepting the friend request! ")
+                       ; if we've failed, try again 3(?) more times
+                       (let loop ([tries 0])
+                         (cond [(= tries 3)
+                                (displayln "Failed!")
+                                (when (make-noise)
+                                  (play-sound (last sounds) #t))]
+                               [else
+                                (display "Retrying... ")
+                                (iterate mtox)
+                                (sleep (/ (iteration-interval mtox) 1000))
+                                (if (= (bytes-ref
+                                        (second (friend-add-norequest mtox pubkey))
+                                        0)
+                                       (_TOX_ERR_FRIEND_ADD 'OK))
+                                    (begin
+                                      (displayln "Success!")
+                                      (add-friend-success))
+                                    (loop (add1 tries)))]))])
+                (send fr-dialog show #f))]))
+      
+      (send fr-text insert (string-append
+                            id-hex
+                            "\nwould like to add you as a friend!\n"
+                            "Message: " message))
+      (send fr-dialog show #t))))
 
+; message is a string
 (define on-friend-message
   (λ (mtox friendnumber type message len userdata)
-    (let* ([window (get-contact-window friendnumber)]
-           [msg-history (send window get-msg-history)]
-           [name (send window get-name)])
-      ; if the window isn't open, force it open
-      (cond [(not (send window is-shown?)) (send window show #t)])
-      
-      (if (= type (_TOX_MESSAGE_TYPE 'NORMAL))
-          (send msg-history add-recv-message (my-name) message name (get-time))
-          (send msg-history add-recv-action message name (get-time)))
-      
-      ; make a noise
-      (when (make-noise)
-        (play-sound (first sounds) #t))
-      ; add message to the history database
-      (if (= type (_TOX_MESSAGE_TYPE 'NORMAL))
-          (add-history (my-id-hex) (send window get-key) message 0)
-          (add-history (my-id-hex) (send window get-key)
-                       (string-append "ACTION: " message) 0)))))
+    (unless (zero? (string-length message))
+      (let* ([window (get-contact-window friendnumber)]
+             [msg-history (send window get-msg-history)]
+             [name (send window get-name)])
+        ; if the window isn't open, force it open
+        (cond [(not (send window is-shown?)) (send window show #t)])
+        
+        (if (= type (_TOX_MESSAGE_TYPE 'NORMAL))
+            (send msg-history add-recv-message (my-name) message name (get-time))
+            (send msg-history add-recv-action message name (get-time)))
+        
+        ; make a noise
+        (when (make-noise)
+          (play-sound (first sounds) #t))
+        ; add message to the history database
+        (if (= type (_TOX_MESSAGE_TYPE 'NORMAL))
+            (add-history (my-id-hex) (send window get-key) message 0)
+            (add-history (my-id-hex) (send window get-key)
+                         (string-append "ACTION: " message) 0))))))
 
 (define on-friend-name
   (λ (mtox friendnumber newname newname-len userdata)
@@ -311,35 +314,46 @@
                [else (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'CANCEL))]))
            ; auto-accept avatar data
            ; the name of the avatar is friend-public-key.ext
-           (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
-                  [friend-id (send window get-key)]
-                  [ext (bytes->string/utf-8 (filename-extension filename))]
-                  ;[hash-file (build-path avatar-dir (string-append friend-id ".hash"))]
-                  [avatar-path (build-path avatar-dir (string-append friend-id "." ext))])
-             ;[img-hash (tox-hash mtox )
-             #|(cond [(and (file-exists? hash-file) (file-exists png-file))
+           (unless (false? filename)
+             (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
+                    [friend-id (send window get-key)]
+                    [ext (bytes->string/utf-8 (filename-extension filename))]
+                    ;[hash-file (build-path avatar-dir (string-append friend-id ".hash"))]
+                    [avatar-path (build-path avatar-dir (string-append friend-id "." ext))])
+               ;[img-hash (tox-hash mtox )
+               #|(cond [(and (file-exists? hash-file) (file-exists png-file))
                     ; if both files exist and their hashes are identical, do nothing
                     (unless (bytes=? (file->bytes hash-file #:mode 'binary)|#
-             (rt-add! avatar-path filenumber)
-             (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'RESUME))))))))
+               (rt-add! avatar-path filenumber)
+               (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'RESUME)))))))))
 
 #;(define on-avatar-recv
-  (λ (mtox friendnumber filename)
-    (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
-           [friend-id (send window get-key)]
-           [hash-file (build-path
-                       avatar-dir
-                       (string-append friend-id ".hash"))]
-           [png-file (build-path
-                      avatar-dir
-                      (string-append friend-id ".png"))]
-           [cropped-hash (subbytes img-hash 0 TOX_HASH_LENGTH)])
-      ; check if we have the avatar already
-      (cond [(and (file-exists? hash-file)
-                  (file-exists? png-file))
-             ; if they both exist, do nothing if the hashes are identical
-             (unless (bytes=? (file->bytes hash-file #:mode 'binary) cropped-hash)
-               (displayln "The avatar's hash hash changed! Updating...")
+    (λ (mtox friendnumber filename)
+      (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
+             [friend-id (send window get-key)]
+             [hash-file (build-path
+                         avatar-dir
+                         (string-append friend-id ".hash"))]
+             [png-file (build-path
+                        avatar-dir
+                        (string-append friend-id ".png"))]
+             [cropped-hash (subbytes img-hash 0 TOX_HASH_LENGTH)])
+        ; check if we have the avatar already
+        (cond [(and (file-exists? hash-file)
+                    (file-exists? png-file))
+               ; if they both exist, do nothing if the hashes are identical
+               (unless (bytes=? (file->bytes hash-file #:mode 'binary) cropped-hash)
+                 (displayln "The avatar's hash hash changed! Updating...")
+                 ; request the avatar's data
+                 (request-avatar-data mtox friendnumber)
+                 ; update the hash file
+                 (let ([hash-port-out (open-output-file hash-file
+                                                        #:mode 'binary
+                                                        #:exists 'truncate/replace)])
+                   (write-bytes cropped-hash hash-port-out)
+                   (close-output-port hash-port-out)))]
+              [else
+               (displayln "We got a new avatar! Saving information...")
                ; request the avatar's data
                (request-avatar-data mtox friendnumber)
                ; update the hash file
@@ -347,17 +361,7 @@
                                                       #:mode 'binary
                                                       #:exists 'truncate/replace)])
                  (write-bytes cropped-hash hash-port-out)
-                 (close-output-port hash-port-out)))]
-            [else
-             (displayln "We got a new avatar! Saving information...")
-             ; request the avatar's data
-             (request-avatar-data mtox friendnumber)
-             ; update the hash file
-             (let ([hash-port-out (open-output-file hash-file
-                                                    #:mode 'binary
-                                                    #:exists 'truncate/replace)])
-               (write-bytes cropped-hash hash-port-out)
-               (close-output-port hash-port-out))]))))
+                 (close-output-port hash-port-out))]))))
 
 ; our friend has sent us a chunk of data
 (define on-file-recv-chunk

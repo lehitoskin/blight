@@ -536,7 +536,8 @@
                 (begin
                   (set-self-typing! this-tox friend-num #f)
                   (send editor-keymap handle-key-event this-editor key-event))
-                (when (not (send editor-keymap handle-key-event this-editor key-event))
+                (when (and (not (send editor-keymap handle-key-event this-editor key-event))
+                           (not (symbol? key)))
                   (send this-editor insert key)
                   (set-self-typing! this-tox friend-num #t)))))
 
@@ -748,18 +749,18 @@
     #| #################### END EMOJI STUFF #################### |#
     
     ; send the message through tox and then add to history
-    ; message is a byte-string
+    ; message is a string
     (define/public do-send-message
       (λ (editor message)
         ; add message to message history and get its type
         (define msg-type
-          (send message-history add-send-message (bytes->string/utf-8 message) (get-time)))
+          (send message-history add-send-message message (get-time)))
         
         (define do-send
           (λ (byte-str)
             (cond
               ; we're sending an action!
-              [(= msg-type 'action)
+              [(eq? msg-type 'action)
                ; "/me " -> 4 bytes
                (friend-send-message this-tox friend-num
                                     (_TOX_MESSAGE_TYPE 'ACTION) (subbytes byte-str 4))]
@@ -778,7 +779,7 @@
                      (do-send (subbytes mbytes 0 TOX_MAX_MESSAGE_LENGTH))
                      (split-message (subbytes mbytes TOX_MAX_MESSAGE_LENGTH))]))))
         
-        (split-message message)
+        (split-message (string->bytes/utf-8 message))
         ; add messages to history
         (add-history my-id-hex friend-key (send editor get-text) 1)))
     
