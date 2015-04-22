@@ -525,15 +525,17 @@
              (send lbox set-label
                    (format "~a Peers" (group-number-peers mtox groupnumber)))
              ; add an al source
-             (set-contact-data-alsources! grp (append sources (gen-sources 1)))]
+             (unless (false? sources)
+               (set-contact-data-alsources! grp (append sources (gen-sources 1))))]
             [(= change (_TOX_CHAT_CHANGE_PEER 'DEL))
              (send lbox delete peernumber)
              (send lbox set-label
                    (format "~a Peers" (group-number-peers mtox groupnumber)))
              ; delete an al source
-             (let-values ([(h t) (split-at sources peernumber)])
-               (delete-sources! (list (car t)))
-               (set-contact-data-alsources! grp (append h (cdr t))))]
+             (unless (false? sources)
+               (let-values ([(h t) (split-at sources peernumber)])
+                 (delete-sources! (list (car t)))
+                 (set-contact-data-alsources! grp (append h (cdr t)))))]
             [(= change (_TOX_CHAT_CHANGE_PEER 'NAME))
              (define name-bytes (group-peername mtox groupnumber peernumber))
              (define name (bytes->string/utf-8 name-bytes))

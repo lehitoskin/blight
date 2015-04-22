@@ -235,6 +235,7 @@
       (define pfx "")
       (define resmsg message)
 
+      ; check for action
       (if (and (>= (string-length message) 3)
                (string=? (substring message 0 3) "/me"))
           (begin
@@ -248,6 +249,7 @@
           (insert (string-append pfx resmsg "\n") set-imply-style unset-imply-style)
           (insert (string-append pfx resmsg "\n")))
       
+      ; check for imply
       (cond [(string=? (substring message 0 1) ">")
              (send editor begin-edit-sequence)
              (save-move-cursor editor)

@@ -413,16 +413,17 @@
                      (send emoji-dialog show #f))])
     #| #################### END EMOJI STUFF #################### |#
     
-    ; send the message through tox and then add to history
+    ; send the message through tox
+    ; message is a string
+    ;
+    ; we don't need to worry about putting the message into the receiving editor
+    ; because when we send a group message/action it is caught by both
+    ; callback-group-message and callback-group-action
     (define/public do-send-message
       (λ (editor message)
         ; get message type
         (define msg-type
           (send message-history get-msg-type message))
-        
-        (define mbytes (if (string? message)
-                           (string->bytes/utf-8 message)
-                           message))
         
         ; procedure to send to the editor and to tox
         (define do-send
@@ -446,7 +447,7 @@
                      (do-send (subbytes msg-bytes 0 TOX_MAX_MESSAGE_LENGTH))
                      (split-message (subbytes msg-bytes TOX_MAX_MESSAGE_LENGTH))]))))
         
-        (split-message mbytes)))
+        (split-message (string->bytes/utf-8 message))))
     
     (send group-text-send change-style black-style)
     

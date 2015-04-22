@@ -537,7 +537,7 @@
                   (set-self-typing! this-tox friend-num #f)
                   (send editor-keymap handle-key-event this-editor key-event))
                 (when (and (not (send editor-keymap handle-key-event this-editor key-event))
-                           (not (symbol? key)))
+                           (char? key))
                   (send this-editor insert key)
                   (set-self-typing! this-tox friend-num #t)))))
 
