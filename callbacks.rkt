@@ -87,9 +87,7 @@
               (λ (button event)
                 ; add the friend
                 (display "Adding friend... ")
-                (define result (friend-add-norequest mtox pubkey))
-                (define friendnumber (first result))
-                (define err (bytes-ref (second result) 0))
+                (define-values (friendnumber err) (friend-add-norequest mtox pubkey))
                 
                 ; reused code to add friend on success
                 (define (add-friend-success)
@@ -104,7 +102,8 @@
                   ; update friend list
                   ; add connection status icons to each friend
                   (for ([i (self-friend-list-size mtox)])
-                    (status-checker i (first (friend-connection-status mtox i))))
+                    (let-values ([(conn-status err) (friend-connection-status mtox i)])
+                      (status-checker i conn-status)))
                   ; the invite list needs to be updated for
                   ; the groupchat windows that still exist
                   (unless (zero? (hash-count cur-groups))
@@ -126,14 +125,12 @@
                                 (display "Retrying... ")
                                 (iterate mtox)
                                 (sleep (/ (iteration-interval mtox) 1000))
-                                (if (= (bytes-ref
-                                        (second (friend-add-norequest mtox pubkey))
-                                        0)
-                                       (_TOX_ERR_FRIEND_ADD 'OK))
-                                    (begin
-                                      (displayln "Success!")
-                                      (add-friend-success))
-                                    (loop (add1 tries)))]))])
+                                (let-values ([(num err) (friend-add-norequest mtox pubkey)])
+                                  (if (= err (_TOX_ERR_FRIEND_ADD 'OK))
+                                      (begin
+                                        (displayln "Success!")
+                                        (add-friend-success))
+                                      (loop (add1 tries))))]))])
                 (send fr-dialog show #f))]))
       
       (send fr-text insert (string-append
@@ -170,13 +167,14 @@
     (let ([sn (get-contact-snip friendnumber)])
       (send sml rename-entry sn newname))
     
-    (let ([window (get-contact-window friendnumber)])
+    (let-values ([(window) (get-contact-window friendnumber)]
+                 [(conn-status err) (friend-connection-status mtox friendnumber)])
       ; update the name in the list
       (send window set-name newname)
       ; update the name in the window
       (send window set-new-label (string-append "Blight - " newname))
       ; add connection status icon
-      (status-checker friendnumber (first (friend-connection-status mtox friendnumber))))))
+      (status-checker friendnumber conn-status))))
 
 (define on-friend-status-message
   (λ (mtox friendnumber status-message message-len userdata)

@@ -241,7 +241,7 @@
                             (define filename (path->bytes (last (explode-path path))))
                             ; get the file id
                             (define f-id #"")
-                            (define filenumber
+                            (define-values (filenumber file-err)
                               (file-send this-tox friend-num
                                          (_TOX_FILE_KIND 'DATA) size f-id filename))
                             (st-add! path filenumber))))))])

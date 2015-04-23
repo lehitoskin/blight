@@ -141,11 +141,9 @@
                                     (subbytes message-bytes
                                               0
                                               TOX_MAX_FRIEND_REQUEST_LENGTH)))
-                            (let* ([result (friend-add my-tox
-                                                       nick-bytes
-                                                       message-bytes)]
-                                   [num (first result)]
-                                   [err (bytes-ref (second result) 0)])
+                            (let-values ([(num err) (friend-add my-tox
+                                                                nick-bytes
+                                                                message-bytes)])
                               ; check for all the friend add errors
                               (cond [(= err (_TOX_ERR_FRIEND_ADD 'NULL))
                                      (displayln "ERROR: TOX_ERR_FRIEND_ADD_NULL")

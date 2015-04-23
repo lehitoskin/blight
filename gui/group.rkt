@@ -81,10 +81,9 @@
           ; loop until we get all our friends
           (do ((num 0 (+ num 1)))
             ((= num num-friends))
-            (let* ([friend-name-bytes (last (friend-name this-tox num))]
-                   [friend-name-text (bytes->string/utf-8 friend-name-bytes)])
+            (let-values ([(success err friend-name-bytes) (friend-name this-tox num)])
               ; add to the invite list
-              (send invite-list-box append friend-name-text))))))
+              (send invite-list-box append (bytes->string/utf-8 friend-name-bytes)))))))
     (update-invite-list)
     
     (new menu-item% [parent menu-file]

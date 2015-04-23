@@ -105,7 +105,7 @@
 ; helper to avoid spamming notification sounds
 (define status-checker
   (λ (friendnumber status)
-    (let ([type (car (friend-status my-tox friendnumber))])
+    (let-values ([(type err) (friend-status my-tox friendnumber)])
       (cond [(zero? status)
              (send (get-contact-snip friendnumber) set-status 'offline)
              (update-contact-status friendnumber 'offline)]
@@ -115,22 +115,24 @@
 
 ;; helper to get friend name as return value
 (define (friend-name-str tox num)
-  (define name-bytes (last (friend-name tox num)))
+  (define-values (success err name-bytes) (friend-name tox num))
   (bytes->string/utf-8 name-bytes))
 
 ; helper to get friend's status message as a return value
 (define (friend-status-msg-str tox num)
-  (define status-msg (last (friend-status-message tox num)))
+  (define-values (success err status-msg) (friend-status-message tox num))
   (bytes->string/utf-8 status-msg))
 
 ;; helper to get friend key as return value
 (define (friend-key tox num)
-  (define pubkey (last (friend-public-key tox num)))
+  (define-values (success err pubkey) (friend-public-key tox num))
   (bytes->hex-string pubkey))
 
 ;; helper to get friend number without ->bytes conversion
 (define (friend-number tox key)
-  (car (friend-by-public-key tox (hex-string->bytes key TOX_PUBLIC_KEY_SIZE))))
+  (define-values (number err)
+    (friend-by-public-key tox (hex-string->bytes key TOX_PUBLIC_KEY_SIZE)))
+  number)
 
 (define (update-invite-list)
   (for ([(num grp) cur-groups])
@@ -215,15 +217,16 @@
 (define (initial-fill-sml)
   (define an-id 1)
   (for ([fn (self-friend-list-size my-tox)])
-    (define name (bytes->string/utf-8 (last (friend-name my-tox fn))))
+    (define-values (success err name-bytes) (friend-name my-tox fn))
+    (define name-str (bytes->string/utf-8 name-bytes))
     
-    (when (string=? name "")
-      (set! name (format "Anonymous #~a" an-id))
+    (when (string=? name-str "")
+      (set! name-str (format "Anonymous #~a" an-id))
       (set! an-id (add1 an-id)))
     
     (define key (friend-key my-tox fn))
     
-    (create-buddy name key)))
+    (create-buddy name-str key)))
 
 (initial-fill-sml)
 

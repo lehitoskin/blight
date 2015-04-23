@@ -14,17 +14,17 @@
 (debug-prefix "Blight: ")
 (dprint-wait "Connection to DHT")
 ; connect to DHT
-(let ([result (tox-bootstrap my-tox
-                             (dht-address)
-                             (dht-port)
-                             (dht-public-key))])
-  (cond [(not (false? (first result)))
+(let-values ([(result err) (tox-bootstrap my-tox
+                                          (dht-address)
+                                          (dht-port)
+                                          (dht-public-key))])
+  (cond [(not (false? result))
          (when (make-noise)
            (play-sound (fourth sounds) #t))
          (displayln "Connected!")]
         [else (when (make-noise)
                 (play-sound (last sounds) #t))
-              (printf "Connection failed! Error code: ~s\n" (second result))]))
+              (printf "Connection failed! Error code: ~s\n" err)]))
 
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
@@ -64,8 +64,7 @@
            (define data-bytes (savedata my-tox))
            ; encrypt the data to be saved
            (define-values (enc-success enc-err encrypted-data)
-             (let ([enc (pass-encrypt data-bytes (encryption-pass))])
-               (values (first enc) (second enc) (last enc))))
+             (pass-encrypt data-bytes (encryption-pass)))
            (if enc-success
                (let ([data-port-out (open-output-file ((data-file))
                                                       #:mode 'binary
