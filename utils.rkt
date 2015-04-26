@@ -4,7 +4,8 @@
 
 (require json
          "config.rkt"
-         "number-conversions.rkt")
+         "number-conversions.rkt"
+         libtoxcore-racket/functions)
 
 
 ;;; TODO: use structure type properties here
@@ -79,33 +80,81 @@
   (send error-dialog show #t))
 
 ;; FILE TRANSFERS
-(struct send-transfer-data (path contents sent) #:mutable)
-(struct receive-transfer-data (fhandle received) #:mutable)
+;(struct send-transfer-data (path contents sent) #:mutable)
+;(struct receive-transfer-data (fhandle received) #:mutable)
+(struct transfer-data (friend filenumber id path contents pos fhandle) #:mutable)
 
-(define rt (make-hash))
-(define st (make-hash))
+;(define rt (make-hash))
+;(define st (make-hash))
+(define transfers (make-hash))
 
 (struct exn:blight:rtransfer exn ()
   #:extra-constructor-name make-exn:blight:rtransfer
   #:transparent)
 
-(define (transfer-raise msg)
+(define (transfers-raise msg)
   (raise (make-exn:blight:rtransfer
           msg (current-continuation-marks))))
 
-(define (transfer-ref transfer key)
-  (hash-ref transfer key
+(define (transfers-ref key)
+  (hash-ref transfers key
             (lambda ()
-              (transfer-raise (format "transfer-ref: Incorrect file transfer id: ~a" key)))))
+              (transfers-raise (format "transfers-ref: Incorrect file transfer id: ~a" key)))))
 
-(define (transfer-set! transfer key value)
+#|(define (transfer-set! transfer key value)
   (hash-set! transfer key value))
 
 (define (transfer-del! transfer key)
   (unless (hash-has-key? rt key)
-    (transfer-raise (format "transfer-del: Incorrect file transfer id: ~a" key))))
+    (transfer-raise (format "transfer-del: Incorrect file transfer id: ~a" key))))|#
 
-(define (rt-ref num)
+; shortcuts to interface with the transfers hash
+
+(define (transfers-set! id value)
+  (hash-set! transfers id value))
+
+(define (transfers-ref-fhandle id)
+  (transfer-data-fhandle (transfers-ref id)))
+
+(define (transfers-ref-pos id)
+  (transfer-data-pos (transfers-ref id)))
+
+(define (set-transfers-pos! id pos)
+  (set-transfer-data-pos! (transfers-ref id) pos))
+
+(define (transfers-del! id)
+  (unless (hash-has-key? transfers id)
+    (transfers-raise (format "transfers-del!: Incorrect file transfer id: ~a" id)))
+  (when (output-port? (transfers-ref-fhandle id))
+    (close-output-port (transfers-ref-fhandle id)))
+  (hash-remove! transfers id))
+
+(define transfers-add!
+  (λ (tox friend filenum [id #f] [path #f] [contents #f] [pos 0] [fhandle #f])
+    (define-values (success err f-id) (file-id tox friend filenum))
+    (hash-set! transfers f-id
+               (transfer-data friend filenum f-id path contents pos fhandle))))
+
+(define (transfers-ref-data id)
+  (transfer-data-contents (transfers-ref id)))
+
+(define (transfers-ref-path id)
+  (transfer-data-path (transfers-ref id)))
+
+(define (transfers-ref-filename id)
+  (unless (hash-has-key? transfers id)
+    (transfers-raise (format "transfers-ref-filename: Incorrect file transfer id: ~a" id)))
+  (path->string (last (explode-path (transfers-ref-path id)))))
+
+(define (transfers-ref-num id)
+  (transfer-data-filenumber (transfers-ref id)))
+
+(define (transfers-read-file! id)
+  (define cur-transfer (transfers-ref id))
+  (define cur-path (transfer-data-path cur-transfer))
+  (set-transfer-data-contents! cur-transfer (file->bytes cur-path)))
+
+#|(define (rt-ref num)
   (transfer-ref rt num))
 
 (define (rt-ref-fhandle num)
@@ -153,7 +202,7 @@
 (define (st-read-file! id)
   (define cur-st (st-ref id))
   (define cur-path (send-transfer-data-path cur-st))
-  (set-send-transfer-data-contents! cur-st (file->bytes cur-path)))
+  (set-send-transfer-data-contents! cur-st (file->bytes cur-path)))|#
 
 (define (format-anonymous public-key)
   (format "Anonymous (~a)" (substring public-key 0 5)))

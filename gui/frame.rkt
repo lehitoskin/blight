@@ -112,8 +112,7 @@ if people have a similar problem.")
                                (convert avatar-bitmap-scaled 'png-bytes))
                              ; if it's still too large, try a different scale
                              (cond
-                               [(> (bytes-length img-data-small)
-                                   BLIGHT-MAX-AVATAR-SIZE)
+                               [(> (bytes-length img-data-small) BLIGHT-MAX-AVATAR-SIZE)
                                 (loop (cdr sizes))]
                                [else
                                 (displayln "Done!")
@@ -129,6 +128,9 @@ if people have a similar problem.")
                                 ; set the button label to the new icon
                                 (send button set-label (my-avatar))
                                 (displayln "Done!")
+                                ; obtain the avatar hash data
+                                (define-values (hash-success my-hash)
+                                  (tox-hash img-data-small))
                                 ; save the image data and hash to disk
                                 (let ([data-port-out (open-output-file
                                                       avatar-file
@@ -138,7 +140,6 @@ if people have a similar problem.")
                                                       hash-file
                                                       #:mode 'binary
                                                       #:exists 'truncate/replace)])
-                                  (define my-hash (tox-hash img-data-small))
                                   (write-bytes img-data-small data-port-out)
                                   (write-bytes my-hash hash-port-out)
                                   (close-output-port data-port-out)
@@ -146,13 +147,18 @@ if people have a similar problem.")
                                 ; broadcast to our friends we've changed our avatar
                                 (dprint-wait "Broadcasting our avatar change to online friends")
                                 (for ([count (hash-count cur-buddies)])
-                                  (when (= 1 (friend-connection-status my-tox count))
-                                    #|
-                                    
-                                    send avatar data to friends - (send-file-macro tox friend data)
-                                    
-                                    |#
-                                    (displayln 'herpderp)))
+                                  (when (not (= (friend-connection-status my-tox count)
+                                            (_TOX_CONNECTION 'NONE)))
+                                    ; file hash is its ID
+                                    (define-values (filenum file-err)
+                                      (file-send my-tox count
+                                                 (_TOX_FILE_KIND 'AVATAR)
+                                                 (file-size avatar-file)
+                                                 my-hash
+                                                 (string->bytes/utf-8 avatar-file)))
+                                    (transfers-add! my-tox count filenum
+                                                    my-hash avatar-file
+                                                    (file->bytes avatar-file))))
                                 (displayln "Done!")]))]))]
                      [else
                       ; avatar is within size parameters, just set it
@@ -167,6 +173,8 @@ if people have a similar problem.")
                       (define avatar-pict-small (scale-to-fit avatar-pict 40 40))
                       ; set the avatar to the new one
                       (my-avatar (pict->bitmap avatar-pict-small))
+                      ; obtain the avatar hash data
+                      (define-values (hash-success my-hash) (tox-hash img-data))
                       ; save the image data hash to the disk
                       (let ([data-port-out (open-output-file avatar-file
                                                              #:mode 'binary
@@ -174,7 +182,6 @@ if people have a similar problem.")
                             [hash-port-out (open-output-file hash-file
                                                              #:mode 'binary
                                                              #:exists 'truncate/replace)])
-                        (define my-hash (tox-hash img-data))
                         (write-bytes (convert avatar-bitmap 'png-bytes) data-port-out)
                         (write-bytes my-hash hash-port-out)
                         (close-output-port hash-port-out)
@@ -184,13 +191,18 @@ if people have a similar problem.")
                       ; broadcast to our friends we've changed our avatar
                       (dprint-wait "Broadcasting our avatar change to online friends")
                       (for ([count (hash-count cur-buddies)])
-                        (when (= 1 (friend-connection-status my-tox count))
-                          #|
-                          
-                          send avatar data to friends - (send-file-macro tox friend data)
-                          
-                          |#
-                          (displayln 'herpderp)))
+                        (when (not (= (friend-connection-status my-tox count)
+                                      (_TOX_CONNECTION 'NONE)))
+                          ; file hash is its ID
+                          (define-values (filenum file-err)
+                            (file-send my-tox count
+                                       (_TOX_FILE_KIND 'AVATAR)
+                                       (file-size avatar-file)
+                                       my-hash
+                                       (string->bytes/utf-8 avatar-file)))
+                          (transfers-add! my-tox count filenum
+                                          my-hash avatar-file
+                                          (file->bytes avatar-file))))
                       (displayln "Done!")])))))))]))
 
 (define frame-vpanel (new vertical-panel%

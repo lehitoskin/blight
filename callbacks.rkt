@@ -156,6 +156,10 @@
         ; make a noise
         (when (make-noise)
           (play-sound (first sounds) #t))
+        
+        ; add a little asterisk in the frame title to show we've gotten new messages
+        (when (false? (send window window-has-focus?)) (send window set-msg-unread))
+        
         ; add message to the history database
         (if (= type (_TOX_MESSAGE_TYPE 'NORMAL))
             (add-history (my-id-hex) (send window get-key) message 0)
@@ -168,7 +172,7 @@
       (send sml rename-entry sn newname))
     
     (let-values ([(window) (get-contact-window friendnumber)]
-                 [(conn-status err) (friend-connection-status mtox friendnumber)])
+                 [(conn-status conn-err) (friend-connection-status mtox friendnumber)])
       ; update the name in the list
       (send window set-name newname)
       ; update the name in the window
@@ -199,7 +203,7 @@
 (define on-friend-connection-status-change
   (λ (mtox friendnumber status userdata)
     ; add a thingie that shows the friend is online
-    (cond [(zero? status)
+    (cond [(= status (_TOX_CONNECTION 'NONE))
            (send (get-contact-snip friendnumber) set-status 'offline)
            (update-contact-status friendnumber 'offline)
            (when (make-noise)
@@ -208,28 +212,40 @@
            (send (get-contact-snip friendnumber) set-status 'available)
            (update-contact-status friendnumber 'available)
            (when (make-noise)
-             (play-sound (second sounds) #t))])))
+             (play-sound (second sounds) #t))
+           ; send our newly-online friend our avatar information, if applicable
+           (let* ([my-pubkey (substring (my-id-hex) 0 (* TOX_PUBLIC_KEY_SIZE 2))]
+                  [avatar-name (string-append my-pubkey ".png")]
+                  [avatar-file (build-path avatar-dir avatar-name)])
+             (when (file-exists? avatar-file)
+               (define-values (hash-success file-hash)
+                 (tox-hash (file->bytes avatar-file #:mode 'binary)))
+               ; file hash is its ID
+               (define-values (filenum file-err)
+                 (file-send mtox friendnumber
+                            (_TOX_FILE_KIND 'AVATAR)
+                            (file-size avatar-file)
+                            file-hash
+                            (string->bytes/utf-8 avatar-name)))
+               (transfers-add! mtox friendnumber filenum file-hash avatar-file
+                               (file->bytes avatar-file))))])))
 
 ; a control action has been applied to a file transfer
 (define on-file-recv-control
   (λ (mtox friendnumber filenumber control-type userdata)
     (let* ([window (get-contact-window friendnumber)]
            [receive-editor (send window get-receive-editor)]
-           [fc-receiving-lb (send window get-fc-receiving-lb)]
-           [fc-sending-lb (send window get-fc-sending-lb)]
+           [fc-lb (send window get-fc-lb)]
            [msg-history (send window get-msg-history)]
-           [update-fc-receiving (λ ()
-                                  (send fc-receiving-lb set
-                                        (sort (map (λ (x)
-                                                     (number->string (car x)))
-                                                   (hash->list rt))
-                                              string<?)))]
-           [update-fc-sending (λ ()
-                                (send fc-sending-lb set
-                                      (sort (map (λ (x)
-                                                   (number->string (car x)))
-                                                 (hash->list st))
-                                            string<?)))])
+           [update-fc-lb (λ ()
+                           (send fc-lb set
+                                 (sort (map (λ (x)
+                                              (string-append
+                                               (number->string (transfers-ref-num (car x)))
+                                               ": "
+                                               (transfers-ref-filename (car x))))
+                                            (hash->list transfers))
+                                       string<?)))])
       (with-handlers
           ([exn:blight:rtransfer?
             (lambda (ex)
@@ -237,49 +253,49 @@
               (send msg-history send-file-recv-error (exn-message ex)))])
         ; cue that we're going to be sending the data now
         (cond [(= control-type (_TOX_FILE_CONTROL 'RESUME))
-               ; update file control sending list box
-               (update-fc-sending)
-               (send window send-data filenumber)]
+               ; update file control list box
+               (update-fc-lb)]
               ; the transfer has been canceled, close everything up
               [(= control-type (_TOX_FILE_CONTROL 'CANCEL))
-               ; remove transfer from list
-               (close-output-port (rt-ref-fhandle filenumber))
-               (rt-del! filenumber)
-               (update-fc-receiving)]
+               (define-values (id-success id-err f-id)
+                 (file-id mtox friendnumber filenumber))
+               ; remove transfer from hash
+               (transfers-del! f-id)
+               (update-fc-lb)]
               ; catch everything else and just update both of the list boxes
-              [else
-               (update-fc-receiving)
-               (update-fc-sending)])))))
+              [else (update-fc-lb)])))))
 
 ; our friend is requesting we send them a chunk of data
 (define on-file-chunk-request
   (λ (mtox friendnumber filenumber position chunk-len userdata)
     (let* ([window (get-contact-window friendnumber)]
-           [fc-sending-lb (send window get-fc-sending-lb)]
-           [update-fc-sending (λ ()
-                                (send fc-sending-lb set
-                                      (sort (map (λ (x)
-                                                   (number->string (car x)))
-                                                 (hash->list st))
-                                            string<?)))])
+           [fc-lb (send window get-fc-lb)]
+           [update-fc-lb (λ ()
+                           (send fc-lb set
+                                 (sort (map (λ (x)
+                                              (string-append
+                                               (number->string (transfers-ref-num (car x)))
+                                               ": "
+                                               (transfers-ref-filename (car x))))
+                                            (hash->list transfers))
+                                       string<?)))])
+      (define-values (id-success id-err f-id) (file-id mtox friendnumber filenumber))
       (cond
         ; the transfer is complete, close transfer stuff
-        [(zero? chunk-len) (st-del! filenumber) (update-fc-sending)]
+        [(zero? chunk-len) (transfers-del! f-id) (update-fc-lb)]
         ; otherwise, send the chunk and update our position
-        [else (file-send-chunk friendnumber filenumber position (st-ref-sent filenumber))
-              (set-st-sent! filenumber position)]))))
+        [else (file-send-chunk mtox friendnumber filenumber position (transfers-ref-data f-id))
+              (set-transfers-pos! f-id position)]))))
 
 ; our friend wants to send us data
 ; needs to be in its own thread, otherwise we'll d/c(?)
 ; perhaps, instead of identifying file transfers by filenumber,
 ; they are identified by file-id
 ; (define fid (file-id mtox friendnumber filenumber))
-(define on-file-recv
+(define on-file-recv-request
   (λ (mtox friendnumber filenumber kind filesize filename fname-len userdata)
     (thread
      (λ ()
-       (when (and (= kind (_TOX_FILE_KIND 'DATA)) (make-noise))
-         (play-sound (seventh sounds) #t))
        (if (= kind (_TOX_FILE_KIND 'DATA))
            ; regular data
            (let* ([cd (get-contact-data friendnumber)]
@@ -291,8 +307,9 @@
                                      #f
                                      (list 'ok-cancel 'caution)))
                   [window (contact-data-window cd)]
-                  
                   [msg-history (send window get-msg-history)])
+             (when (and (= kind (_TOX_FILE_KIND 'DATA)) (make-noise))
+               (play-sound (seventh sounds) #t))
              (cond
                [(eq? mbox 'ok)
                 (let ([path (put-file "Select a file"
@@ -301,81 +318,75 @@
                                       filename)]
                       [window (get-contact-window friendnumber)])
                   (unless (false? path)
-                    (define control-id (_TOX_FILE_CONTROL 'RESUME))
                     (define receive-editor
                       (send window get-receive-editor))
-                    (file-control mtox friendnumber filenumber control-id)
+                    (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'RESUME))
+                    (define-values (id-success id-err f-id)
+                      (file-id mtox friendnumber filenumber))
                     (send window set-gauge-pos 0)
-                    (rt-add! path filenumber)
+                    (transfers-add! mtox friendnumber filenumber f-id path #"" 0
+                                    (open-output-file path
+                                                      #:mode 'binary
+                                                      #:exists 'replace))
                     (send msg-history
                           begin-recv-file path (get-time))))]
                [else (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'CANCEL))]))
+           
            ; auto-accept avatar data
            ; the name of the avatar is friend-public-key.ext
-           (unless (false? filename)
+           ;
+           ; if the filesize is greater than the client max or if the file is not a PNG
+           ; image, do not accept it, obviously.
+           (unless (or (> filesize BLIGHT-MAX-AVATAR-SIZE)
+                       (false? filename)
+                       (not (bytes=? #"png" (filename-extension filename))))
              (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
                     [friend-id (send window get-key)]
-                    [ext (bytes->string/utf-8 (filename-extension filename))]
-                    ;[hash-file (build-path avatar-dir (string-append friend-id ".hash"))]
-                    [avatar-path (build-path avatar-dir (string-append friend-id "." ext))])
-               ;[img-hash (tox-hash mtox )
-               #|(cond [(and (file-exists? hash-file) (file-exists png-file))
-                    ; if both files exist and their hashes are identical, do nothing
-                    (unless (bytes=? (file->bytes hash-file #:mode 'binary)|#
-               (rt-add! avatar-path filenumber)
-               (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'RESUME)))))))))
-
-#;(define on-avatar-recv
-    (λ (mtox friendnumber filename)
-      (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
-             [friend-id (send window get-key)]
-             [hash-file (build-path
-                         avatar-dir
-                         (string-append friend-id ".hash"))]
-             [png-file (build-path
-                        avatar-dir
-                        (string-append friend-id ".png"))]
-             [cropped-hash (subbytes img-hash 0 TOX_HASH_LENGTH)])
-        ; check if we have the avatar already
-        (cond [(and (file-exists? hash-file)
-                    (file-exists? png-file))
-               ; if they both exist, do nothing if the hashes are identical
-               (unless (bytes=? (file->bytes hash-file #:mode 'binary) cropped-hash)
-                 (displayln "The avatar's hash hash changed! Updating...")
-                 ; request the avatar's data
-                 (request-avatar-data mtox friendnumber)
-                 ; update the hash file
-                 (let ([hash-port-out (open-output-file hash-file
+                    [hash-path (build-path avatar-dir (string-append friend-id ".hash"))]
+                    [avatar-path (build-path avatar-dir (string-append friend-id ".png"))])
+               ; grab the file-id (AKA file hash)
+               (define-values (success err f-id) (file-id mtox friendnumber filenumber))
+               (cond [(zero? filesize)
+                      ; the avatar is not set, delete any avatar we have cached
+                      (when (file-exists? avatar-path)
+                        (delete-file avatar-path)
+                        (send window set-friend-avatar #f))]
+                     [(and (file-exists? hash-path) (file-exists? avatar-path))
+                      ; if both files exist and their hashes are identical, do nothing
+                      (unless (bytes=? (file->bytes hash-path #:mode 'binary) f-id)
+                        (displayln "The avatar's hash has changed! Updating...")
+                        ; start the file transfer
+                        (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'RESUME))
+                        (transfers-add! mtox friendnumber filenumber f-id avatar-path #"" 0
+                                        (open-output-file avatar-path
+                                                          #:mode 'binary
+                                                          #:exists 'replace)))]
+                     [else
+                      ; we have only one of avatar or hash file or neither
+                      (displayln "We got a new avatar! Saving information...")
+                      (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'RESUME))
+                      (transfers-add! mtox friendnumber filenumber f-id avatar-path #"" 0
+                                      (open-output-file avatar-path
                                                         #:mode 'binary
-                                                        #:exists 'truncate/replace)])
-                   (write-bytes cropped-hash hash-port-out)
-                   (close-output-port hash-port-out)))]
-              [else
-               (displayln "We got a new avatar! Saving information...")
-               ; request the avatar's data
-               (request-avatar-data mtox friendnumber)
-               ; update the hash file
-               (let ([hash-port-out (open-output-file hash-file
-                                                      #:mode 'binary
-                                                      #:exists 'truncate/replace)])
-                 (write-bytes cropped-hash hash-port-out)
-                 (close-output-port hash-port-out))]))))
+                                                        #:exists 'replace))]))))))))
 
 ; our friend has sent us a chunk of data
 (define on-file-recv-chunk
   (λ (mtox friendnumber filenumber position chunk chunk-len userdata)
     (define window (get-contact-window friendnumber))
     (define msg-history (send window get-msg-history))
+    (define-values (id-success id-err f-id)
+      (file-id mtox friendnumber filenumber))
     
     (with-handlers
         ([exn:blight:rtransfer?
           (lambda (ex)
             (send msg-history send-file-recv-error (exn-message ex)))])
-      (write-bytes chunk (rt-ref-fhandle filenumber))
-      (set-rt-received! filenumber position)
+      (write-bytes chunk (transfers-ref-fhandle f-id))
+      (set-transfers-pos! f-id position)
       (send window set-gauge-pos
             (fl->exact-integer (truncate (* (exact->inexact
-                                             (/ (rt-ref-received filenumber)
+                                             (/ (transfers-ref-pos f-id)
                                                 chunk-len)) 100)))))))
 
 ; cannot be threaded, group adding will fail if threaded
@@ -546,9 +557,9 @@
 
 (define on-friend-read-receipt
   (λ (mtox friendnumber message-id userdata)
-    ;(let ([window (contact-data-window (hash-ref cur-buddies friendnumber))])
-    (printf "on-friend-read-receipt: friend ~a received message ~a\n"
-            friendnumber message-id)))
+    (let ([window (contact-data-window (hash-ref cur-buddies friendnumber))])
+      (printf "on-friend-read-receipt: friend ~a received message ~a\n"
+              friendnumber message-id))))
 
 ; we are receiving a call, phone is ringing
 (define on-audio-invite
@@ -648,13 +659,14 @@
 (callback-self-connection-status my-tox on-self-connection-status)
 (callback-friend-request my-tox on-friend-request)
 (callback-friend-message my-tox on-friend-message)
+(callback-friend-read-receipt my-tox on-friend-read-receipt)
 (callback-friend-name my-tox on-friend-name)
 (callback-friend-status-message my-tox on-friend-status-message)
 (callback-friend-status my-tox on-friend-status)
 (callback-friend-connection-status my-tox on-friend-connection-status-change)
 (callback-file-recv-control my-tox on-file-recv-control)
 (callback-file-chunk-request my-tox on-file-chunk-request)
-(callback-file-recv my-tox on-file-recv)
+(callback-file-recv my-tox on-file-recv-request)
 (callback-file-recv-chunk my-tox on-file-recv-chunk)
 (callback-group-invite my-tox on-group-invite)
 (callback-group-message my-tox on-group-message)

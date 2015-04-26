@@ -72,6 +72,7 @@
     (define my-id-hex (bytes->hex-string my-id-bytes))
     (define friend-avatar (make-bitmap 40 40))
     (define friend-has-avatar? #f)
+    (define msg-read? #t)
     
     ; the sending file transfer list and its path list
     ; easier to have two lists than deal with a list of pairs
@@ -85,18 +86,17 @@
       (λ (path filenumber)
         (define filename (path->string path))
         (send transfer-gauge set-value 0)
-	(st-read-file! filenumber)))
+        (transfers-read-file! filenumber)))
     
     (define data-control
-      (λ (filenumber sending? type)
-        (file-control this-tox
-                      friend-num
-                      filenumber
-                      #;(_TOX_FILECONTROL type))))
+      (λ (filenumber type)
+        (file-control this-tox friend-num filenumber type)))
     
     (define/public send-data
       (λ (filenumber)
-        (define path (st-ref-path filenumber))
+        (define-values (id-success id-err f-id)
+          (file-id this-tox friend-num filenumber))
+        (define path (transfers-ref-path f-id))
         
         (send message-history
               begin-send-file path (get-time))
@@ -108,9 +108,8 @@
         ; number of chunks we're going to send
         (define num-chunks (quotient size max-size))
         (add-file-sender path filenumber)
-        (do ((i 0 (+ i 1)))
-          ((= i num-chunks))
-          (let ([chunk (subbytes (st-ref-data filenumber)
+        (for ([i num-chunks])
+          (let ([chunk (subbytes (transfers-ref-data f-id)
                                  (* max-size i) (* max-size (+ i 1)))])
             ; send our chunk
             ; if there is an error, sleep and then try again.
@@ -121,15 +120,15 @@
                      (sleep (/ (iteration-interval this-tox) 1000))
                      (loop)]))
             ; update file-send gauge
-            (set-st-sent! filenumber
-                          (+ (st-ref-sent filenumber) (bytes-length chunk)))
+            (set-transfers-pos! f-id
+                          (+ (transfers-ref-pos f-id) (bytes-length chunk)))
             (set! percent (fl->exact-integer
                            (truncate (* (exact->inexact
-                                         (/ (st-ref-sent filenumber) size)) 100))))
+                                         (/ (transfers-ref-pos f-id) size)) 100))))
             (send transfer-gauge set-value percent)))
         ; if there is a remainder, send the very last chunk
         (unless (zero? (quotient size max-size))
-          (let ([chunk (subbytes (st-ref-data filenumber)
+          (let ([chunk (subbytes (transfers-ref-data f-id)
                                  (- size (remainder size max-size)) size)])
             ; send our chunk
             ; if there is an error, sleep and then try again.
@@ -140,13 +139,16 @@
                      (sleep (/ (iteration-interval this-tox) 1000))
                      (loop)]))
             ; update file-send gauge
-            (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length chunk)))
+            (set-transfers-pos! f-id (+ (transfers-ref-pos f-id) (bytes-length chunk)))
             (set! percent (fl->exact-integer (truncate
                                               (* (exact->inexact
-                                                  (/ (st-ref-sent filenumber) size)) 100))))
+                                                  (/ (transfers-ref-pos f-id) size)) 100))))
             (send transfer-gauge set-value percent)))
+        
         ; tell our friend we're done sending
-        (data-control filenumber #f 'FINISHED)
+        ; not necessary unless we're streaming, which can come later.
+        ; TODO: Allow for streaming
+        ;(file-send-chunk this-tox friend-num filenumber 0 #"")
         
         (send message-history
               end-send-file path (get-time))
@@ -154,59 +156,27 @@
         (unless (false? (make-noise))
           (play-sound (eighth sounds) #t))))
     
-    (define/public resume-data
-      (λ (filenumber)
-        (let* ([path (st-ref-path filenumber)]
-               [size (file-size path)]
-               [max-size 256]
-               [num-chunks (quotient size max-size)]
-               [num-left (- num-chunks (st-ref-sent filenumber))]
-               [percent (fl->exact-integer (truncate
-                                            (* (exact->inexact
-                                                (/ (st-ref-sent filenumber) size)) 100)))])
-          ; send the data!
-          (do ((i 0 (+ i 1)))
-            ((= i num-left))
-            (let ([chunk (subbytes (st-ref-data filenumber)
-                                   (* max-size i) (* max-size (+ i 1)))])
-              (let loop ()
-                ; if there was an error, try again!
-                (cond [(false? (file-send-chunk this-tox friend-num
-					       filenumber chunk))
-                       (iterate this-tox)
-                       (sleep (/ (iteration-interval this-tox) 1000))
-                       (loop)]))
-              (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length chunk)))
-              (set! percent (fl->exact-integer (truncate
-                                                (* (exact->inexact
-                                                    (/ (st-ref-sent filenumber) size)) 100))))
-              (send transfer-gauge set-value percent)))
-          ; if there's a remainder, send that last bit
-          (unless (zero? (quotient size max-size))
-            (let ([chunk (subbytes (st-ref-data filenumber)
-                                   (- size (remainder size max-size)) size)])
-              ; if there was an error, try again
-              (let loop ()
-                (cond [(false? (file-send-chunk this-tox friend-num
-					       filenumber chunk))
-                       (iterate this-tox)
-                       (sleep (/ (iteration-interval this-tox) 1000))
-                       (loop)]))
-              (set-st-sent! filenumber (+ (st-ref-sent filenumber) (bytes-length chunk)))
-              (set! percent (fl->exact-integer (truncate
-                                                (* (exact->inexact
-                                                    (/ (st-ref-sent filenumber) size)) 100))))
-              (send transfer-gauge set-value percent)))
-          ; tell our friend we're done sending
-          (data-control filenumber #f 'FINISHED)
-          (send message-history
-                end-send-file path (get-time))
-          (unless (false? (make-noise))
-            (play-sound (eighth sounds) #t)))))
+    (define custom-frame%
+      (class frame%
+        (inherit set-label
+                 set-icon
+                 show
+                 is-shown?
+                 has-focus?
+                 is-enabled?
+                 enable)
+        (super-new)
+        
+        ; tell the chat frame to change the chat window title
+        ; when msg-read? is #f
+        (define/override (on-subwindow-focus receiver event)
+          (when (and (false? msg-read?) event)
+            (set! msg-read? #t)
+            (set-new-label (string-append "Blight - " fname))))))
     
     ; create a new top-level window
     ; make a frame by instantiating the frame% class
-    (define chat-frame (new frame%
+    (define chat-frame (new custom-frame%
                             [label this-label]
                             [width this-width]
                             [height this-height]))
@@ -226,7 +196,8 @@
                            [help-string "Send, Call, etc."]))
     
     ; send a file to our friend
-    (new menu-item% [parent menu-file]
+    (new menu-item%
+         [parent menu-file]
          [label "Send File"]
          [help-string "Send a file to this friend"]
          [callback (λ (button event)
@@ -239,12 +210,15 @@
                             (define size (file-size path))
                             ; name of the file (taken from the path)
                             (define filename (path->bytes (last (explode-path path))))
-                            ; get the file id
-                            (define f-id #"")
+                            ; let the core determine the file id
                             (define-values (filenumber file-err)
                               (file-send this-tox friend-num
-                                         (_TOX_FILE_KIND 'DATA) size f-id filename))
-                            (st-add! path filenumber))))))])
+                                         (_TOX_FILE_KIND 'DATA) size #"" filename))
+                            ; get the file id created by the core
+                            (define-values (id-success id-err f-id)
+                              (file-id this-tox friend-num filenumber))
+                            (transfers-add! this-tox friend-num filenumber f-id path
+                                            (file->bytes path)))))))])
     
     (new menu-item% [parent menu-file]
          [label "File Controls"]
@@ -258,56 +232,20 @@
                                      [width 300]
                                      [height 200]))
     
-    (define fc-tab-panel
-      (new tab-panel%
+    (define fc-list-box
+      (new list-box%
            [parent file-control-dialog]
-           [choices '("Receiving"
-                      "Sending")]
-           [callback (λ (l e)
-                       (cond [(zero? (send l get-selection))
-                              (send l delete-child fc-sending-hpanel)
-                              (send l add-child fc-receiving-hpanel)]
-                             [else (send l delete-child fc-receiving-hpanel)
-                                   (send l add-child fc-sending-hpanel)]))]))
-    
-    (define fc-receiving-hpanel
-      (new horizontal-panel%
-           [parent fc-tab-panel]))
-    
-    (define fc-sending-hpanel
-      (new horizontal-panel%
-           [parent fc-tab-panel]
-           [style '(deleted)]))
-    
-    (define fc-receiving-list-box
-      (new list-box%
-           [parent fc-receiving-hpanel]
            [label "Files Available for Control"]
            [style '(single vertical-label)]
            [choices (list "")]))
     
-    (define fc-receiving-rbox
+    (define fc-rbox
       (new radio-box%
-           [parent fc-receiving-hpanel]
+           [parent file-control-dialog]
            [label #f]
-           [choices (list "Pause"
-                          "Kill"
-                          "Resume_Broken")]))
-    
-    (define fc-sending-list-box
-      (new list-box%
-           [parent fc-sending-hpanel]
-           [label "Files Available for Control"]
-           [style '(single vertical-label)]
-           [choices (list "")]))
-    
-    (define fc-sending-rbox
-      (new radio-box%
-           [parent fc-sending-hpanel]
-           [label #f]
-           [choices (list "Pause"
-                          "Kill"
-                          "Resume_Broken")]))
+           [choices (list "Resume"
+                          "Pause"
+                          "Cancel")]))
     
     (define fc-button-hpanel
       (new horizontal-panel%
@@ -326,25 +264,21 @@
            [parent fc-button-hpanel]
            [label "OK"]
            [callback (λ (button event)
-                       (let* ([sel (send fc-tab-panel get-selection)]
-                              [fc-lb (if (zero? sel)
-                                         fc-receiving-list-box
-                                         fc-sending-list-box)]
-                              [fc-rb (if (zero? sel)
-                                         fc-receiving-rbox
-                                         fc-sending-rbox)]
+                       (let* ([fc-lb fc-list-box]
+                              [fc-rb fc-rbox]
                               [filenumber (send fc-lb get-selection)]
-                              [control-type (string->symbol
-                                             (string-upcase
-                                              (send fc-rb get-item-label
-                                                    (send fc-rb get-selection))))])
+                              [control-type (send fc-rb get-selection)])
                          (cond
                            ; no file transfers going on, do nothing
-                           [(and (hash-empty? rt) (hash-empty? st))]
+                           [(hash-empty? transfers)]
+                           ; type 'CANCEL
+                           [(= control-type (_TOX_FILE_CONTROL 'CANCEL))
+                            (define-values (id-success id-err f-id)
+                              (file-id this-tox friend-num filenumber))
+                            (data-control filenumber control-type)
+                            (transfers-del! f-id)]
                            ; receiving file control
-                           [(zero? sel) (data-control filenumber #t control-type)]
-                           ; sending file control
-                           [(= sel 1) (data-control filenumber #f control-type)])
+                           [else (data-control filenumber control-type)])
                          (send file-control-dialog show #f)))]))
     
     ; frame for when we want to view our chat history
@@ -843,7 +777,7 @@
       friend-key)
     
     (define/public (close-transfer filenumber)
-      (st-del! filenumber))
+      (transfers-del! filenumber))
     
     (define/public (set-gauge-pos num)
       (send transfer-gauge set-value num))
@@ -879,11 +813,8 @@
     (define/public (get-friend-avatar)
       friend-avatar)
     
-    (define/public (get-fc-sending-lb)
-      fc-sending-list-box)
-    
-    (define/public (get-fc-receiving-lb)
-      fc-receiving-list-box)
+    (define/public (get-fc-lb)
+      fc-list-box)
     
     (define/public (is-typing? bool)
       (if bool
@@ -895,6 +826,17 @@
     
     (define/public (get-typing-msg)
       typing-msg)
+    
+    ; for read-receipt stuff
+    (define/public (set-msg-unread)
+      (set-new-label (string-append "Blight - " fname " *"))
+      (set! msg-read? false))
+    
+    (define/public (get-msg-read)
+      msg-read?)
+    
+    (define/public (window-has-focus?)
+      (send chat-frame has-focus?))
     
     (super-new
      [label this-label]

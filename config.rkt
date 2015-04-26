@@ -97,8 +97,8 @@
                (build-path icon-dir "speaker-unmuted.png")
                (build-path icon-dir "speaker-muted.png")))
 
-; max avatar size - really, even this might be too big
-(define BLIGHT-MAX-AVATAR-SIZE (expt 2 22))
+; max avatar size
+(define BLIGHT-MAX-AVATAR-SIZE (expt 2 16))
 
 (define avatar-dir (build-path tox-path "avatars"))
 
@@ -236,11 +236,9 @@ arg: list of files to copy to tox-path as .tox files
     (write-json (json-null) config-port-out)
     (close-output-port config-port-out)))
 
-(define-syntax hash-ref*
-  (syntax-rules ()
-    ((_ mhash k1 k2 ...)
-     (values (make-parameter (hash-ref mhash k1))
-             (make-parameter (hash-ref mhash k2)) ...))))
+(define-syntax-rule (hash-ref* mhash k1 k2 ...)
+  (values (make-parameter (hash-ref mhash k1))
+          (make-parameter (hash-ref mhash k2)) ...))
 
 (define-values
   (my-name my-status-message make-noise use-ipv6? use-udp?

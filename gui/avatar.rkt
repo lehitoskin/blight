@@ -4,7 +4,8 @@
          "../config.rkt"
          "../tox.rkt")
 
-(provide my-avatar)
+(provide my-avatar
+         avatar-lst)
 
 ; create initial avatar bitmap
 (define my-avatar (make-parameter (make-bitmap 40 40)))
