@@ -22,7 +22,6 @@
 
 ; TODO:
 ; self-connection-status indicator of our connection status
-; on-friend-read-receipt
 
 ; set all the callback functions
 (define on-self-connection-status
@@ -36,7 +35,7 @@
 
 (define on-friend-request
   (λ (mtox public-key message message-len userdata)
-    (unless (>= (bytes-length public-key) TOX_ADDRESS_SIZE)
+    (unless (< (bytes-length public-key) TOX_ADDRESS_SIZE)
       ; make sure public-key is the correct size...
       (define pubkey (subbytes public-key 0 TOX_ADDRESS_SIZE))
       ; convert pubkey from bytes to string so we can display it
@@ -267,7 +266,7 @@
 
 ; our friend is requesting we send them a chunk of data
 (define on-file-chunk-request
-  (λ (mtox friendnumber filenumber position chunk-len userdata)
+  (λ (mtox friendnumber filenumber pos chunk-len userdata)
     (let* ([window (get-contact-window friendnumber)]
            [fc-lb (send window get-fc-lb)]
            [update-fc-lb (λ ()
@@ -279,13 +278,15 @@
                                                (transfers-ref-filename (car x))))
                                             (hash->list transfers))
                                        string<?)))])
+      
       (define-values (id-success id-err f-id) (file-id mtox friendnumber filenumber))
       (cond
         ; the transfer is complete, close transfer stuff
         [(zero? chunk-len) (transfers-del! f-id) (update-fc-lb)]
         ; otherwise, send the chunk and update our position
-        [else (file-send-chunk mtox friendnumber filenumber position (transfers-ref-data f-id))
-              (set-transfers-pos! f-id position)]))))
+        [else (let ([chunk (subbytes (transfers-ref-data f-id) pos (+ pos chunk-len))])
+                (file-send-chunk mtox friendnumber filenumber pos chunk chunk-len))
+              (set-transfers-pos! f-id pos)]))))
 
 ; our friend wants to send us data
 ; needs to be in its own thread, otherwise we'll d/c(?)
@@ -373,21 +374,35 @@
 ; our friend has sent us a chunk of data
 (define on-file-recv-chunk
   (λ (mtox friendnumber filenumber position chunk chunk-len userdata)
-    (define window (get-contact-window friendnumber))
-    (define msg-history (send window get-msg-history))
-    (define-values (id-success id-err f-id)
-      (file-id mtox friendnumber filenumber))
-    
-    (with-handlers
-        ([exn:blight:rtransfer?
-          (lambda (ex)
-            (send msg-history send-file-recv-error (exn-message ex)))])
-      (write-bytes chunk (transfers-ref-fhandle f-id))
-      (set-transfers-pos! f-id position)
-      (send window set-gauge-pos
-            (fl->exact-integer (truncate (* (exact->inexact
-                                             (/ (transfers-ref-pos f-id)
-                                                chunk-len)) 100)))))))
+    (let* ([window (get-contact-window friendnumber)]
+           [fc-lb (send window get-fc-lb)]
+           [update-fc-lb (λ ()
+                           (send fc-lb set
+                                 (sort (map (λ (x)
+                                              (string-append
+                                               (number->string (transfers-ref-num (car x)))
+                                               ": "
+                                               (transfers-ref-filename (car x))))
+                                            (hash->list transfers))
+                                       string<?)))]
+           [msg-history (send window get-msg-history)])
+      (define-values (id-success id-err f-id)
+        (file-id mtox friendnumber filenumber))
+      
+      (with-handlers
+          ([exn:blight:rtransfer?
+            (lambda (ex)
+              (send msg-history send-file-recv-error (exn-message ex)))])
+        (cond
+          ; file transfer is complete, close up transfer
+          [(zero? chunk-len) (transfers-del! f-id) (update-fc-lb)]
+          [else
+           (write-bytes chunk (transfers-ref-fhandle f-id))
+           (set-transfers-pos! f-id position)
+           (send window set-gauge-pos
+                 (fl->exact-integer (truncate (* (exact->inexact
+                                                  (/ (transfers-ref-pos f-id)
+                                                     chunk-len)) 100))))])))))
 
 ; cannot be threaded, group adding will fail if threaded
 (define on-group-invite
