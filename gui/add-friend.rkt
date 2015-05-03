@@ -145,35 +145,35 @@
                                                                 nick-bytes
                                                                 message-bytes)])
                               ; check for all the friend add errors
-                              (cond [(= err (_TOX_ERR_FRIEND_ADD 'NULL))
+                              (cond [(eq? err 'null)
                                      (displayln "ERROR: TOX_ERR_FRIEND_ADD_NULL")
-                                     [(= err (_TOX_ERR_FRIEND_ADD 'TOO_LONG))
+                                     [(eq? err 'too-long)
                                       (displayln "ERROR: TOX_ERR_FRIEND_ADD_TOOLONG")
                                       (when (make-noise)
                                         (play-sound (last sounds) #t))]
-                                     [(= err (_TOX_ERR_FRIEND_ADD 'NO_MESSAGE))
+                                     [(eq? err 'no-message)
                                       (displayln "ERROR: TOX_ERR_FRIEND_ADD_NO_MESSAGE")
                                       (when (make-noise)
                                         (play-sound (last sounds) #t))]
-                                     [(= err (_TOX_ERR_FRIEND_ADD 'OWN_KEY))
+                                     [(eq? err 'own-key)
                                       (displayln "ERROR: TOX_ERR_FRIEND_ADD_OWN_KEY")
                                       (when (make-noise)
                                         (play-sound (last sounds) #t))]
-                                     [(= err (_TOX_ERR_FRIEND_ADD 'ALREADY_SENT))
+                                     [(eq? err 'already-sent)
                                       (displayln "ERROR: TOX_ERR_FRIEND_ADD_ALREADY_SENT")
                                       (when (make-noise)
                                         (play-sound (last sounds) #t))]
                                      (when (make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_ERR_FRIEND_ADD 'BAD_CHECKSUM))
+                                    [(eq? err 'bad-checksum)
                                      (displayln "ERROR: TOX_ERR_FRIEND_ADD_BAD_CHECKSUM")
                                      (when (make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_ERR_FRIEND_ADD 'SET_NEW_NOSPAM))
+                                    [(eq? err 'set-new-nospam)
                                      (displayln "ERROR: TOX_ERR_FRIEND_ADD_SET_NEW_NOSPAM")
                                      (when (make-noise)
                                        (play-sound (last sounds) #t))]
-                                    [(= err (_TOX_ERR_FRIEND_ADD 'MALLOC))
+                                    [(eq? err 'malloc)
                                      (displayln "ERROR: TOX_ERR_FRIEND_ADD_MALLOC")
                                      (when (make-noise)
                                        (play-sound (last sounds) #t))]

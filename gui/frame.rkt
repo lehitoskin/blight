@@ -147,12 +147,12 @@ if people have a similar problem.")
                                 ; broadcast to our friends we've changed our avatar
                                 (dprint-wait "Broadcasting our avatar change to online friends")
                                 (for ([count (hash-count cur-buddies)])
-                                  (when (not (= (friend-connection-status my-tox count)
-                                            (_TOX_CONNECTION 'NONE)))
+                                  (when (not (eq? (friend-connection-status my-tox count)
+                                                  'none))
                                     ; file hash is its ID
                                     (define-values (filenum file-err)
                                       (file-send my-tox count
-                                                 (_TOX_FILE_KIND 'AVATAR)
+                                                 'avatar
                                                  (file-size avatar-file)
                                                  my-hash
                                                  (string->bytes/utf-8 avatar-file)))
@@ -191,12 +191,11 @@ if people have a similar problem.")
                       ; broadcast to our friends we've changed our avatar
                       (dprint-wait "Broadcasting our avatar change to online friends")
                       (for ([count (hash-count cur-buddies)])
-                        (when (not (= (friend-connection-status my-tox count)
-                                      (_TOX_CONNECTION 'NONE)))
+                        (when (not (eq? (friend-connection-status my-tox count) 'none))
                           ; file hash is its ID
                           (define-values (filenum file-err)
                             (file-send my-tox count
-                                       (_TOX_FILE_KIND 'AVATAR)
+                                       'avatar
                                        (file-size avatar-file)
                                        my-hash
                                        (string->bytes/utf-8 avatar-file)))

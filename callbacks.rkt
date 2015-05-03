@@ -26,11 +26,11 @@
 ; set all the callback functions
 (define on-self-connection-status
   (λ (mtox connection-status userdata)
-    (cond [(= connection-status (_TOX_CONNECTION 'NONE))
+    (cond [(eq? connection-status 'none)
            (displayln "We're not connected to the network right now.")]
-          [(= connection-status (_TOX_CONNECTION 'TCP))
+          [(eq? connection-status 'tcp)
            (displayln "We're connected to the network via TCP.")]
-          [(= connection-status (_TOX_CONNECTION 'UDP))
+          [(eq? connection-status 'udp)
            (displayln "We're connected to the network via UDP.")])))
 
 (define on-friend-request
@@ -111,7 +111,7 @@
                   (blight-save-data))
                 
                 ; catch errors
-                (cond [(= err (_TOX_ERR_FRIEND_ADD 'OK)) (add-friend-success)]
+                (cond [(eq? err 'ok) (add-friend-success)]
                       [else
                        (display "There was an error accepting the friend request! ")
                        ; if we've failed, try again 3(?) more times
@@ -125,7 +125,7 @@
                                 (iterate mtox)
                                 (sleep (/ (iteration-interval mtox) 1000))
                                 (let-values ([(num err) (friend-add-norequest mtox pubkey)])
-                                  (if (= err (_TOX_ERR_FRIEND_ADD 'OK))
+                                  (if (eq? err 'ok)
                                       (begin
                                         (displayln "Success!")
                                         (add-friend-success))
@@ -148,7 +148,7 @@
         ; if the window isn't open, force it open
         (cond [(not (send window is-shown?)) (send window show #t)])
         
-        (if (= type (_TOX_MESSAGE_TYPE 'NORMAL))
+        (if (eq? type 'normal)
             (send msg-history add-recv-message (my-name) message name (get-time))
             (send msg-history add-recv-action message name (get-time)))
         
@@ -160,7 +160,7 @@
         (when (false? (send window window-has-focus?)) (send window set-msg-unread))
         
         ; add message to the history database
-        (if (= type (_TOX_MESSAGE_TYPE 'NORMAL))
+        (if (eq? type 'normal)
             (add-history (my-id-hex) (send window get-key) message 0)
             (add-history (my-id-hex) (send window get-key)
                          (string-append "ACTION: " message) 0))))))
@@ -186,8 +186,10 @@
 
 (define on-friend-status
   (λ (mtox friendnumber status userdata)
+    (send (get-contact-snip friendnumber) set-status status)
+    (update-contact-status friendnumber status)
     ; friend is online
-    (cond [(= status (_TOX_USER_STATUS 'NONE))
+    #;(cond [(eq? status 'available)
            (send (get-contact-snip friendnumber) set-status 'available)
            (update-contact-status friendnumber 'available)]
           ; friend is away
@@ -202,7 +204,7 @@
 (define on-friend-connection-status-change
   (λ (mtox friendnumber status userdata)
     ; add a thingie that shows the friend is online
-    (cond [(= status (_TOX_CONNECTION 'NONE))
+    (cond [(eq? status 'none)
            (send (get-contact-snip friendnumber) set-status 'offline)
            (update-contact-status friendnumber 'offline)
            (when (make-noise)
@@ -222,7 +224,7 @@
                ; file hash is its ID
                (define-values (filenum file-err)
                  (file-send mtox friendnumber
-                            (_TOX_FILE_KIND 'AVATAR)
+                            'avatar
                             (file-size avatar-file)
                             file-hash
                             (string->bytes/utf-8 avatar-name)))
@@ -246,16 +248,16 @@
                                             (hash->list transfers))
                                        string<?)))])
       (with-handlers
-          ([exn:blight:rtransfer?
+          ([exn:blight:transfer?
             (lambda (ex)
               (blight-handle-exception ex)
               (send msg-history send-file-recv-error (exn-message ex)))])
         ; cue that we're going to be sending the data now
-        (cond [(= control-type (_TOX_FILE_CONTROL 'RESUME))
+        (cond [(eq? control-type 'resume)
                ; update file control list box
                (update-fc-lb)]
               ; the transfer has been canceled, close everything up
-              [(= control-type (_TOX_FILE_CONTROL 'CANCEL))
+              [(eq? control-type 'cancel)
                (define-values (id-success id-err f-id)
                  (file-id mtox friendnumber filenumber))
                ; remove transfer from hash
@@ -297,7 +299,7 @@
   (λ (mtox friendnumber filenumber kind filesize filename fname-len userdata)
     (thread
      (λ ()
-       (if (= kind (_TOX_FILE_KIND 'DATA))
+       (if (eq? kind 'data)
            ; regular data
            (let* ([cd (get-contact-data friendnumber)]
                   (mbox (message-box "Blight - File Send Request"
@@ -309,7 +311,7 @@
                                      (list 'ok-cancel 'caution)))
                   [window (contact-data-window cd)]
                   [msg-history (send window get-msg-history)])
-             (when (and (= kind (_TOX_FILE_KIND 'DATA)) (make-noise))
+             (when (make-noise)
                (play-sound (seventh sounds) #t))
              (cond
                [(eq? mbox 'ok)
@@ -321,7 +323,7 @@
                   (unless (false? path)
                     (define receive-editor
                       (send window get-receive-editor))
-                    (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'RESUME))
+                    (file-control mtox friendnumber filenumber 'resume)
                     (define-values (id-success id-err f-id)
                       (file-id mtox friendnumber filenumber))
                     (send window set-gauge-pos 0)
@@ -331,7 +333,7 @@
                                                       #:exists 'replace))
                     (send msg-history
                           begin-recv-file path (get-time))))]
-               [else (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'CANCEL))]))
+               [else (file-control mtox friendnumber filenumber 'cancel)]))
            
            ; auto-accept avatar data
            ; the name of the avatar is friend-public-key.ext
@@ -357,7 +359,7 @@
                       (unless (bytes=? (file->bytes hash-path #:mode 'binary) f-id)
                         (displayln "The avatar's hash has changed! Updating...")
                         ; start the file transfer
-                        (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'RESUME))
+                        (file-control mtox friendnumber filenumber 'resume)
                         (transfers-add! mtox friendnumber filenumber f-id avatar-path #"" 0
                                         (open-output-file avatar-path
                                                           #:mode 'binary
@@ -365,7 +367,7 @@
                      [else
                       ; we have only one of avatar or hash file or neither
                       (displayln "We got a new avatar! Saving information...")
-                      (file-control mtox friendnumber filenumber (_TOX_FILE_CONTROL 'RESUME))
+                      (file-control mtox friendnumber filenumber 'resume)
                       (transfers-add! mtox friendnumber filenumber f-id avatar-path #"" 0
                                       (open-output-file avatar-path
                                                         #:mode 'binary
@@ -390,7 +392,7 @@
         (file-id mtox friendnumber filenumber))
       
       (with-handlers
-          ([exn:blight:rtransfer?
+          ([exn:blight:transfer?
             (lambda (ex)
               (send msg-history send-file-recv-error (exn-message ex)))])
         (cond
@@ -488,10 +490,12 @@
                    (sleep (/ (iteration-interval mtox-cb) 1000))))))))
         
         (define grp-number
-          (cond [(= type (_TOX_GROUPCHAT_TYPE 'TEXT))
+          (cond [(eq? type 'text)
                  (join-groupchat mtox friendnumber data len)]
-                [(= type (_TOX_GROUPCHAT_TYPE 'AV))
+                [(eq? type 'av)
                  (join-av-groupchat mtox friendnumber data len join-av-cb)]))
+        
+        (printf "on-group-invite; type: ~s, grp-number: ~s~n" type grp-number)
         
         (cond [(false? grp-number)
                (message-box "Blight - Groupchat Failure"
@@ -502,7 +506,7 @@
                (printf "adding GC: ~a\n" grp-number)
                (flush-output)
                (do-add-group (format "Groupchat #~a" (hash-count cur-groups))
-                             grp-number (_TOX_GROUPCHAT_TYPE 'AV))])))))
+                             grp-number 'av)])))))
 
 (define on-group-message
   (λ (mtox groupnumber peernumber message len userdata)
@@ -542,7 +546,7 @@
            [group-window (contact-data-window grp)]
            [lbox (send group-window get-list-box)]
            [sources (contact-data-alsources grp)])
-      (cond [(= change (_TOX_CHAT_CHANGE_PEER 'ADD))
+      (cond [(eq? change 'add)
              (define name-bytes (group-peername mtox groupnumber peernumber))
              (define name (bytes->string/utf-8 name-bytes))
              (send lbox append name)
@@ -551,7 +555,7 @@
              ; add an al source
              (unless (false? sources)
                (set-contact-data-alsources! grp (append sources (gen-sources 1))))]
-            [(= change (_TOX_CHAT_CHANGE_PEER 'DEL))
+            [(eq? change 'del)
              (send lbox delete peernumber)
              (send lbox set-label
                    (format "~a Peers" (group-number-peers mtox groupnumber)))
@@ -560,7 +564,7 @@
                (let-values ([(h t) (split-at sources peernumber)])
                  (delete-sources! (list (car t)))
                  (set-contact-data-alsources! grp (append h (cdr t)))))]
-            [(= change (_TOX_CHAT_CHANGE_PEER 'NAME))
+            [(eq? change 'name)
              (define name-bytes (group-peername mtox groupnumber peernumber))
              (define name (bytes->string/utf-8 name-bytes))
              (send lbox set-string peernumber name)]))))
@@ -689,14 +693,14 @@
 (callback-group-title my-tox on-group-title-change)
 (callback-group-namelist-change my-tox on-group-namelist-change)
 (callback-friend-typing my-tox on-friend-typing)
-(callback-callstate my-av on-audio-invite (_ToxAvCallbackID 'Invite))
-(callback-callstate my-av on-audio-ringing (_ToxAvCallbackID 'Ringing))
-(callback-callstate my-av on-audio-start (_ToxAvCallbackID 'Start))
-(callback-callstate my-av on-audio-cancel (_ToxAvCallbackID 'Cancel))
-(callback-callstate my-av on-audio-reject (_ToxAvCallbackID 'Reject))
-(callback-callstate my-av on-audio-end (_ToxAvCallbackID 'End))
-(callback-callstate my-av on-audio-request-timeout (_ToxAvCallbackID 'RequestTimeout))
-(callback-callstate my-av on-audio-peer-timeout (_ToxAvCallbackID 'PeerTimeout))
-(callback-callstate my-av on-audio-peer-cschange (_ToxAvCallbackID 'PeerCSChange))
-(callback-callstate my-av on-audio-self-cschange (_ToxAvCallbackID 'SelfCSChange))
+(callback-callstate my-av on-audio-invite 'invite)
+(callback-callstate my-av on-audio-ringing 'ringing)
+(callback-callstate my-av on-audio-start 'start)
+(callback-callstate my-av on-audio-cancel 'cancel)
+(callback-callstate my-av on-audio-reject 'reject)
+(callback-callstate my-av on-audio-end 'end)
+(callback-callstate my-av on-audio-request-timeout 'request-timeout)
+(callback-callstate my-av on-audio-peer-timeout 'peer-timeout)
+(callback-callstate my-av on-audio-peer-cschange 'peer-cs-change)
+(callback-callstate my-av on-audio-self-cschange 'self-cs-change)
 (callback-audio-recv my-av on-audio-receive)

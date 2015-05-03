@@ -213,7 +213,7 @@
                             ; let the core determine the file id
                             (define-values (filenumber file-err)
                               (file-send this-tox friend-num
-                                         (_TOX_FILE_KIND 'DATA) size #"" filename))
+                                         'data size #"" filename))
                             ; get the file id created by the core
                             (define-values (id-success id-err f-id)
                               (file-id this-tox friend-num filenumber))
@@ -272,7 +272,7 @@
                            ; no file transfers going on, do nothing
                            [(hash-empty? transfers)]
                            ; type 'CANCEL
-                           [(= control-type (_TOX_FILE_CONTROL 'CANCEL))
+                           [(eq? control-type 'cancel)
                             (define-values (id-success id-err f-id)
                               (file-id this-tox friend-num filenumber))
                             (data-control filenumber control-type)
@@ -697,10 +697,10 @@
               [(eq? msg-type 'action)
                ; "/me " -> 4 bytes
                (friend-send-message this-tox friend-num
-                                    (_TOX_MESSAGE_TYPE 'ACTION) (subbytes byte-str 4))]
+                                    'action (subbytes byte-str 4))]
               ; we're not doing anything special
               [else (friend-send-message this-tox friend-num
-                                         (_TOX_MESSAGE_TYPE 'NORMAL) byte-str)])))
+                                         'normal byte-str)])))
         
         ; split the message if it exceeds TOX_MAX_MESSAGE_LENGTH
         ; otherwise, just send it.
@@ -776,8 +776,8 @@
     (define/public (get-key)
       friend-key)
     
-    (define/public (close-transfer filenumber)
-      (transfers-del! filenumber))
+    (define/public (close-transfer id)
+      (transfers-del! id))
     
     (define/public (set-gauge-pos num)
       (send transfer-gauge set-value num))

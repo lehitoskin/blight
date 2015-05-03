@@ -88,12 +88,12 @@
 ;(define st (make-hash))
 (define transfers (make-hash))
 
-(struct exn:blight:rtransfer exn ()
-  #:extra-constructor-name make-exn:blight:rtransfer
+(struct exn:blight:transfer exn ()
+  #:extra-constructor-name make-exn:blight:transfer
   #:transparent)
 
 (define (transfers-raise msg)
-  (raise (make-exn:blight:rtransfer
+  (raise (make-exn:blight:transfer
           msg (current-continuation-marks))))
 
 (define (transfers-ref key)
@@ -124,7 +124,7 @@
 
 (define (transfers-del! id)
   (unless (hash-has-key? transfers id)
-    (transfers-raise (format "transfers-del!: Incorrect file transfer id: ~a" id)))
+    (transfers-raise (format "transfers-del!: Incorrect file transfer id: ~s" id)))
   (when (output-port? (transfers-ref-fhandle id))
     (close-output-port (transfers-ref-fhandle id)))
   (hash-remove! transfers id))

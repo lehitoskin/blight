@@ -88,30 +88,32 @@
   (send window set-status-msg status-msg))
 
 (define on-status-type-change
-  (λ (mtox friendnumber status userdata)
+  (λ (mtox friendnumber status)
     ; friend is online
-    (cond [(= status (_TOX_USER_STATUS 'NONE))
+    (send (get-contact-snip friendnumber) set-status status)
+    (update-contact-status friendnumber status)
+    #;(cond [(eq? status 'none)
            (send (get-contact-snip friendnumber) set-status 'available)
            (update-contact-status friendnumber 'available)]
           ; friend is away
-          [(= status (_TOX_USER_STATUS 'AWAY))
+          [(= status 'away)
            (send (get-contact-snip friendnumber) set-status 'away)
            (update-contact-status friendnumber 'away)]
           ; friend is busy
-          [(= status (_TOX_USER_STATUS 'BUSY))
+          [(= status 'busy)
            (send (get-contact-snip friendnumber) set-status 'busy)
            (update-contact-status friendnumber 'busy)])))
 
 ; helper to avoid spamming notification sounds
 (define status-checker
-  (λ (friendnumber status)
-    (let-values ([(type err) (friend-status my-tox friendnumber)])
-      (cond [(zero? status)
+  (λ (friendnumber conn-status)
+    (let-values ([(status-type status-err) (friend-status my-tox friendnumber)])
+      (cond [(eq? conn-status 'none)
              (send (get-contact-snip friendnumber) set-status 'offline)
              (update-contact-status friendnumber 'offline)]
             
             ; user is online, check his status type
-            [else (on-status-type-change my-tox friendnumber type #f)]))))
+            [else (on-status-type-change my-tox friendnumber status-type)]))))
 
 ;; helper to get friend name as return value
 (define (friend-name-str tox num)
@@ -187,7 +189,7 @@
                             [this-tox my-tox]
                             [group-number number])]
          [cd (contact-data name #f "" 'group group-window number
-                           (if (= type (_TOX_GROUPCHAT_TYPE 'AV))
+                           (if (eq? type 'av)
                                (gen-sources 1)
                                #f))]
          [ncs (new contact-snip% [smart-list sml]
@@ -202,7 +204,7 @@
     (do-add-group (format "Groupchat #~a" number) number)))|#
 (define (add-new-group name)
   (let ([number (count-chatlist my-tox)])
-    (do-add-group name number (_TOX_GROUPCHAT_TYPE 'TEXT))
+    (do-add-group name number 'text)
     (add-groupchat! my-tox)))
 
 (define (add-new-av-group name)
@@ -211,13 +213,15 @@
                  (printf "av-cb: gnum: ~a pnum: ~a pcm: ~a samples: ~a channels: ~a~n"
                          groupnumber peernumber pcm samples channels)
                  (printf "av-cb: srate: ~a userdata: ~a~n~n" sample-rate userdata))])
-    (do-add-group name number (_TOX_GROUPCHAT_TYPE 'AV))
+    (do-add-group name number 'av)
     (add-av-groupchat my-tox av-cb)))
 
 (define (initial-fill-sml)
   (define an-id 1)
   (for ([fn (self-friend-list-size my-tox)])
     (define-values (success err name-bytes) (friend-name my-tox fn))
+    (when (false? success)
+      (error 'initial-fill-sml "failed on friendname; error ~a~n" err))
     (define name-str (bytes->string/utf-8 name-bytes))
     
     (when (string=? name-str "")

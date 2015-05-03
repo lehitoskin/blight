@@ -16,7 +16,7 @@
 ; create a new options struct
 (define-values (my-opts opts-err) (tox-options-new))
 ; set the options struct to its defaults
-(cond [(= opts-err (_TOX_ERR_OPTIONS_NEW 'OK))
+(cond [(eq? opts-err 'ok)
        (tox-options-default my-opts)]
       [else
         (when (make-noise)
@@ -56,7 +56,7 @@
              (pass-decrypt data-bytes (encryption-pass)))
            (define-values (new-result new-err) (tox-new my-opts decrypted-data))
            (set! my-tox new-result)
-           (cond [(= new-err (_TOX_ERR_NEW 'OK))
+           (cond [(eq? new-err 'ok)
                   (send pass-dialog show #f)
                   (displayln "Loading successful!")]
                  [else
@@ -102,8 +102,8 @@
          
          (send pass-dialog show #t)]
         [(zero? (bytes-length data-bytes))
-         (let-values ([(result err) (tox-new my-opts #"")])
-           (set! my-tox result)
+         (let-values ([(new-result new-err) (tox-new my-opts #"")])
+           (set! my-tox new-result)
            ; set username
            (set-self-name! my-tox (string->bytes/utf-8 (my-name)))
            ; set status message
