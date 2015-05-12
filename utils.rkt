@@ -79,6 +79,14 @@
 
   (send error-dialog show #t))
 
+(struct exn:blight:friend-delete exn ()
+  #:extra-constructor-name make-exn:blight:friend-delete
+  #:transparent)
+
+(define (friend-delete-raise msg)
+  (raise (make-exn:blight:friend-delete
+          msg (current-continuation-marks))))
+
 ;; FILE TRANSFERS
 ;(struct send-transfer-data (path contents sent) #:mutable)
 ;(struct receive-transfer-data (fhandle received) #:mutable)

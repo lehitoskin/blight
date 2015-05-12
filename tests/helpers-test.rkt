@@ -6,6 +6,8 @@
 ; any->bool
 (assert (any->bool 'a) boolean?)
 (assert (any->bool #f) boolean?)
+(check-true (any->bool 'a))
+(check-false (any->bool #f))
 
 ; hex-string?
 (assert (hex-string? "DEADBEEF") boolean?)
@@ -14,7 +16,7 @@
 (check-true (hex-string? "a"))
 (check-true (hex-string? "1"))
 (check-false (hex-string? ""))
-;(check-false (hex-string? 0))
+(check-false (hex-string? 0))
 
 ; tox-id?
 (check-true (tox-id? "802D30E27746AE299FC2796D014C24700140574BFBFBB9397114D7CB82DC25728BA74CC378EF"))

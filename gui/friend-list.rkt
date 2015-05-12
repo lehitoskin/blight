@@ -249,18 +249,22 @@
 
 (define (do-delete-friend friend-num)
   ; delete from tox friend list
-  (friend-delete! my-tox friend-num)
-  ; save the blight data
-  (blight-save-data)
-  ; remove from list-box
-  
-  (send sml remove-entry (get-contact-snip friend-num))
-  (hash-remove! cur-buddies friend-num)
-  
-  ; the invite list needs to be updated for
-  ; the groupchat windows that still exist
-  (unless (zero? (hash-count cur-groups))
-    (update-invite-list)))
+  (let-values ([(success err) (friend-delete! my-tox friend-num)])
+    ; error checking...
+    (cond [(eq? err 'ok)
+          ; save the blight data
+          (blight-save-data)
+          
+          ; remove from list-box
+          (send sml remove-entry (get-contact-snip friend-num))
+          (hash-remove! cur-buddies friend-num)
+          
+          ; the invite list needs to be updated for
+          ; the groupchat windows that still exist
+          (unless (zero? (hash-count cur-groups))
+            (update-invite-list))]
+          [else (friend-delete-raise "friend-delete!: There was an error deleting friend ~a: ~s"
+                                     friend-num err)])))
 
 (define (delete-friend friend-number)
   (let ([mbox (message-box "Blight - Deleting Friend"

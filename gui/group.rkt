@@ -187,7 +187,7 @@
                                              [parent topside-panel]
                                              [label "Messages received"]
                                              [editor group-text-receive]
-                                             [min-height 400]
+                                             [min-height (- this-height 198)] ; 400
                                              [min-width (- this-width 100)]
                                              [vert-margin 5]
                                              [style (list 'control-border 'no-hscroll

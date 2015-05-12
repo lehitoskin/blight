@@ -2,7 +2,6 @@
 ; callbacks.rkt
 (require libtoxcore-racket
          libopenal-racket
-         ffi/unsafe
          "audio.rkt"
          "blight.rkt"
          "config.rkt"
@@ -261,7 +260,8 @@
                (define-values (id-success id-err f-id)
                  (file-id mtox friendnumber filenumber))
                ; remove transfer from hash
-               (transfers-del! f-id)
+               (when (hash-has-key? transfers f-id)
+                 (transfers-del! f-id))
                (update-fc-lb)]
               ; catch everything else and just update both of the list boxes
               [else (update-fc-lb)])))))
@@ -326,7 +326,6 @@
                     (file-control mtox friendnumber filenumber 'resume)
                     (define-values (id-success id-err f-id)
                       (file-id mtox friendnumber filenumber))
-                    (send window set-gauge-pos 0)
                     (transfers-add! mtox friendnumber filenumber f-id path #"" 0
                                     (open-output-file path
                                                       #:mode 'binary
@@ -400,11 +399,7 @@
           [(zero? chunk-len) (transfers-del! f-id) (update-fc-lb)]
           [else
            (write-bytes chunk (transfers-ref-fhandle f-id))
-           (set-transfers-pos! f-id position)
-           (send window set-gauge-pos
-                 (fl->exact-integer (truncate (* (exact->inexact
-                                                  (/ (transfers-ref-pos f-id)
-                                                     chunk-len)) 100))))])))))
+           (set-transfers-pos! f-id position)])))))
 
 ; cannot be threaded, group adding will fail if threaded
 (define on-group-invite
@@ -494,8 +489,6 @@
                  (join-groupchat mtox friendnumber data len)]
                 [(eq? type 'av)
                  (join-av-groupchat mtox friendnumber data len join-av-cb)]))
-        
-        (printf "on-group-invite; type: ~s, grp-number: ~s~n" type grp-number)
         
         (cond [(false? grp-number)
                (message-box "Blight - Groupchat Failure"

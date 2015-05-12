@@ -85,76 +85,11 @@
     (define add-file-sender
       (λ (path filenumber)
         (define filename (path->string path))
-        (send transfer-gauge set-value 0)
         (transfers-read-file! filenumber)))
     
     (define data-control
       (λ (filenumber type)
         (file-control this-tox friend-num filenumber type)))
-    
-    (define/public send-data
-      (λ (filenumber)
-        (define-values (id-success id-err f-id)
-          (file-id this-tox friend-num filenumber))
-        (define path (transfers-ref-path f-id))
-        
-        (send message-history
-              begin-send-file path (get-time))
-        
-        (define size (file-size path))
-        (define percent 0)
-        ; maximum chunk size we can send at one time
-        (define max-size 256)
-        ; number of chunks we're going to send
-        (define num-chunks (quotient size max-size))
-        (add-file-sender path filenumber)
-        (for ([i num-chunks])
-          (let ([chunk (subbytes (transfers-ref-data f-id)
-                                 (* max-size i) (* max-size (+ i 1)))])
-            ; send our chunk
-            ; if there is an error, sleep and then try again.
-            (let loop ()
-              (cond [(false? (file-send-chunk this-tox friend-num
-					     filenumber chunk))
-                     (iterate this-tox)
-                     (sleep (/ (iteration-interval this-tox) 1000))
-                     (loop)]))
-            ; update file-send gauge
-            (set-transfers-pos! f-id
-                          (+ (transfers-ref-pos f-id) (bytes-length chunk)))
-            (set! percent (fl->exact-integer
-                           (truncate (* (exact->inexact
-                                         (/ (transfers-ref-pos f-id) size)) 100))))
-            (send transfer-gauge set-value percent)))
-        ; if there is a remainder, send the very last chunk
-        (unless (zero? (quotient size max-size))
-          (let ([chunk (subbytes (transfers-ref-data f-id)
-                                 (- size (remainder size max-size)) size)])
-            ; send our chunk
-            ; if there is an error, sleep and then try again.
-            (let loop ()
-              (cond [(false? (file-send-chunk this-tox friend-num
-					     filenumber chunk))
-                     (iterate this-tox)
-                     (sleep (/ (iteration-interval this-tox) 1000))
-                     (loop)]))
-            ; update file-send gauge
-            (set-transfers-pos! f-id (+ (transfers-ref-pos f-id) (bytes-length chunk)))
-            (set! percent (fl->exact-integer (truncate
-                                              (* (exact->inexact
-                                                  (/ (transfers-ref-pos f-id) size)) 100))))
-            (send transfer-gauge set-value percent)))
-        
-        ; tell our friend we're done sending
-        ; not necessary unless we're streaming, which can come later.
-        ; TODO: Allow for streaming
-        ;(file-send-chunk this-tox friend-num filenumber 0 #"")
-        
-        (send message-history
-              end-send-file path (get-time))
-        
-        (unless (false? (make-noise))
-          (play-sound (eighth sounds) #t))))
     
     (define custom-frame%
       (class frame%
@@ -267,16 +202,20 @@
                        (let* ([fc-lb fc-list-box]
                               [fc-rb fc-rbox]
                               [filenumber (send fc-lb get-selection)]
-                              [control-type (send fc-rb get-selection)])
+                              [sel (send fc-rb get-selection)]
+                              [control-type (string->symbol
+                                             (string-downcase
+                                              (send fc-rb get-item-label sel)))])
                          (cond
                            ; no file transfers going on, do nothing
                            [(hash-empty? transfers)]
-                           ; type 'CANCEL
+                           ; cancel the transfer
                            [(eq? control-type 'cancel)
                             (define-values (id-success id-err f-id)
                               (file-id this-tox friend-num filenumber))
                             (data-control filenumber control-type)
-                            (transfers-del! f-id)]
+                            (when (hash-has-key? transfers f-id)
+                              (transfers-del! f-id))]
                            ; receiving file control
                            [else (data-control filenumber control-type)])
                          (send file-control-dialog show #f)))]))
@@ -489,7 +428,7 @@
                                             [parent chat-frame]
                                             [label "Messages received"]
                                             [editor chat-text-receive]
-                                            [min-height 358] ; exact height of buddy list
+                                            [min-height (- this-height 22)] ; 358 exact height of buddy list
                                             [vert-margin 5]
                                             [style (list 'control-border 'no-hscroll
                                                          'auto-vscroll)]
@@ -727,11 +666,6 @@
     
     (send chat-editor-canvas-send focus)
     
-    (define transfer-gauge (new gauge%
-                                [label "Transfers "]
-                                [parent chat-frame]
-                                [range 100])) ; range in percentage
-    
     (define/public (get-tox)
       this-tox)
     
@@ -777,10 +711,8 @@
       friend-key)
     
     (define/public (close-transfer id)
-      (transfers-del! id))
-    
-    (define/public (set-gauge-pos num)
-      (send transfer-gauge set-value num))
+      (when (hash-has-key? transfers id)
+        (transfers-del! id)))
     
     (define/public (set-status-msg msg)
       ; check the title for &'s and "escape" them

@@ -11,8 +11,10 @@
 (define (any->bool (x : Any)) : Boolean
   (not (not x)))
 
+(define-type Hexadecimal-String (Listof Char))
+
 ; checks if a given string is in hexadecimal format
-(define (hex-string? (val : String)) : Boolean
+(define (hex-string? (val : Any)) : Boolean
   (and (string? val)
        ; number-conversions can't convert "" hex-strings so they aren't valid.
        (not (zero? (string-length val)))
@@ -22,8 +24,9 @@
                           (string->list (string-downcase val))))))
 
 ; checks if a given string is a valid 76-character Tox ID
-(define (tox-id? (str : String)) : Boolean
-  (and (hex-string? str)
+(define (tox-id? (str : Any)) : Boolean
+  (and (string? str)
+       (hex-string? str)
        (= (string-length str) 76)))
 
 ; get the current time formatted to HH:MM:SS

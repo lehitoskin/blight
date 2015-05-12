@@ -237,13 +237,13 @@ arg: list of files to copy to tox-path as .tox files
     (close-output-port config-port-out)))
 
 (define-syntax-rule (hash-ref* mhash k1 k2 ...)
-  (values (make-parameter (hash-ref mhash k1))
-          (make-parameter (hash-ref mhash k2)) ...))
+  (let ([to-set (λ () #f)]) ; in case the key isn't in the hash
+    (values (make-parameter (hash-ref mhash k1 to-set))
+            (make-parameter (hash-ref mhash k2 to-set)) ...)))
 
 (define-values
-  (my-name my-status-message make-noise use-ipv6? use-udp?
-           proxy-type proxy-host proxy-port start-port end-port
-           encrypted?)
+  (my-name my-status-message make-noise use-ipv6? use-udp? proxy-type proxy-host
+           proxy-port start-port end-port encrypted?)
   (let* ([config-port-in (open-input-file ((config-file)) #:mode 'text)]
          [json-info (read-json config-port-in)])
     (close-input-port config-port-in)

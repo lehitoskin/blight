@@ -231,4 +231,5 @@ if people have a similar problem.")
                   "Busy")]
        [selection (self-status my-tox)]
        [callback (λ (choice control-event)
-                   (set-self-status! my-tox (send choice get-selection)))]))
+                   (let ([sel (string-downcase (send choice get-string-selection))])
+                     (set-self-status! my-tox (string->symbol sel))))]))
