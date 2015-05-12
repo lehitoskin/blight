@@ -3,7 +3,8 @@
 ; contains the tox instances and threads
 (require libtoxcore-racket
          "config.rkt"
-         "utils.rkt")
+         "utils.rkt"
+         "gui/pass.rkt")
 
 (provide (all-defined-out)
          TOX_PUBLIC_KEY_SIZE
@@ -66,40 +67,8 @@
                       (displayln "Incorrect password received, trying again.")
                       (send pass-tfield set-value "")))]))
          
-         (define pass-dialog (new dialog%
-                                  [label "Blight - Enter Passphrase"]
-                                  [height 50]
-                                  [width 400]
-                                  [style (list 'close-button)]))
-         
-         (define pass-tfield
-           (new text-field%
-                [label "Enter Passphrase: "]
-                [parent pass-dialog]
-                [style '(single password)]
-                [callback (λ (l e)
-                            (when (eq? (send e get-event-type) 'text-field-enter)
-                              (loading-callback)))]))
-         
-         (define pass-hpanel
-           (new horizontal-panel%
-                [parent pass-dialog]
-                [alignment '(right center)]))
-         
-         (define pass-cancel-button
-           (new button%
-                [label "Cancel"]
-                [parent pass-hpanel]
-                [callback (λ (button event)
-                            (exit))]))
-         
-         (define pass-ok-button
-           (new button%
-                [label "OK"]
-                [parent pass-hpanel]
-                [callback (λ (button event)
-                            (loading-callback))]))
-         
+         (pass-callback loading-callback)
+         (send pass-tfield focus)
          (send pass-dialog show #t)]
         [(zero? (bytes-length data-bytes))
          (let-values ([(new-result new-err) (tox-new my-opts #"")])

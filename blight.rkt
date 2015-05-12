@@ -7,7 +7,8 @@
          "tox.rkt"
          "utils.rkt"
          "gui/smart-list.rkt"
-         "gui/frame.rkt")
+         "gui/frame.rkt"
+         "gui/pass.rkt")
 
 (provide (all-defined-out))
 
@@ -35,29 +36,14 @@
            
            ; allow an option to change the password every time?
            (when (string=? (encryption-pass) "")
-             (define pass-dialog (new dialog%
-                                      [label "Blight - Enter Passphrase"]
-                                      [height 50]
-                                      [width 400]
-                                      [style (list 'close-button)]))
-             (define pass-tfield
-               (new text-field%
-                    [label "Enter Passphrase: "]
-                    [parent pass-dialog]
-                    [style '(single password)]
-                    [callback (λ (l e)
-                                (when (and (eq? (send e get-event-type) 'text-field-enter)
-                                           (not (string=? (send l get-value) "")))
-                                  (encryption-pass (send l get-value))
-                                  (send pass-dialog show #f)))]))
-             (define pass-ok-button
-               (new button%
-                    [label "OK"]
-                    [parent pass-dialog]
-                    [callback (λ (button event)
-                                (when (not (string=? (send pass-tfield get-value) ""))
-                                  (encryption-pass (send pass-tfield get-value))
-                                  (send pass-dialog show #f)))]))
+             (define (new-pass)
+               (encryption-pass (send pass-tfield get-value))
+               (send pass-dialog show #f)
+               (send pass-tfield set-value ""))
+             
+             (pass-callback new-pass)
+             
+             (send pass-tfield focus)
              (send pass-dialog show #t))
            
            ; data to encrypt
