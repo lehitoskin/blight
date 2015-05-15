@@ -147,9 +147,14 @@
                    (λ ()
                      (with-output-to-string
                       (λ ()
-                        (define r (eval e server-namespace))
+                        #|(define r (eval e server-namespace))
                         (unless (void? r)
-                          (write r)))))
+                          (write r))|#
+                        (for-each (λ (retval)
+                                    (unless (void? retval)
+                                      (write retval)
+                                      (newline)))
+                                  (call-with-values (λ () (eval e server-namespace)) list)))))
                    void)))
               (dprint-wait "Sending value: ~a" res)
               ; Printed in a string, to send a string,

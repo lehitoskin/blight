@@ -218,17 +218,17 @@
                   [avatar-name (string-append my-pubkey ".png")]
                   [avatar-file (build-path avatar-dir avatar-name)])
              (when (file-exists? avatar-file)
-               (define-values (hash-success file-hash)
-                 (tox-hash (file->bytes avatar-file #:mode 'binary)))
-               ; file hash is its ID
-               (define-values (filenum file-err)
-                 (file-send mtox friendnumber
-                            'avatar
-                            (file-size avatar-file)
-                            file-hash
-                            (string->bytes/utf-8 avatar-name)))
-               (transfers-add! mtox friendnumber filenum file-hash avatar-file
-                               (file->bytes avatar-file))))])))
+               (let*-values ([(hash-success file-hash)
+                              (tox-hash (file->bytes avatar-file #:mode 'binary))]
+                             ; file hash is its ID
+                             [(filenum file-err)
+                              (file-send mtox friendnumber
+                                         'avatar
+                                         (file-size avatar-file)
+                                         file-hash
+                                         (string->bytes/utf-8 avatar-name))])
+                 (transfers-add! mtox friendnumber filenum file-hash avatar-file
+                                 (file->bytes avatar-file)))))])))
 
 ; a control action has been applied to a file transfer
 (define on-file-recv-control
