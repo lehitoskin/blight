@@ -156,7 +156,7 @@ if people have a similar problem.")
                                                    'avatar
                                                    (file-size avatar-file)
                                                    my-hash
-                                                   (string->bytes/utf-8 avatar-file)))
+                                                   (path->bytes avatar-file)))
                                       (transfers-add! my-tox count filenum
                                                       my-hash avatar-file
                                                       (file->bytes avatar-file)))))
@@ -192,17 +192,19 @@ if people have a similar problem.")
                       ; broadcast to our friends we've changed our avatar
                       (dprint-wait "Broadcasting our avatar change to online friends")
                       (for ([count (hash-count cur-buddies)])
-                        (when (not (eq? (friend-connection-status my-tox count) 'none))
-                          ; file hash is its ID
-                          (define-values (filenum file-err)
-                            (file-send my-tox count
-                                       'avatar
-                                       (file-size avatar-file)
-                                       my-hash
-                                       (string->bytes/utf-8 avatar-file)))
-                          (transfers-add! my-tox count filenum
-                                          my-hash avatar-file
-                                          (file->bytes avatar-file))))
+                        (let-values ([(fcs-success fcs-err)
+                                      (friend-connection-status my-tox count)])
+                          (when (not (eq? fcs-success 'none))
+                            ; file hash is its ID
+                            (define-values (filenum file-err)
+                              (file-send my-tox count
+                                         'avatar
+                                         (file-size avatar-file)
+                                         my-hash
+                                         (path->bytes avatar-file)))
+                            (transfers-add! my-tox count filenum
+                                            my-hash avatar-file
+                                            (file->bytes avatar-file)))))
                       (displayln "Done!")])))))))]))
 
 (define frame-vpanel (new vertical-panel%
