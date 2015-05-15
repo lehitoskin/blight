@@ -278,8 +278,9 @@
 (define (do-delete-group! grp-number)
   (let* ([grp (hash-ref cur-groups grp-number)]
          [sources (contact-data-alsources grp)])
-    (for-each (λ (i) (stop-source i)) sources)
-    (delete-sources! sources)
+    (when (list? sources)
+      (for-each (λ (i) (stop-source i)) sources)
+      (delete-sources! sources))
     (del-groupchat! my-tox grp-number)
     (send sml remove-entry (get-group-snip grp-number))
     (hash-remove! cur-groups grp-number)))
