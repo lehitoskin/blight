@@ -217,8 +217,8 @@ arg: list of files to copy to tox-path as .tox files
   (hasheq 'my-name my-name-default
           'my-status-message my-status-message-default
           'make-noise make-noise-default
-          'use-ipv6? use-ipv6?-default
-          'use-udp? use-udp?-default
+          'ipv6? use-ipv6?-default
+          'udp? use-udp?-default
           'proxy-type proxy-type-default
           'proxy-host proxy-host-default
           'proxy-port proxy-port-default
