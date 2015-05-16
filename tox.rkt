@@ -12,18 +12,18 @@
 
 ; proxy options
 #;(define my-opts
-  (make-Tox-Options (use-ipv6?) (proxy-type) (use-udp?)
-                    (proxy-host) (proxy-port) (start-port) (end-port)))
+    (make-Tox-Options (use-ipv6?) (proxy-type) (use-udp?)
+                      (proxy-host) (proxy-port) (start-port) (end-port)))
 ; create a new options struct
 (define-values (my-opts opts-err) (tox-options-new))
 ; set the options struct to its defaults
 (cond [(eq? opts-err 'ok)
        (tox-options-default my-opts)]
       [else
-        (when (make-noise)
-          (play-sound (last sounds) #t))
-        (error 'tox-options-new "error occurred during allocation: ~s" opts-err)
-        (exit)])
+       (when (make-noise)
+         (play-sound (last sounds) #t))
+       (error 'tox-options-new "error occurred during allocation: ~s" opts-err)
+       (exit)])
 ; set the options struct to the saved preferences
 ;(set-Tox-Options-ipv6?! my-opts (use-ipv6?))
 ;(set-Tox-Options-udp?! my-opts (use-udp?))
@@ -70,13 +70,22 @@
          (pass-callback loading-callback)
          (send pass-tfield focus)
          (send pass-dialog show #t)]
+        ; empty data file, start fresh session
         [(zero? (bytes-length data-bytes))
          (let-values ([(new-result new-err) (tox-new my-opts #"")])
            (set! my-tox new-result)
            ; set username
            (set-self-name! my-tox (string->bytes/utf-8 (my-name)))
            ; set status message
-           (set-self-status-message! my-tox (string->bytes/utf-8 (my-status-message))))]))
+           (set-self-status-message! my-tox (string->bytes/utf-8 (my-status-message))))]
+        [else
+         ; load from normal data
+         (dprint-wait "Loading data")
+         (define-values (new-result new-err) (tox-new my-opts data-bytes))
+         (cond [(eq? new-err 'ok) (set! my-tox new-result) (displayln "Ok!")]
+               [else (when (make-noise)
+                       (play-sound (last sounds) #t))
+                     (raise-result-error 'tox-new "ok" new-err) (exit)])]))
 
 ; our AV instance
 (define my-av (av-new my-tox 1))
