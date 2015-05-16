@@ -193,19 +193,25 @@ arg: list of files to copy to tox-path as .tox files
 (define my-name-default "Blight Tester")
 (define my-status-message-default "Toxing on Blight")
 
-; default DHT settings
-(define dht-address-default "23.226.230.47")
-(define dht-port-default 33445)
-(define dht-public-key-default
-  "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074")
-; augment this with a json grab from the website
-(define dht-address (make-parameter dht-address-default))
-(define dht-port (make-parameter dht-port-default))
-(define dht-public-key (make-parameter dht-public-key-default))
+; DHT stuff
+(struct dht-node (nick address port public-key) #:transparent)
+; list of structs containing DHT node information obtained from
+; http://wiki.tox.im - change this to be taken from a JSON query
+(define node-list
+  (list
+   (dht-node 'bunslow "76.191.23.96" 33445
+             "93574A3FAB7D612FEA29FD8D67D3DD10DFD07A075A5D62E8AF3DD9F5D0932E11")
+   (dht-node 'stal "23.226.230.47" 33445
+             "A09162D68618E742FFBCA1C2C70385E6679604B2D80EA6E84AD0996A1AC8A074")
+   (dht-node 'nurupo "192.210.149.121" 33445
+             "F404ABAA1C99A9D37D61AB54898F56793E1DEF8BD46B1038B9D822E8460FAB67")
+   (dht-node 'jfreegman "104.219.184.206" 443
+             "8CD087E31C67568103E8C2A28653337E90E6B8EDA0D765D57C6B5172B4F1F04C")))
+
 ; if <profile>.json exists, do not use these
 (define use-ipv6?-default #t)
 (define use-udp?-default #t)
-(define proxy-type-default 0) ; (_TOX_PROXY_TYPE 'NONE)
+(define proxy-type-default 'none) ; _TOX-PROXY-TYPE value
 (define proxy-host-default "") ; ignored if proxy type is 'NONE
 (define proxy-port-default 0) ; ignored if proxy type is 'NONE
 (define start-port-default 0)
@@ -219,7 +225,8 @@ arg: list of files to copy to tox-path as .tox files
           'make-noise make-noise-default
           'ipv6? use-ipv6?-default
           'udp? use-udp?-default
-          'proxy-type proxy-type-default
+          ; turn proxy-type-default into a string because of (jsexpr?)
+          'proxy-type (symbol->string proxy-type-default)
           'proxy-host proxy-host-default
           'proxy-port proxy-port-default
           'start-port start-port-default
@@ -250,6 +257,9 @@ arg: list of files to copy to tox-path as .tox files
     (hash-ref* json-info 'my-name 'my-status-message 'make-noise 'ipv6?
                'udp? 'proxy-type 'proxy-host 'proxy-port 'start-port
                'end-port 'encrypted?)))
+
+; _TOX-PROXY-TYPE is a symbol
+(proxy-type (string->symbol (proxy-type)))
 
 (define (toggle-noise) (make-noise (not (make-noise))))
 

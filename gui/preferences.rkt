@@ -306,7 +306,7 @@
        [parent proxy-panel]
        [label "Proxy Type "]
        [choices '("None" "HTTP" "SOCKS5")]
-       [selection (proxy-type)]))
+       [selection 0]))
 
 (define proxy-address-port-panel
   (new horizontal-panel% [parent proxy-panel]))
@@ -339,7 +339,7 @@
        [label "Cancel"]
        [callback (λ (button event)
                    ; reset all the old values
-                   (send proxy-type-choice set-selection (proxy-type))
+                   (send proxy-type-choice set-selection 0)
                    (send proxy-address-tfield set-value (if (string=? "" (proxy-host))
                                                             "example.com"
                                                             (proxy-host)))
@@ -357,7 +357,9 @@
                    ; set all the new values
                    (use-ipv6? (send ipv6-button get-value))
                    (use-udp? (send udp-button get-value))
-                   (proxy-type (send proxy-type-choice get-selection))
+                   (proxy-type (symbol->string
+                                (string-downcase
+                                 (send proxy-type-choice get-string-selection))))
                    (proxy-host (send proxy-address-tfield get-value))
                    ; only integers allowed inside port tfield
                    (let ([num (string->number (send proxy-port-tfield get-value))]
@@ -367,7 +369,7 @@
                             ; record the new values to the config file
                             (blight-save-config* 'ipv6? (use-ipv6?)
                                                  'udp-disabled? (use-udp?)
-                                                 'proxy-type (proxy-type)
+                                                 'proxy-type (string->symbol (proxy-type))
                                                  'proxy-address (proxy-host)
                                                  'proxy-port (proxy-port))
                             ; close the window

@@ -26,7 +26,9 @@
 (define on-self-connection-status
   (λ (mtox connection-status userdata)
     (cond [(eq? connection-status 'none)
-           (displayln "We're not connected to the network right now.")]
+           (displayln "We're not connected to the network right now.")
+           (when (thread-dead? (bootstrap-thread))
+             (bootstrap-thread (thread bootstrapper)))]
           [(eq? connection-status 'tcp)
            (displayln "We're connected to the network via TCP.")]
           [(eq? connection-status 'udp)

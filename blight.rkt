@@ -12,20 +12,20 @@
 
 (provide (all-defined-out))
 
-(debug-prefix "Blight: ")
-(dprint-wait "Connection to DHT")
-; connect to DHT
-(let-values ([(result err) (tox-bootstrap my-tox
-                                          (dht-address)
-                                          (dht-port)
-                                          (dht-public-key))])
-  (cond [(not (false? result))
-         (when (make-noise)
-           (play-sound (fourth sounds) #t))
-         (displayln "Connected!")]
-        [else (when (make-noise)
-                (play-sound (last sounds) #t))
-              (printf "Connection failed! Error code: ~s\n" err)]))
+; connect to DHT for the first time
+(parameterize ([debug-prefix "Blight: "])
+  (dprint-wait "Connecting to DHT")
+  (let-values ([(result err) (tox-bootstrap my-tox
+                                            (dht-node-address (first node-list))
+                                            (dht-node-port (first node-list))
+                                            (dht-node-public-key (first node-list)))])
+    (cond [(not (false? result))
+           (when (make-noise)
+             (play-sound (fourth sounds) #t))
+           (displayln "Connected!")]
+          [else (when (make-noise)
+                  (play-sound (last sounds) #t))
+                (printf "Connection failed! Error code: ~s\n" err)])))
 
 ; reusable procedure to save tox information to data-file
 (define blight-save-data
@@ -82,7 +82,8 @@
     (unless (zero? (get-active-calls my-av))
       (for ([i (get-active-calls my-av)])
         (av-hangup my-av i)))
-    ; kill tox threads
+    ; kill threads
+    (kill-thread (bootstrap-thread))
     (kill-thread av-loop-thread)
     (kill-thread tox-loop-thread)
     ; kill REPL thread
@@ -195,6 +196,28 @@
     (when (eq? res 'quit)
       (clean-up)
       (exit))))
+
+(define bootstrapper
+  (λ ()
+    (parameterize ([debug-prefix "Blight: "])
+      (let loop ()
+        ; bootstrap to 4 nodes at a time
+        (for ([i (in-list node-list)])
+          (define nick (dht-node-nick i))
+          (define address (dht-node-address i))
+          (define port (dht-node-port i))
+          (define pubkey (dht-node-public-key i))
+          
+          (define-values (result err) (tox-bootstrap my-tox address port pubkey))
+          
+          (if (false? result)
+              (dprintf "Error connecting to node ~a: ~a~n" nick err)
+              (dprintf "Bootstrapped to ~a~n" nick)))
+        (sleep 5)
+        (when (eq? (self-connection-status my-tox) 'none)
+          (loop))))))
+
+(define bootstrap-thread (make-parameter (thread bootstrapper)))
 
 ; tox loop that only uses iterate and sleeps for some amount of time
 (define tox-loop-thread
