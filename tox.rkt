@@ -59,7 +59,12 @@
            (set! my-tox new-result)
            (cond [(eq? new-err 'ok)
                   (send pass-dialog show #f)
-                  (displayln "Loading successful!")]
+                  (displayln "Loading successful!")
+                  ; set our name and status-message from the data we've loaded
+                  (let ([name-bytes (self-name my-tox)]
+                        [status-msg (self-status-message my-tox)])
+                    (my-name (bytes->string/utf-8 name-bytes))
+                    (my-status-message (bytes->string/utf-8 status-msg)))]
                  [else
                   (let ([mbox (message-box "Blight - Incorrect Passphrase"
                                            "Sorry! That was incorrect.")])
@@ -82,7 +87,14 @@
          ; load from normal data
          (dprint-wait "Loading data")
          (define-values (new-result new-err) (tox-new my-opts data-bytes))
-         (cond [(eq? new-err 'ok) (set! my-tox new-result) (displayln "Ok!")]
+         (cond [(eq? new-err 'ok)
+                (set! my-tox new-result)
+                (displayln "Ok!")
+                ; set our name and status-message from the data we've loaded
+                (let ([name-bytes (self-name my-tox)]
+                      [status-msg (self-status-message my-tox)])
+                  (my-name (bytes->string/utf-8 name-bytes))
+                  (my-status-message (bytes->string/utf-8 status-msg)))]
                [else (when (make-noise)
                        (play-sound (last sounds) #t))
                      (raise-result-error 'tox-new "ok" new-err) (exit)])]))

@@ -58,7 +58,6 @@
                                       (unless (string=? username "")
                                         ; set the new username
                                         (my-name username)
-                                        (blight-save-config 'my-name username)
                                         (send username-frame-message set-label username)
                                         (set-self-name! my-tox name-bytes)
                                         (blight-save-data)
@@ -73,7 +72,6 @@
                      ; refuse to set the username if it's empty
                      (unless (string=? username "")
                        (my-name username)
-                       (blight-save-config 'my-name username)
                        (send username-frame-message set-label username)
                        (set-self-name! my-tox name-bytes)
                        (blight-save-data)
@@ -102,7 +100,6 @@
                                       (unless (string=? status "")
                                         ; set the new status
                                         (my-status-message status)
-                                        (blight-save-config 'my-status-message status)
                                         (send status-frame-message set-label status)
                                         (set-self-status-message! my-tox status-bytes)
                                         (blight-save-data)
@@ -118,7 +115,6 @@
                      ; refuse to set status if it's empty
                      (unless (string=? status "")
                        (my-status-message status)
-                       (blight-save-config 'my-status-message status)
                        (send status-frame-message set-label status)
                        (set-self-status-message! my-tox status-bytes)
                        (blight-save-data)
@@ -221,70 +217,72 @@
        [value (encrypted?)]
        [callback
         (λ (l e)
-          (let ([enc (send l get-value)])
-            (if enc
-                (let ([mbox
-                       (message-box
-                        "Blight - Encryption Warning"
-                        (string-append
-                         "WARNING! Encrypting your data file could be dangerous!\n"
-                         "If even one byte is incorrect in the saved file,\n"
-                         "it will be worthless!")
-                        #f
-                        (list 'ok-cancel 'stop))])
-                  (cond [(eq? mbox 'ok)
-                         (define enc-dialog
-                           (new dialog%
-                                [label "Blight - Encryption Passphrase"]
-                                [height 50]
-                                [width 400]))
-                         (define enc-tfield
-                           (new text-field%
-                                [parent enc-dialog]
-                                [label "New Passphrase: "]
-                                [callback (λ (l e)
-                                            (when (eq? (send e get-event-type)
-                                                       'text-field-enter)
-                                              (encryption-pass
-                                               (send l get-value))
-                                              (send enc-dialog show #f)))]))
-                         (define enc-ok-button
-                           (new button%
-                                [parent enc-dialog]
-                                [label "OK"]
-                                [callback (λ (button event)
-                                            (encryption-pass
-                                             (send enc-tfield get-value))
-                                            (send enc-dialog show #f))]))
-                         (encrypted? enc)
-                         (blight-save-config 'encrypted? enc)]
-                        [(eq? mbox 'cancel)
-                         (send l set-value #f)
-                         (encrypted? #f)]))
-                (begin
-                  (encrypted? #f)
-                  (blight-save-config 'encrypted? enc)))))]))
+          (define enc (send l get-value))
+          (cond
+            [enc
+             (define mbox
+               (message-box
+                "Blight - Encryption Warning"
+                (string-append
+                 "WARNING! Encrypting your data file could be dangerous!\n"
+                 "If even one byte is incorrect in the saved file,\n"
+                 "it will be worthless!")
+                #f
+                (list 'ok-cancel 'stop)))
+             (cond [(eq? mbox 'ok)
+                    (define enc-dialog
+                      (new dialog%
+                           [label "Blight - Encryption Passphrase"]
+                           [height 50]
+                           [width 400]))
+                    (define enc-tfield
+                      (new text-field%
+                           [parent enc-dialog]
+                           [label "New Passphrase: "]
+                           [callback (λ (l e)
+                                       (when (eq? (send e get-event-type)
+                                                  'text-field-enter)
+                                         (encryption-pass
+                                          (send l get-value))
+                                         (send enc-dialog show #f)))]))
+                    (define enc-ok-button
+                      (new button%
+                           [parent enc-dialog]
+                           [label "OK"]
+                           [callback (λ (button event)
+                                       (encryption-pass
+                                        (send enc-tfield get-value))
+                                       (send enc-dialog show #f))]))
+                    (encrypted? enc)
+                    (blight-save-config 'encrypted? enc)]
+                   [(eq? mbox 'cancel)
+                    (send l set-value #f)
+                    (encrypted? #f)])]
+            [else
+             (encrypted? #f)
+             (blight-save-config 'encrypted? enc)]))]))
 
 (define change-nospam-button
   (new button%
        [parent pref-panel]
        [label "Change nospam value"]
        [callback (λ (button event)
-                   (let ([mbox (message-box "Blight - Change nospam"
-                                            (string-append "Are you certain you want to"
-                                                           " change your nospam value?")
-                                            #f
-                                            (list 'ok-cancel 'stop))])
-                     (when (eq? mbox 'ok)
-                       (set-self-nospam! my-tox
-                                         ; largest (random) can accept
-                                         ; corresponds to "FFFFFF2F"
-                                         (random 4294967087))
-                       ; save our changes
-                       (blight-save-data)
-                       ; set new tox id
-                       (my-id-hex
-                        (bytes->hex-string (self-address my-tox))))))]))
+                   (define mbox (message-box
+                                 "Blight - Change nospam"
+                                 (string-append "Are you certain you want to"
+                                                " change your nospam value?")
+                                 #f
+                                 (list 'ok-cancel 'stop)))
+                   (when (eq? mbox 'ok)
+                     (set-self-nospam! my-tox
+                                       ; largest (random) can accept
+                                       ; corresponds to "FFFFFF2F"
+                                       (random 4294967087))
+                     ; save our changes
+                     (blight-save-data)
+                     ; set new tox id
+                     (my-id-hex
+                      (bytes->hex-string (self-address my-tox)))))]))
 
 ; Close button for preferences dialog box
 (define preferences-close-button

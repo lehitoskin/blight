@@ -281,9 +281,9 @@ val is a value that corresponds to the value of the key
                                               #:mode 'text
                                               #:exists 'truncate/replace)])
       (display "Saving config... ")
-      (json-null 'null)
+      ;(json-null 'null)
       (write-json modified-json config-port-out)
-      (write-json (json-null) config-port-out)
+      ;(write-json (json-null) config-port-out)
       (close-input-port new-input-port)
       (close-output-port config-port-out)
       (displayln "Done!"))))
@@ -303,9 +303,9 @@ val is a value that corresponds to the value of the key
                                                #:mode 'text
                                                #:exists 'truncate/replace)))
        (display "Saving config... ")
-       (json-null 'null)
+       ;(json-null 'null)
        (write-json modified-json config-port-out)
-       (write-json (json-null) config-port-out)
+       ;(write-json (json-null) config-port-out)
        (close-input-port new-input-port)
        (close-output-port config-port-out)
        (displayln "Done!")))))

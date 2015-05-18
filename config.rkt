@@ -191,7 +191,9 @@ arg: list of files to copy to tox-path as .tox files
 ; default name and status message
 ; if data exists, do no use these
 (define my-name-default "Blight Tester")
+(define my-name (make-parameter my-name-default))
 (define my-status-message-default "Toxing on Blight")
+(define my-status-message (make-parameter my-status-message-default))
 
 ; DHT stuff
 (struct dht-node (nick address port public-key) #:transparent)
@@ -220,9 +222,7 @@ arg: list of files to copy to tox-path as .tox files
 
 ; if blight-config.json does not exist, initalize it to default values
 (define json-default
-  (hasheq 'my-name my-name-default
-          'my-status-message my-status-message-default
-          'make-noise make-noise-default
+  (hasheq 'make-noise make-noise-default
           'ipv6? use-ipv6?-default
           'udp? use-udp?-default
           ; turn proxy-type-default into a string because of (jsexpr?)
@@ -249,14 +249,13 @@ arg: list of files to copy to tox-path as .tox files
             (make-parameter (hash-ref mhash k2 to-set)) ...)))
 
 (define-values
-  (my-name my-status-message make-noise use-ipv6? use-udp? proxy-type proxy-host
-           proxy-port start-port end-port encrypted?)
+  (make-noise use-ipv6? use-udp? proxy-type proxy-host
+              proxy-port start-port end-port encrypted?)
   (let* ([config-port-in (open-input-file ((config-file)) #:mode 'text)]
          [json-info (read-json config-port-in)])
     (close-input-port config-port-in)
-    (hash-ref* json-info 'my-name 'my-status-message 'make-noise 'ipv6?
-               'udp? 'proxy-type 'proxy-host 'proxy-port 'start-port
-               'end-port 'encrypted?)))
+    (hash-ref* json-info 'make-noise 'ipv6? 'udp? 'proxy-type 'proxy-host
+               'proxy-port 'start-port 'end-port 'encrypted?)))
 
 ; _TOX-PROXY-TYPE is a symbol
 (proxy-type (string->symbol (proxy-type)))
