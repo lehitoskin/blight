@@ -294,11 +294,11 @@
 
 ; our friend wants to send us data
 ; needs to be in its own thread, otherwise we'll d/c(?)
-; perhaps, instead of identifying file transfers by filenumber,
-; they are identified by file-id
-; (define fid (file-id mtox friendnumber filenumber))
 (define on-file-recv-request
-  (λ (mtox friendnumber filenumber kind filesize filename fname-len userdata)
+  (λ (mtox friendnumber filenumber kind filesize filename-bytes fname-len userdata)
+    ; guard against invalid utf-8 filenames being sent over the network
+    ; - all invalid characters will be replaced with "_"
+    (define filename (bytes->string/utf-8 filename-bytes #\_))
     (thread
      (λ ()
        (if (eq? kind 'data)
