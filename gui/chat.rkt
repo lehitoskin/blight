@@ -397,22 +397,19 @@
                     this-chat-window)
 
         (define/public (get-chat-window) this-chat-window)
-
-        ; TODO:
-        ; unicode?
-        ; wheel-up/wheel-down(?)
+        
         (define/override (on-char key-event)
           (let ([key (send key-event get-key-code)])
-            (if (or (eq? key #\backspace)
-                    (eq? key #\rubout)
-                    (eq? key #\return))
-                (begin
-                  (set-self-typing! this-tox friend-num #f)
-                  (send editor-keymap handle-key-event this-editor key-event))
-                (when (and (not (send editor-keymap handle-key-event this-editor key-event))
-                           (char? key))
-                  (send this-editor insert key)
-                  (set-self-typing! this-tox friend-num #t)))))
+            (cond [(or (eq? key #\backspace)
+                       (eq? key #\rubout)
+                       (eq? key #\return))
+                   (set-self-typing! this-tox friend-num #f)
+                   (send editor-keymap handle-key-event this-editor key-event)]
+                  [else
+                   (when (and (not (send editor-keymap handle-key-event this-editor key-event))
+                              (char? key))
+                     (send this-editor insert key)
+                     (set-self-typing! this-tox friend-num #t))])))
 
         (super-new
          [parent this-parent]

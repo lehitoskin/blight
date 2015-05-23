@@ -159,9 +159,7 @@
                     this-chat-window)
 
         (define/public (get-chat-window) this-chat-window)
-        ; TODO:
-        ; unicode?
-        ; wheel-up/wheel-down(?)
+        
         (define/override (on-char key-event)
 
           (when (not (send editor-keymap handle-key-event this-editor key-event))
