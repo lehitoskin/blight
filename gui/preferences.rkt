@@ -156,7 +156,7 @@
        [parent blight-port-end-hpanel]
        [label "Blight binding end port: "]
        [callback (λ (t e)
-                   (let ([val (send e get-value)])
+                   (let ([val (send t get-value)])
                      (when (and (eq? (send e get-event-type) 'text-field-enter)
                                 (not (string=? "" val))
                                 (> (string->number val) (start-port)))
