@@ -128,13 +128,13 @@
   (new text-field%
        [parent blight-port-start-hpanel]
        [label "Blight binding start port: "]
-       [callback (λ (l e)
-                   (let ([val (send e get-value)])
+       [callback (λ (t e)
+                   (let ([val (send t get-value)])
                      (when (and (eq? (send e get-event-type) 'text-field-enter)
                                 (not (string=? "" val)))
                        (start-port (string->number val))
                        (blight-save-config 'start-port (start-port))
-                       (send l set-value ""))))]))
+                       (send t set-value ""))))]))
 
 (define blight-port-start-button
   (new button%
@@ -155,14 +155,14 @@
   (new text-field%
        [parent blight-port-end-hpanel]
        [label "Blight binding end port: "]
-       [callback (λ (l e)
+       [callback (λ (t e)
                    (let ([val (send e get-value)])
                      (when (and (eq? (send e get-event-type) 'text-field-enter)
                                 (not (string=? "" val))
                                 (> (string->number val) (start-port)))
                        (end-port (string->number val))
                        (blight-save-config 'end-port (end-port))
-                       (send l set-value ""))))]))
+                       (send t set-value ""))))]))
 
 (define blight-port-end-button
   (new button%
@@ -185,7 +185,7 @@
        [label "Blight TCP Server port: "]
        [init-value (number->string (tcp-port))]
        [callback (λ (t e)
-                   (let ([val (send e get-value)])
+                   (let ([val (send t get-value)])
                      (when (and (eq? (send e get-event-type) 'text-field-enter)
                                 (not (string=? "" val))
                                 (> (string->number val) (start-port)))
