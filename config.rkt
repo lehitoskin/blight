@@ -218,6 +218,7 @@ arg: list of files to copy to tox-path as .tox files
 (define proxy-port-default 0) ; ignored if proxy type is 'NONE
 (define start-port-default 0)
 (define end-port-default 0)
+(define tcp-port-default 0)
 (define encrypted?-default #f)
 
 ; if blight-config.json does not exist, initalize it to default values
@@ -231,6 +232,7 @@ arg: list of files to copy to tox-path as .tox files
           'proxy-port proxy-port-default
           'start-port start-port-default
           'end-port end-port-default
+          'tcp-port tcp-port-default
           'encrypted? encrypted?-default))
 
 ; <profile>.json is empty, initialize with default values for variables
@@ -250,12 +252,12 @@ arg: list of files to copy to tox-path as .tox files
 
 (define-values
   (make-noise use-ipv6? use-udp? proxy-type proxy-host
-              proxy-port start-port end-port encrypted?)
+              proxy-port start-port end-port tcp-port encrypted?)
   (let* ([config-port-in (open-input-file ((config-file)) #:mode 'text)]
          [json-info (read-json config-port-in)])
     (close-input-port config-port-in)
     (hash-ref* json-info 'make-noise 'ipv6? 'udp? 'proxy-type 'proxy-host
-               'proxy-port 'start-port 'end-port 'encrypted?)))
+               'proxy-port 'start-port 'end-port 'tcp-port 'encrypted?)))
 
 ; _TOX-PROXY-TYPE is a symbol
 (proxy-type (string->symbol (proxy-type)))

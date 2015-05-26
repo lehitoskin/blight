@@ -12,26 +12,26 @@
 
 ; proxy options
 #;(define my-opts
-    (make-Tox-Options (use-ipv6?) (proxy-type) (use-udp?)
-                      (proxy-host) (proxy-port) (start-port) (end-port)))
+  (make-Tox-Options (use-ipv6?) (use-udp?) (proxy-type) (proxy-host)
+                    (proxy-port) (start-port) (end-port) (tcp-port)
+                    'none #"" 0))
 ; create a new options struct
 (define-values (my-opts opts-err) (tox-options-new))
-; set the options struct to its defaults
-(cond [(eq? opts-err 'ok)
-       (tox-options-default my-opts)]
-      [else
-       (when (make-noise)
-         (play-sound (last sounds) #t))
-       (error 'tox-options-new "error occurred during allocation: ~s" opts-err)
-       (exit)])
+
+(unless (eq? opts-err 'ok)
+  (when (make-noise)
+    (play-sound (last sounds) #t))
+  (raise-result-error 'tox-options-new 'ok opts-err)
+  (exit))
 ; set the options struct to the saved preferences
-;(set-Tox-Options-ipv6?! my-opts (use-ipv6?))
-;(set-Tox-Options-udp?! my-opts (use-udp?))
-;(set-Tox-Options-proxy-type! my-opts (proxy-type))
-;(set-Tox-Options-proxy-host! my-opts (proxy-host))
-;(set-Tox-Options-proxy-port! my-opts (proxy-port))
-;(set-Tox-Options-start-port! my-opts (start-port))
-;(set-Tox-Options-end-port! my-opts (end-port))
+#|(set-Tox-Options-ipv6?! my-opts (use-ipv6?))
+(set-Tox-Options-udp?! my-opts (use-udp?))
+(set-Tox-Options-proxy-type! my-opts (proxy-type))
+(set-Tox-Options-proxy-host! my-opts (proxy-host))
+(set-Tox-Options-proxy-port! my-opts (proxy-port))
+(set-Tox-Options-start-port! my-opts (start-port))
+(set-Tox-Options-end-port! my-opts (end-port))
+(set-Tox-Options-tcp-port! my-opts (tcp-port))|#
 
 ; av settings
 (define my-csettings DefaultCSettings)
@@ -55,9 +55,17 @@
            (encryption-pass (send pass-tfield get-value))
            (define-values (dec-result dec-err decrypted-data)
              (pass-decrypt data-bytes (encryption-pass)))
-           (define-values (new-result new-err) (tox-new my-opts decrypted-data))
-           (set! my-tox new-result)
+           (cond [(eq? dec-err 'ok)
+                  (set-Tox-Options-save-type! my-opts 'tox-save)
+                  (set-Tox-Options-save-data! my-opts decrypted-data)
+                  (set-Tox-Options-save-length! my-opts
+                                                (bytes-length decrypted-data))]
+                 [else (when (make-noise)
+                         (play-sound (last sounds) #t))
+                       (raise-result-error 'pass-decrypt 'ok dec-err) (exit)])
+           (define-values (new-result new-err) (tox-new my-opts))
            (cond [(eq? new-err 'ok)
+                  (set! my-tox new-result)
                   (send pass-dialog show #f)
                   (displayln "Loading successful!")
                   ; set our name and status-message from the data we've loaded
@@ -77,16 +85,20 @@
          (send pass-dialog show #t)]
         ; empty data file, start fresh session
         [(zero? (bytes-length data-bytes))
-         (let-values ([(new-result new-err) (tox-new my-opts #"")])
-           (set! my-tox new-result)
-           ; set username
-           (set-self-name! my-tox (string->bytes/utf-8 (my-name)))
-           ; set status message
-           (set-self-status-message! my-tox (string->bytes/utf-8 (my-status-message))))]
+         (define-values (new-result new-err) (tox-new my-opts))
+         (set! my-tox new-result)
+         ; set username
+         (set-self-name! my-tox (string->bytes/utf-8 my-name-default))
+         ; set status message
+         (set-self-status-message! my-tox
+                                   (string->bytes/utf-8 my-status-message-default))]
         [else
          ; load from normal data
          (dprint-wait "Loading data")
-         (define-values (new-result new-err) (tox-new my-opts data-bytes))
+         (set-Tox-Options-save-type! my-opts 'tox-save)
+         (set-Tox-Options-save-data! my-opts data-bytes)
+         (set-Tox-Options-save-length! my-opts (bytes-length data-bytes))
+         (define-values (new-result new-err) (tox-new my-opts))
          (cond [(eq? new-err 'ok)
                 (set! my-tox new-result)
                 (displayln "Ok!")

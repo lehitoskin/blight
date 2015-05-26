@@ -28,48 +28,45 @@
                 (printf "Connection failed! Error code: ~s\n" err)])))
 
 ; reusable procedure to save tox information to data-file
-(define blight-save-data
-  (λ ()
-    (debug-prefix "Blight: ")
-    (dprint-wait "Saving data")
-    (cond [(encrypted?)
+(define (blight-save-data)
+  (debug-prefix "Blight: ")
+  (dprint-wait "Saving data")
+  (cond [(encrypted?)
+         
+         ; allow an option to change the password every time?
+         (when (string=? (encryption-pass) "")
+           (define (new-pass)
+             (encryption-pass (send pass-tfield get-value))
+             (send pass-dialog show #f)
+             (send pass-tfield set-value ""))
            
-           ; allow an option to change the password every time?
-           (when (string=? (encryption-pass) "")
-             (define (new-pass)
-               (encryption-pass (send pass-tfield get-value))
-               (send pass-dialog show #f)
-               (send pass-tfield set-value ""))
-             
-             (pass-callback new-pass)
-             
-             (send pass-tfield focus)
-             (send pass-dialog show #t))
+           (pass-callback new-pass)
            
-           ; data to encrypt
-           (define data-bytes (savedata my-tox))
-           ; encrypt the data to be saved
-           (define-values (enc-success enc-err encrypted-data)
-             (pass-encrypt data-bytes (encryption-pass)))
-           (if enc-success
-               (let ([data-port-out (open-output-file ((data-file))
-                                                      #:mode 'binary
-                                                      #:exists 'truncate/replace)])
-                 (write-bytes encrypted-data data-port-out)
-                 (close-output-port data-port-out))
-               (begin
-                 (printf "There was an error saving the encrypted data! ~s\n" enc-err)
-                 (when (make-noise)
-                   (play-sound (last sounds) #t))))]
-          [else
-           (define data-bytes (savedata my-tox))
-           ; SAVE INFORMATION TO DATA
-           (let ([data-port-out (open-output-file ((data-file))
-                                                  #:mode 'binary
-                                                  #:exists 'truncate/replace)])
-             (write-bytes data-bytes data-port-out)
-             (close-output-port data-port-out))])
-    (displayln "Done!")))
+           (send pass-tfield focus)
+           (send pass-dialog show #t))
+         
+         ; data to encrypt
+         (define data-bytes (savedata my-tox))
+         ; encrypt the data to be saved
+         (define-values (enc-success enc-err encrypted-data)
+           (pass-encrypt data-bytes (encryption-pass)))
+         (cond [enc-success
+                (with-output-to-file ((data-file))
+                  (λ () (write-bytes encrypted-data))
+                  #:mode 'binary
+                  #:exists 'truncate/replace)]
+               [else
+                (printf "There was an error saving the encrypted data! ~s\n" enc-err)
+                (when (make-noise)
+                  (play-sound (last sounds) #t))])]
+        [else
+         (define data-bytes (savedata my-tox))
+         ; save tox session to file
+         (with-output-to-file ((data-file))
+           (λ () (write-bytes data-bytes))
+           #:mode 'binary
+           #:exists 'truncate/replace)])
+  (displayln "Done!"))
 
 ; little procedure to wrap things up for us
 (define clean-up
