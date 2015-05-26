@@ -145,10 +145,10 @@
                        (start-port (string->number val))
                        (send blight-port-start-tfield set-value ""))))]))
 
+; blight port bindings
 (define blight-port-end-hpanel
   (new horizontal-panel% [parent pref-panel]))
 
-; blight port bindings
 (define blight-port-end-tfield
   (new text-field%
        [parent blight-port-end-hpanel]
@@ -170,6 +170,33 @@
                      (unless (or (string=? val "") (<= (string->number val) (start-port)))
                        (end-port (string->number val))
                        (send blight-port-end-tfield set-value ""))))]))
+
+; tcp server port
+(define blight-tcp-port-hpanel
+  (new horizontal-panel% [parent pref-panel]))
+
+(define blight-tcp-port-tfield
+  (new text-field%
+       [parent blight-tcp-port-hpanel]
+       [label "Blight TCP Server port: "]
+       [init-value (number->string (tcp-port))]
+       [callback (λ (t e)
+                   (let ([val (send e get-value)])
+                     (when (and (eq? (send e get-event-type) 'text-field-enter)
+                                (not (string=? "" val))
+                                (> (string->number val) (start-port)))
+                       (tcp-port (string->number val))
+                       (send t set-value ""))))]))
+
+(define blight-tcp-port-button
+  (new button%
+       [parent blight-tcp-port-hpanel]
+       [label "Set"]
+       [callback (λ (button event)
+                   (let ([val (send blight-tcp-port-tfield get-value)])
+                     (unless (or (string=? val "") (<= (string->number val) (start-port)))
+                       (end-port (string->number val))
+                       (send blight-tcp-port-tfield set-value ""))))]))
 
 (define checkbox-hpanel
   (new horizontal-panel%
