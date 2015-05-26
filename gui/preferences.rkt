@@ -133,6 +133,7 @@
                      (when (and (eq? (send e get-event-type) 'text-field-enter)
                                 (not (string=? "" val)))
                        (start-port (string->number val))
+                       (blight-save-config 'start-port (start-port))
                        (send l set-value ""))))]))
 
 (define blight-port-start-button
@@ -143,6 +144,7 @@
                    (let ([val (send blight-port-start-tfield get-value)])
                      (unless (string=? val "")
                        (start-port (string->number val))
+                       (blight-save-config 'start-port (start-port))
                        (send blight-port-start-tfield set-value ""))))]))
 
 ; blight port bindings
@@ -159,6 +161,7 @@
                                 (not (string=? "" val))
                                 (> (string->number val) (start-port)))
                        (end-port (string->number val))
+                       (blight-save-config 'end-port (end-port))
                        (send l set-value ""))))]))
 
 (define blight-port-end-button
@@ -169,6 +172,7 @@
                    (let ([val (send blight-port-end-tfield get-value)])
                      (unless (or (string=? val "") (<= (string->number val) (start-port)))
                        (end-port (string->number val))
+                       (blight-save-config 'end-port (end-port))
                        (send blight-port-end-tfield set-value ""))))]))
 
 ; tcp server port
@@ -186,6 +190,7 @@
                                 (not (string=? "" val))
                                 (> (string->number val) (start-port)))
                        (tcp-port (string->number val))
+                       (blight-save-config 'tcp-port (tcp-port))
                        (send t set-value ""))))]))
 
 (define blight-tcp-port-button
@@ -195,7 +200,8 @@
        [callback (λ (button event)
                    (let ([val (send blight-tcp-port-tfield get-value)])
                      (unless (or (string=? val "") (<= (string->number val) (start-port)))
-                       (end-port (string->number val))
+                       (tcp-port (string->number val))
+                       (blight-save-config 'tcp-port (tcp-port))
                        (send blight-tcp-port-tfield set-value ""))))]))
 
 (define checkbox-hpanel
