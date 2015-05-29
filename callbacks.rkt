@@ -299,6 +299,7 @@
     ; guard against invalid utf-8 filenames being sent over the network
     ; - all invalid characters will be replaced with "_"
     (define filename (bytes->string/utf-8 filename-bytes #\_))
+    (define ext (filename-extension filename))
     (thread
      (λ ()
        (if (eq? kind 'data)
@@ -337,42 +338,42 @@
                [else (file-control mtox friendnumber filenumber 'cancel)]))
            
            ; auto-accept avatar data
-           ; the name of the avatar is friend-public-key.ext
+           ; the name of the avatar is friend-public-key.png
            ;
            ; if the filesize is greater than the client max or if the file is not a PNG
            ; image, do not accept it, obviously.
            (unless (or (> filesize BLIGHT-MAX-AVATAR-SIZE)
-                       (false? filename)
-                       (not (bytes=? #"png" (filename-extension filename))))
-             (let* ([window (contact-data-window (hash-ref cur-buddies friendnumber))]
-                    [friend-id (send window get-key)]
-                    [hash-path (build-path avatar-dir (string-append friend-id ".hash"))]
-                    [avatar-path (build-path avatar-dir (string-append friend-id ".png"))])
-               ; grab the file-id (AKA file hash)
-               (define-values (success err f-id) (file-id mtox friendnumber filenumber))
-               (cond [(zero? filesize)
-                      ; the avatar is not set, delete any avatar we have cached
-                      (when (file-exists? avatar-path)
-                        (delete-file avatar-path)
-                        (send window set-friend-avatar #f))]
-                     [(and (file-exists? hash-path) (file-exists? avatar-path))
-                      ; if both files exist and their hashes are identical, do nothing
-                      (unless (bytes=? (file->bytes hash-path #:mode 'binary) f-id)
-                        (displayln "The avatar's hash has changed! Updating...")
-                        ; start the file transfer
-                        (file-control mtox friendnumber filenumber 'resume)
-                        (transfers-add! mtox friendnumber filenumber f-id avatar-path #"" 0
-                                        (open-output-file avatar-path
-                                                          #:mode 'binary
-                                                          #:exists 'replace)))]
-                     [else
-                      ; we have only one of avatar or hash file or neither
-                      (displayln "We got a new avatar! Saving information...")
+                       (false? ext)
+                       (not (bytes=? #"png" ext)))
+             (define window (contact-data-window (hash-ref cur-buddies friendnumber)))
+             (define friend-id (send window get-key))
+             (define hash-path (build-path avatar-dir (string-append friend-id ".hash")))
+             (define avatar-path (build-path avatar-dir (string-append friend-id ".png")))
+             ; grab the file-id (AKA file hash)
+             (define-values (success err f-id) (file-id mtox friendnumber filenumber))
+             (cond [(zero? filesize)
+                    ; the avatar is not set, delete any avatar we have cached
+                    (when (file-exists? avatar-path)
+                      (delete-file avatar-path)
+                      (send window set-friend-avatar #f))]
+                   [(and (file-exists? hash-path) (file-exists? avatar-path))
+                    ; if both files exist and their hashes are identical, do nothing
+                    (unless (bytes=? (file->bytes hash-path #:mode 'binary) f-id)
+                      (displayln "The avatar's hash has changed! Updating...")
+                      ; start the file transfer
                       (file-control mtox friendnumber filenumber 'resume)
                       (transfers-add! mtox friendnumber filenumber f-id avatar-path #"" 0
                                       (open-output-file avatar-path
                                                         #:mode 'binary
-                                                        #:exists 'replace))]))))))))
+                                                        #:exists 'replace)))]
+                   [else
+                    ; we have only one of avatar or hash file or neither
+                    (displayln "We got a new avatar! Saving information...")
+                    (file-control mtox friendnumber filenumber 'resume)
+                    (transfers-add! mtox friendnumber filenumber f-id avatar-path #"" 0
+                                    (open-output-file avatar-path
+                                                      #:mode 'binary
+                                                      #:exists 'replace))])))))))
 
 ; our friend has sent us a chunk of data
 (define on-file-recv-chunk
