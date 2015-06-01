@@ -139,21 +139,12 @@
                                          (dprintf "Sending exception: ~a" res)
                                          (write-data/flush res out))])
               (define res
-                (begin
-                  (dynamic-wind
-                   void
-                   (λ ()
-                     (with-output-to-string
-                      (λ ()
-                        #|(define r (eval e server-namespace))
-                        (unless (void? r)
-                          (write r))|#
-                        (for-each (λ (retval)
-                                    (unless (void? retval)
-                                      (write retval)
-                                      (newline)))
-                                  (call-with-values (λ () (eval e server-namespace)) list)))))
-                   void)))
+                (with-output-to-string
+                 (λ ()
+                   (define l (call-with-values (λ () (eval e server-namespace)) list))
+                   (unless (and (= 1 (length l))
+                                (void? (first l)))
+                     (display (apply ~s l #:separator "\n"))))))
               (dprint-wait "Sending value: ~a" res)
               ; Printed in a string, to send a string,
               ; because the reader cannot read things like #<some-object>
