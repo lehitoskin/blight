@@ -10,11 +10,6 @@
          TOX_PUBLIC_KEY_SIZE
          my-id-bytes)
 
-; proxy options
-#;(define my-opts
-  (make-Tox-Options (use-ipv6?) (use-udp?) (proxy-type) (proxy-host)
-                    (proxy-port) (start-port) (end-port) (tcp-port)
-                    'none #"" 0))
 ; create a new options struct
 (define-values (my-opts opts-err) (tox-options-new))
 

@@ -218,7 +218,7 @@ arg: list of files to copy to tox-path as .tox files
 (define proxy-port-default 0) ; ignored if proxy type is 'NONE
 (define start-port-default 0)
 (define end-port-default 0)
-(define tcp-port-default 0)
+(define tcp-port-default 345) ; tcp server port - 0 to disable server
 (define encrypted?-default #f)
 
 ; if blight-config.json does not exist, initalize it to default values
