@@ -11,8 +11,13 @@
 
 ; base tox directory
 (define tox-path (cond [(eq? (system-type) 'unix)
-                        (build-path (find-system-path 'home-dir)
-                                    ".config/tox")]
+                        ; check XDG variable first, then default
+                        ; to ~/.config/tox
+                        (let ([xdg (getenv "XDG_CONFIG_HOME")])
+                          (if xdg
+                              (build-path xdg "tox")
+                              (build-path (find-system-path 'home-dir)
+                                          ".config/tox")))]
                        [(eq? (system-type) 'windows)
                         (normal-case-path
                          (build-path (find-system-path 'home-dir)
