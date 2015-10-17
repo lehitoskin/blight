@@ -1,7 +1,9 @@
 DESTDIR=/usr/local
 
-blight: blight.rkt
-	raco exe --vv --gui blight.rkt
+all: blight blight-repl
+
+blight: main.rkt
+	raco exe --vv --gui -o blight main.rkt
 
 blight-repl: repl-client.rkt
 	raco exe --vv --gui -o blight-repl repl-client.rkt
